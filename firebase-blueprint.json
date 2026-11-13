@@ -1,0 +1,412 @@
+
+{
+  "entities": {
+    "Marble": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Marble",
+      "type": "object",
+      "description": "Represents a type of Pakistani marble available for sale.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Marble entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the marble type (e.g., 'Ziarat White')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the marble's characteristics and origin."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of an image showcasing the marble.",
+          "format": "uri"
+        },
+        "pricePerUnit": {
+          "type": "number",
+          "description": "The price of the marble per unit (e.g., per square foot or meter)."
+        },
+        "unitOfMeasurement": {
+          "type": "string",
+          "description": "The unit of measurement for the price (e.g., 'sq ft', 'sq m')."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "Reference to Vendor. (Relationship: Vendor 1:N Marble)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "imageUrl",
+        "pricePerUnit",
+        "unitOfMeasurement",
+        "vendorId"
+      ]
+    },
+    "Vendor": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Vendor",
+      "type": "object",
+      "description": "Represents a vendor selling marble.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Vendor entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the vendor."
+        },
+        "contactEmail": {
+          "type": "string",
+          "description": "The contact email address of the vendor.",
+          "format": "email"
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "The contact phone number of the vendor."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "contactEmail",
+        "contactPhone"
+      ]
+    },
+    "Order": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Order",
+      "type": "object",
+      "description": "Represents an order placed by a customer.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Order entity."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N Order)"
+        },
+        "orderDate": {
+          "type": "string",
+          "description": "The date and time the order was placed.",
+          "format": "date-time"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "The total amount of the order."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the order (e.g., 'Pending', 'Shipped', 'Delivered')."
+        }
+      },
+      "required": [
+        "id",
+        "customerId",
+        "orderDate",
+        "totalAmount",
+        "status"
+      ]
+    },
+    "OrderItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OrderItem",
+      "type": "object",
+      "description": "Represents an item within an order.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the OrderItem entity."
+        },
+        "orderId": {
+          "type": "string",
+          "description": "Reference to Order. (Relationship: Order 1:N OrderItem)"
+        },
+        "marbleId": {
+          "type": "string",
+          "description": "Reference to Marble. (Relationship: Marble 1:N OrderItem)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the marble in this order item."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of this order item."
+        }
+      },
+      "required": [
+        "id",
+        "orderId",
+        "marbleId",
+        "quantity",
+        "price"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer placing orders.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Customer entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the customer."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the customer."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the customer.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the customer."
+        },
+        "address": {
+          "type": "string",
+          "description": "The address of the customer."
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "phone",
+        "address"
+      ]
+    },
+    "ServiceProvider": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ServiceProvider",
+      "type": "object",
+      "description": "Represents an expert team member or partner.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "Name of the person or company." },
+        "service": {
+          "type": "string",
+          "description": "The type of service they provide.",
+          "enum": ["Marble & Tile Fixing", "Marble Polishing"]
+        },
+        "phone": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "status": {
+          "type": "string",
+          "description": "Whether the provider is currently visible on the site.",
+          "enum": ["active", "inactive"]
+        },
+        "gallery": {
+            "type": "array",
+            "description": "A gallery of work samples.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" },
+                    "url": { "type": "string", "format": "uri" },
+                    "altText": { "type": "string" }
+                },
+                "required": ["id", "url"]
+            }
+        },
+         "socials": {
+            "type": "object",
+            "description": "Links to social media profiles.",
+            "properties": {
+                "whatsapp": { "type": "string", "description": "WhatsApp contact number (e.g., 923001234567)." },
+                "facebook": { "type": "string", "format": "uri" },
+                "instagram": { "type": "string", "format": "uri" }
+            }
+        },
+        "jobs": {
+            "type": "array",
+            "description": "A list of jobs/tasks with fixed or unit rate prices.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": { "type": "string" },
+                    "title": { "type": "string", "description": "Name of the job, e.g. Badal Marble Fixing" },
+                    "price": { "type": "number", "description": "Calculated rate of the job structure" },
+                    "unit": { "type": "string", "description": "Selected unit type (sqft, sqmeter, rft, piece, job)" }
+                },
+                "required": ["id", "title", "price", "unit"]
+            }
+        }
+      },
+      "required": ["id", "name", "service", "phone", "status"]
+    },
+    "Representative": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Representative",
+      "type": "object",
+      "description": "Regional representative of Stone Expert across Pakistan and regions.",
+      "properties": {
+        "id": { "type": "string" },
+        "nameEn": { "type": "string" },
+        "nameUr": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "regionEn": { "type": "string" },
+        "regionUr": { "type": "string" },
+        "cities": { "type": "array", "items": { "type": "string" } },
+        "designationEn": { "type": "string" },
+        "designationUr": { "type": "string" },
+        "officeAddressEn": { "type": "string" },
+        "officeAddressUr": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "nameEn", "nameUr", "phone", "regionEn", "regionUr", "isActive"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/marbles/{marbleId}",
+        "definition": {
+          "entityName": "Marble",
+          "schema": {
+            "$ref": "#/backend/entities/Marble"
+          },
+          "description": "Represents a type of Pakistani marble. Includes 'vendorId' to define the vendor of the marble for listing purposes.",
+          "params": [
+            {
+              "name": "marbleId",
+              "description": "The unique identifier for the marble."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}",
+        "definition": {
+          "entityName": "Vendor",
+          "schema": {
+            "$ref": "#/backend/entities/Vendor"
+          },
+          "description": "Represents a vendor selling marble.",
+          "params": [
+            {
+              "name": "vendorId",
+              "description": "The unique identifier for the vendor."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Represents a customer placing orders.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}/orders/{orderId}",
+        "definition": {
+          "entityName": "Order",
+          "schema": {
+            "$ref": "#/backend/entities/Order"
+          },
+          "description": "Represents an order placed by a customer. The 'customerId' path segment denotes ownership.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            },
+            {
+              "name": "orderId",
+              "description": "The unique identifier for the order."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}/orders/{orderId}/orderItems/{orderItemId}",
+        "definition": {
+          "entityName": "OrderItem",
+          "schema": {
+            "$ref": "#/backend/entities/OrderItem"
+          },
+          "description": "Represents an item within an order. The 'customerId' and 'orderId' path segments denote ownership.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            },
+            {
+              "name": "orderId",
+              "description": "The unique identifier for the order."
+            },
+            {
+              "name": "orderItemId",
+              "description": "The unique identifier for the order item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/service-providers/{providerId}",
+        "definition": {
+          "entityName": "ServiceProvider",
+          "schema": {
+            "$ref": "#/backend/entities/ServiceProvider"
+          },
+          "description": "Represents an expert team member or partner available for hire.",
+          "params": [
+            {
+              "name": "providerId",
+              "description": "The unique identifier for the service provider."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/representatives/{representativeId}",
+        "definition": {
+          "entityName": "Representative",
+          "schema": {
+            "$ref": "#/backend/entities/Representative"
+          },
+          "description": "Regional representatives across cities and provinces of Pakistan.",
+          "params": [
+            {
+              "name": "representativeId",
+              "description": "The unique identifier for the regional representative."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability for the Sang-e-Marmar application, focusing on managing vendors, marbles, customers, and orders efficiently. It leverages path-based ownership and denormalization to avoid complex `get()` calls in security rules, thereby simplifying security and enabling atomic operations. Segregation ensures that collections have a homogeneous security posture. Access modeling utilizes path-based ownership for user-related data and membership maps for collaborative data (if applicable, though not directly used in the current schema).\n\nVendors and Marbles: Vendors are stored in a top-level `/vendors` collection, and marbles are stored within a `/marbles` collection. This enables efficient listing and querying of all marbles. The `vendorId` field inside the `marbles` documents establishes the relationship. While no members map is needed here, the `marbles.vendorId` field is key for listing marbles sold by specific vendors.\n\nCustomers and Orders: Each customer has their own private collection `customers/{customerId}`. Each customer owns many orders, which live in `/customers/{customerId}/orders/{orderId}`. The `customerId` on the order explicitly defines ownership. OrderItems live as subcollections under Orders at `/customers/{customerId}/orders/{orderId}/orderItems/{orderItemId}`. This allows for secure and scalable management of customer-specific data.\n\nService Providers: A top-level `/service-providers` collection is added to store public profiles of expert teams and partners. This allows for easy public listing and management from a central admin panel."
+  }
+}

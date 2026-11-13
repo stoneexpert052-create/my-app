@@ -1,0 +1,18 @@
+{
+  "sinkCutCost": 3000,
+  "stoveCutCost": 3000,
+  "wastagePercentage": 15,
+  "deliveryCostPerTrip": 5000,
+  "sqftPerDeliveryTrip": 200,
+  "innerCutRft": 30,
+  "edgeProfilePrices": {
+    "none": 0,
+    "tukker": 60,
+    "gola": 120,
+    "halfGola": 90,
+    "diamond": 150,
+    "halfDiamond": 120,
+    "litacSimple": 250,
+    "litacGroove": 300
+  }
+}

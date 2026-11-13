@@ -1,0 +1,2869 @@
+[
+  {
+    "customerName": "FidaHussain",
+    "marbleName": "Ten Brown",
+    "quantity": 25863.750000000004,
+    "totalPrice": 30863.750000000004,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "ten-brown",
+        "name": "Ten Brown",
+        "materialType": "Granite",
+        "description": "A reliable brown granite with a consistent pattern.",
+        "imageUrl": "/images/ten-brown-1761314583493.jpg",
+        "imageHint": "brown granite",
+        "origin": "Imported",
+        "uses": "Flooring, Countertops, Wall Cladding",
+        "characteristics": "Consistent brown pattern",
+        "variants": [
+          {
+            "id": "variant-ten-brown-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1170
+          }
+        ],
+        "isFeatured": false,
+        "gallery": [],
+        "isHidden": false,
+        "nameWithNum": "24. Ten Brown",
+        "number": 24
+      },
+      "variant": {
+        "id": "variant-ten-brown-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1170
+      },
+      "customerInfo": {
+        "name": "FidaHussain",
+        "phone": "03003634052",
+        "address": "",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1773543405338,
+          "type": "window-sill",
+          "name": "Window-sill #1",
+          "total": 25863.750000000004,
+          "details": {
+            "totalSqFt": 8.25,
+            "wastage": 1.2375,
+            "finalSqFt": 9.4875,
+            "marbleTotal": 11100.375,
+            "rate": 2700,
+            "dimensionRows": [],
+            "windowSillRows": [
+              {
+                "id": 1773543406989,
+                "length": "99",
+                "width": "12",
+                "quantity": "1",
+                "innerCut": "5",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": false
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": false
+                  }
+                }
+              }
+            ],
+            "winders": [],
+            "globalProfileType": "none",
+            "edgeProfilingCosts": {
+              "none": {
+                "rft": 0,
+                "cost": 0
+              }
+            },
+            "innerCutCost": 247.5,
+            "innerCutRft": 8.25,
+            "wastagePercentage": 15,
+            "materialCost": 25616.250000000004
+          },
+          "marbleId": "galaxy",
+          "variantId": "variant-galaxy-0",
+          "marble": {
+            "id": "galaxy",
+            "name": "Galaxy",
+            "materialType": "Granite",
+            "description": "A popular black granite with sparkling flecks.",
+            "imageUrl": "/images/galaxy-1761320627673.jpg",
+            "imageHint": "black galaxy",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Black, sparkling flecks",
+            "variants": [
+              {
+                "id": "variant-galaxy-0",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2700
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "31. Galaxy",
+            "number": 31
+          },
+          "variant": {
+            "id": "variant-galaxy-0",
+            "thickness": "6-Sutar",
+            "size": "48\"",
+            "price": 2700
+          }
+        }
+      ]
+    },
+    "applicationType": "window-sill",
+    "id": "ORD-1773543545397",
+    "date": "2026-03-15T02:59:05.399Z"
+  },
+  {
+    "customerName": "Fiyaz",
+    "marbleName": "General Supplies & Fixing Materials",
+    "quantity": 32500,
+    "totalPrice": 32500,
+    "status": "Shipped",
+    "calculationDetails": {
+      "marble": {
+        "id": "general-supplies-order",
+        "name": "General Supplies & Fixing Materials",
+        "materialType": "Facade Stone",
+        "origin": "Local",
+        "description": "A general-purpose category for ordering fixing materials, tools, and other supplies without selecting a specific marble.",
+        "imageUrl": "https://picsum.photos/seed/supplies/600/400",
+        "imageHint": "tools supplies",
+        "uses": "For creating quotations that primarily consist of fixing materials or tools.",
+        "characteristics": "Not a physical product.",
+        "variants": [
+          {
+            "id": "variant-general-supplies-0",
+            "thickness": "N/A",
+            "size": "N/A",
+            "price": 0
+          }
+        ],
+        "gallery": [],
+        "isFeatured": false,
+        "isHidden": true,
+        "nameWithNum": "76. General Supplies & Fixing Materials",
+        "number": 76
+      },
+      "variant": {
+        "id": "variant-general-supplies-0",
+        "thickness": "N/A",
+        "size": "N/A",
+        "price": 0
+      },
+      "customerInfo": {
+        "name": "Fiyaz",
+        "phone": "03035190554",
+        "address": "Islamabad",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1772095903544,
+          "type": "fixing_material",
+          "name": "Sika® Ceram-90",
+          "total": 32500,
+          "details": {
+            "pricePerUnit": 650,
+            "unit": "20kg"
+          },
+          "fixingMaterialId": "sika-ceram-90",
+          "fixingMaterial": {
+            "id": "sika-ceram-90",
+            "name": "Sika® Ceram-90",
+            "description": "DESCRIPTION\r\nSika®Ceram-90 PK is a cementitious, non-shrink, polymer containing, thin bed tile adhesive used for permanent fixing of tiles, suitable for tropical and hot climatic conditions.\r\n\r\nCHARACTERISTICS / ADVANTAGES\r\n▪ High bond strengths\r\n▪ Easy to use, just add water\r\n▪ Excellent workability\r\n▪ Excellent pot life\r\n▪ Can be applied directly on cement screeds, concrete, or lime mortars\r\n▪ Non-Toxic\r\n▪ Suitable for indoor and outdoor application\r\n\r\nUSES\r\nSika®Ceram-90 PK is suitable for fixing:\r\n▪ Wall and floor tiles\r\n▪ Insulation and acoustic tiles\r\n▪ Marbles and terrazzo tiles\r\n▪ Mosaics",
+            "imageUrl": "/images/fix-mat-sika-ceram-90-1761557378667.jpeg",
+            "price": 650,
+            "unit": "20kg",
+            "category": "Adhesive",
+            "dataSheetUrl": "/datasheets/sika-ceram-90.pdf",
+            "isFeatured": true
+          },
+          "quantity": 50
+        }
+      ]
+    },
+    "applicationType": "fixing_material",
+    "id": "ORD-1772095956672",
+    "date": "2026-02-26T08:52:36.672Z"
+  },
+  {
+    "customerName": "Fiyaz",
+    "marbleName": "Local Paradiso - Fantasy",
+    "quantity": 57840,
+    "totalPrice": 62840,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "local-paradiso-fantasy",
+        "name": "Local Paradiso - Fantasy",
+        "materialType": "Granite",
+        "description": "A fantasy variant of local Paradiso marble with unique patterns.",
+        "imageUrl": "/images/local-paradiso-fantasy-1761504055440.jpeg",
+        "imageHint": "fantasy marble",
+        "origin": "Local",
+        "uses": "Flooring, Countertops, Wall Cladding",
+        "characteristics": "Unique fantasy patterns",
+        "variants": [
+          {
+            "thickness": "4-Sutar",
+            "size": "24\"",
+            "price": 400,
+            "id": "variant-local-paradiso-fantasy-0"
+          }
+        ],
+        "gallery": [],
+        "isFeatured": false,
+        "isHidden": false,
+        "nameWithNum": "57. Local Paradiso - Fantasy",
+        "number": 57
+      },
+      "variant": {
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 400,
+        "id": "variant-local-paradiso-fantasy-0"
+      },
+      "customerInfo": {
+        "name": "Fiyaz",
+        "phone": "03035190554",
+        "address": "Islamabad",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1772095240506,
+          "type": "stairs",
+          "name": "Stairs #1",
+          "total": 57840,
+          "details": {
+            "totalSqFt": 114,
+            "wastage": 17.099999999999998,
+            "finalSqFt": 131.1,
+            "marbleTotal": 52440,
+            "rate": 400,
+            "dimensionRows": [
+              {
+                "id": 1772095241057,
+                "length": "48",
+                "width": "12",
+                "quantity": "18",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": true
+                  }
+                },
+                "riser": {
+                  "front": true,
+                  "left": false,
+                  "right": false,
+                  "height": "7"
+                }
+              }
+            ],
+            "windowSillRows": [],
+            "winders": [],
+            "globalProfileType": "tukker",
+            "edgeProfilingCosts": {
+              "tukker": {
+                "rft": 90,
+                "cost": 5400
+              }
+            },
+            "innerCutCost": 0,
+            "innerCutRft": 0,
+            "wastagePercentage": 15
+          },
+          "marbleId": "local-paradiso-fantasy",
+          "variantId": "variant-local-paradiso-fantasy-0",
+          "marble": {
+            "id": "local-paradiso-fantasy",
+            "name": "Local Paradiso - Fantasy",
+            "materialType": "Granite",
+            "description": "A fantasy variant of local Paradiso marble with unique patterns.",
+            "imageUrl": "/images/local-paradiso-fantasy-1761504055440.jpeg",
+            "imageHint": "fantasy marble",
+            "origin": "Local",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Unique fantasy patterns",
+            "variants": [
+              {
+                "thickness": "4-Sutar",
+                "size": "24\"",
+                "price": 400,
+                "id": "variant-local-paradiso-fantasy-0"
+              }
+            ],
+            "gallery": [],
+            "isFeatured": false,
+            "isHidden": false,
+            "nameWithNum": "57. Local Paradiso - Fantasy",
+            "number": 57
+          },
+          "variant": {
+            "thickness": "4-Sutar",
+            "size": "24\"",
+            "price": 400,
+            "id": "variant-local-paradiso-fantasy-0"
+          }
+        }
+      ]
+    },
+    "applicationType": "stairs",
+    "id": "ORD-1772095346844",
+    "date": "2026-02-26T08:42:26.844Z"
+  },
+  {
+    "customerName": "saifurrehman Sial",
+    "marbleName": "General Supplies & Fixing Materials",
+    "quantity": 7450,
+    "totalPrice": 7450,
+    "status": "In Progress",
+    "calculationDetails": {
+      "marble": {
+        "id": "general-supplies-order",
+        "name": "General Supplies & Fixing Materials",
+        "materialType": "Facade Stone",
+        "origin": "Local",
+        "description": "A general-purpose category for ordering fixing materials, tools, and other supplies without selecting a specific marble.",
+        "imageUrl": "https://picsum.photos/seed/supplies/600/400",
+        "imageHint": "tools supplies",
+        "uses": "For creating quotations that primarily consist of fixing materials or tools.",
+        "characteristics": "Not a physical product.",
+        "variants": [
+          {
+            "id": "variant-general-supplies-0",
+            "thickness": "N/A",
+            "size": "N/A",
+            "price": 0
+          }
+        ],
+        "gallery": [],
+        "isFeatured": false,
+        "isHidden": true,
+        "nameWithNum": "76. General Supplies & Fixing Materials",
+        "number": 76
+      },
+      "variant": {
+        "id": "variant-general-supplies-0",
+        "thickness": "N/A",
+        "size": "N/A",
+        "price": 0
+      },
+      "customerInfo": {
+        "name": "saifurrehman Sial",
+        "phone": "03140195567",
+        "address": "Kb",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1771748181557,
+          "type": "fixing_material",
+          "name": "Tile Levelling Plier",
+          "total": 6250,
+          "details": {
+            "pricePerUnit": 1250,
+            "unit": "Piece"
+          },
+          "fixingMaterialId": "tile-levelling-plier",
+          "fixingMaterial": {
+            "id": "tile-levelling-plier",
+            "name": "Tile Levelling Plier",
+            "description": "A durable plier used with tile levelling systems to ensure a perfectly flat surface.",
+            "imageUrl": "/images/fix-mat-tile-levelling-plier-1769362820117.jpg",
+            "price": 1250,
+            "unit": "Piece",
+            "category": "Tool",
+            "isFeatured": true
+          },
+          "quantity": 5
+        },
+        {
+          "id": 1771748198557,
+          "type": "fixing_material",
+          "name": "SS Clip (1\"x1\", 2.5mm)",
+          "total": 1200,
+          "details": {
+            "pricePerUnit": 80,
+            "unit": "Piece"
+          },
+          "fixingMaterialId": "ss-clip-1x1-2-5mm",
+          "fixingMaterial": {
+            "id": "ss-clip-1x1-2-5mm",
+            "name": "SS Clip (1\"x1\", 2.5mm)",
+            "description": "Stainless steel clip for facade mounting and other construction applications.",
+            "imageUrl": "/images/fix-mat-ss-clip-1-x1-2-5mm-1761558665294.jpeg",
+            "price": 80,
+            "unit": "Piece",
+            "category": "Tool",
+            "dataSheetUrl": null,
+            "isFeatured": false
+          },
+          "quantity": 15
+        }
+      ]
+    },
+    "applicationType": "fixing_material, fixing_material",
+    "id": "ORD-1771748278325",
+    "date": "2026-02-22T08:17:58.325Z"
+  },
+  {
+    "customerName": "saifurrehman Sial",
+    "marbleName": "Baltic Brown",
+    "quantity": 116290.83333333334,
+    "totalPrice": 121290.83333333334,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "baltic-brown",
+        "name": "Baltic Brown",
+        "materialType": "Granite",
+        "description": "A distinctive brown granite with large, circular patterns.",
+        "imageUrl": "/images/baltic-brown-1761314359339.jpg",
+        "imageHint": "brown granite",
+        "origin": "Imported",
+        "uses": "Flooring, Countertops, Wall Cladding",
+        "characteristics": "Brown, large circular patterns",
+        "variants": [
+          {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1000,
+            "id": "variant-baltic-brown-1770154597294-0"
+          },
+          {
+            "thickness": "6-Sutar",
+            "size": "36\"",
+            "price": 1400,
+            "id": "variant-baltic-brown-1770154597294-1"
+          },
+          {
+            "thickness": "6-Sutar",
+            "size": "48\"",
+            "price": 1800,
+            "id": "variant-baltic-brown-1770154597294-2"
+          },
+          {
+            "thickness": "6-Sutar",
+            "size": "52\"",
+            "price": 2200,
+            "id": "variant-baltic-brown-1770154597294-3"
+          }
+        ],
+        "isFeatured": false,
+        "gallery": [],
+        "isHidden": false,
+        "nameWithNum": "18. Baltic Brown",
+        "number": 18
+      },
+      "variant": {
+        "thickness": "6-Sutar",
+        "size": "52\"",
+        "price": 2200,
+        "id": "variant-baltic-brown-1770154597294-3"
+      },
+      "customerInfo": {
+        "name": "saifurrehman Sial",
+        "phone": "03140195567",
+        "address": "Kb",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1771746817571,
+          "type": "kitchen",
+          "name": "Kitchen #1",
+          "total": 98010,
+          "details": {
+            "totalSqFt": 67,
+            "finalSqFt": 77.05,
+            "wastage": 10.049999999999999,
+            "rate": 1200,
+            "sinkCutouts": 1,
+            "stoveCutouts": 0,
+            "materialCost": 92460,
+            "sinkCost": 3000,
+            "stoveCost": 0,
+            "edgeRft": 42.5,
+            "edgeProfileCost": 2550,
+            "totalCost": 98010,
+            "layout": "u-shape",
+            "profileType": "tukker",
+            "selectedEdges": {
+              "u_shape_front_right": true,
+              "u_shape_inner_right": true,
+              "u_shape_front_center": true,
+              "u_shape_inner_left": true,
+              "u_shape_front_left": true,
+              "island_1771746914740_right": true,
+              "island_1771746914740_top": true,
+              "island_1771746914740_left": true,
+              "island_1771746914740_bottom": true
+            },
+            "topPiece": {
+              "length": "150",
+              "width": "24",
+              "cutouts": [
+                {
+                  "id": "sink-1771746876733",
+                  "type": "sink",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 49.5,
+                  "y": 4
+                }
+              ]
+            },
+            "leftPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "rightPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "islands": [
+              {
+                "id": 1771746914740,
+                "length": "72",
+                "width": "36"
+              }
+            ]
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771746949479,
+          "type": "stairs",
+          "name": "Stairs #1",
+          "total": 0,
+          "details": {},
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771747009772,
+          "type": "stairs",
+          "name": "Stairs #2",
+          "total": 18280.833333333336,
+          "details": {
+            "totalSqFt": 7.083333333333334,
+            "wastage": 1.0625,
+            "finalSqFt": 8.145833333333334,
+            "marbleTotal": 17920.833333333336,
+            "rate": 2200,
+            "dimensionRows": [
+              {
+                "id": 1771747010960,
+                "length": "60",
+                "width": "12",
+                "quantity": "1",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": true
+                  }
+                },
+                "riser": {
+                  "front": true,
+                  "left": false,
+                  "right": false,
+                  "height": "5"
+                }
+              }
+            ],
+            "windowSillRows": [],
+            "winders": [],
+            "globalProfileType": "tukker",
+            "edgeProfilingCosts": {
+              "tukker": {
+                "rft": 6,
+                "cost": 360
+              }
+            },
+            "innerCutCost": 0,
+            "innerCutRft": 0,
+            "wastagePercentage": 15
+          },
+          "marbleId": "baltic-brown",
+          "variantId": "variant-baltic-brown-1770154597294-3",
+          "marble": {
+            "id": "baltic-brown",
+            "name": "Baltic Brown",
+            "materialType": "Granite",
+            "description": "A distinctive brown granite with large, circular patterns.",
+            "imageUrl": "/images/baltic-brown-1761314359339.jpg",
+            "imageHint": "brown granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Brown, large circular patterns",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1000,
+                "id": "variant-baltic-brown-1770154597294-0"
+              },
+              {
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1400,
+                "id": "variant-baltic-brown-1770154597294-1"
+              },
+              {
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 1800,
+                "id": "variant-baltic-brown-1770154597294-2"
+              },
+              {
+                "thickness": "6-Sutar",
+                "size": "52\"",
+                "price": 2200,
+                "id": "variant-baltic-brown-1770154597294-3"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "18. Baltic Brown",
+            "number": 18
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "52\"",
+            "price": 2200,
+            "id": "variant-baltic-brown-1770154597294-3"
+          }
+        }
+      ]
+    },
+    "applicationType": "kitchen, stairs, stairs",
+    "id": "ORD-1771747333589",
+    "date": "2026-02-22T08:02:13.589Z"
+  },
+  {
+    "customerName": "Fida hussain",
+    "marbleName": "Blue Pearl",
+    "quantity": 2568695.4778137426,
+    "totalPrice": 2613695.4778137426,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "blue-pearl",
+        "name": "Blue Pearl",
+        "materialType": "Granite",
+        "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+        "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+        "imageHint": "blue pearl",
+        "origin": "Imported",
+        "uses": "Flooring, Countertops, Wall Cladding",
+        "characteristics": "Blue and silver crystals",
+        "variants": [
+          {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          },
+          {
+            "id": "variant-blue-pearl-1",
+            "thickness": "6-Sutar",
+            "size": "36\"",
+            "price": 1700
+          },
+          {
+            "id": "variant-blue-pearl-2",
+            "thickness": "6-Sutar",
+            "size": "48\"",
+            "price": 2200
+          }
+        ],
+        "isFeatured": false,
+        "gallery": [],
+        "isHidden": false,
+        "nameWithNum": "11. Blue Pearl",
+        "number": 11
+      },
+      "variant": {
+        "id": "variant-blue-pearl-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1350
+      },
+      "customerInfo": {
+        "name": "Fida hussain",
+        "phone": "03003634052",
+        "address": "Thok Kalhor\nKH-96",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1771327975212,
+          "type": "floor",
+          "name": "Floor #1",
+          "total": 0,
+          "details": {},
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328020326,
+          "type": "simple",
+          "name": "Simple #1",
+          "total": 0,
+          "details": {},
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328050804,
+          "type": "simple",
+          "name": "Simple #2",
+          "total": 1871000,
+          "details": {
+            "totalArea": 1200,
+            "wastage": 180,
+            "finalSqFt": 1380,
+            "materialCost": 1863000,
+            "skirtingRft": 200,
+            "skirtingHeight": 4,
+            "skirtingPolishCost": 8000,
+            "grandTotal": 1871000,
+            "wastagePercentage": 15,
+            "rate": 1350
+          },
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328081817,
+          "type": "floor",
+          "name": "Floor #2",
+          "total": 307395,
+          "details": {
+            "totalFloorArea": 180,
+            "floorWastage": 27,
+            "finalFloorSqFt": 207,
+            "floorMaterialCost": 279450,
+            "skirtingRft": 54,
+            "skirtingSqFt": 18,
+            "skirtingWastage": 2.6999999999999997,
+            "finalSkirtingSqFt": 20.7,
+            "skirtingMaterialCost": 27945,
+            "skirtingHeight": 4,
+            "skirtingPolishCost": 0,
+            "skirtingProfile": "none",
+            "grandTotal": 307395,
+            "rooms": [
+              {
+                "id": 1,
+                "length": "12",
+                "width": "15"
+              }
+            ],
+            "includeSkirting": true,
+            "rate": 1350,
+            "wastagePercentage": 15
+          },
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328160157,
+          "type": "window-sill",
+          "name": "Window-sill #1",
+          "total": 73491.25,
+          "details": {
+            "totalSqFt": 43.166666666666664,
+            "wastage": 6.475,
+            "finalSqFt": 49.641666666666666,
+            "marbleTotal": 67016.25,
+            "rate": 1350,
+            "dimensionRows": [],
+            "windowSillRows": [
+              {
+                "id": 1771328160667,
+                "length": "72",
+                "width": "12",
+                "quantity": "6",
+                "innerCut": "5",
+                "edges": {
+                  "top": {
+                    "profiled": true
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": false
+                  }
+                }
+              },
+              {
+                "id": 1771328202396,
+                "length": "86",
+                "width": "12",
+                "quantity": "1",
+                "innerCut": "5",
+                "edges": {
+                  "top": {
+                    "profiled": true
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": false
+                  }
+                }
+              }
+            ],
+            "winders": [],
+            "globalProfileType": "tukker",
+            "edgeProfilingCosts": {
+              "tukker": {
+                "rft": 86.33333333333333,
+                "cost": 5180
+              }
+            },
+            "innerCutCost": 1295,
+            "innerCutRft": 43.166666666666664,
+            "wastagePercentage": 15
+          },
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328222151,
+          "type": "stairs",
+          "name": "Stairs #1",
+          "total": 184319.99999999997,
+          "details": {
+            "totalSqFt": 112,
+            "wastage": 19.2,
+            "finalSqFt": 131.2,
+            "marbleTotal": 177119.99999999997,
+            "rate": 1350,
+            "dimensionRows": [
+              {
+                "id": 1771328222324,
+                "length": "48",
+                "width": "12",
+                "quantity": "16",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": true
+                  }
+                },
+                "riser": {
+                  "front": true,
+                  "left": false,
+                  "right": false,
+                  "height": "6"
+                }
+              }
+            ],
+            "windowSillRows": [],
+            "winders": [
+              {
+                "id": 1771328269050,
+                "length": "48",
+                "width": "48",
+                "type": "2-step",
+                "turnDirection": "right",
+                "edges": {
+                  "top": false,
+                  "bottom": false,
+                  "left": false,
+                  "right": false,
+                  "diag1": false,
+                  "diag2": false,
+                  "inner_v": false,
+                  "inner_h": false
+                }
+              }
+            ],
+            "globalProfileType": "halfGola",
+            "edgeProfilingCosts": {
+              "halfGola": {
+                "rft": 80,
+                "cost": 7200
+              }
+            },
+            "innerCutCost": 0,
+            "innerCutRft": 0,
+            "wastagePercentage": 15
+          },
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328289591,
+          "type": "kitchen",
+          "name": "Kitchen #1",
+          "total": 113041.87499999999,
+          "details": {
+            "totalSqFt": 68.41666666666666,
+            "finalSqFt": 78.67916666666666,
+            "wastage": 10.262499999999998,
+            "rate": 1350,
+            "sinkCutouts": 1,
+            "stoveCutouts": 0,
+            "materialCost": 106216.87499999999,
+            "sinkCost": 3000,
+            "stoveCost": 0,
+            "edgeRft": 42.5,
+            "edgeProfileCost": 3825,
+            "totalCost": 113041.87499999999,
+            "layout": "u-shape",
+            "profileType": "halfGola",
+            "selectedEdges": {
+              "u_shape_front_right": true,
+              "u_shape_inner_right": true,
+              "u_shape_front_center": true,
+              "u_shape_inner_left": true,
+              "u_shape_front_left": true,
+              "island_1771328360965_right": true,
+              "island_1771328360965_top": true,
+              "island_1771328360965_bottom": true,
+              "island_1771328360965_left": true
+            },
+            "topPiece": {
+              "length": "150",
+              "width": "26",
+              "cutouts": [
+                {
+                  "id": "sink-1771328333296",
+                  "type": "sink",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 47,
+                  "y": 5
+                }
+              ]
+            },
+            "leftPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "rightPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "islands": [
+              {
+                "id": 1771328360965,
+                "length": "72",
+                "width": "36"
+              }
+            ]
+          },
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        },
+        {
+          "id": 1771328373811,
+          "type": "vanity",
+          "name": "Vanity #1",
+          "total": 19447.352813742385,
+          "details": {
+            "vanities": [
+              {
+                "id": 1771328374653,
+                "name": "Vanity 1",
+                "layout": "straight",
+                "length": "48",
+                "width": "22",
+                "lShapeSideA": "48",
+                "lShapeSideB": "36",
+                "cutCornerX": "12",
+                "cutCornerY": "12",
+                "backsplash": {
+                  "back": false,
+                  "left": false,
+                  "right": false,
+                  "height": "4"
+                },
+                "lutak": {
+                  "front": true,
+                  "left": true,
+                  "right": true,
+                  "height": "4"
+                },
+                "sinks": [],
+                "profileType": "tukker",
+                "jointType": "litacGroove",
+                "selectedEdges": {
+                  "straight_front": true,
+                  "l_shape_front_a": true,
+                  "l_shape_front_b": true,
+                  "cut_corner_front": true,
+                  "cut_corner_cut": true,
+                  "straight_left": true,
+                  "straight_right": true
+                },
+                "calculations": {
+                  "totalArea": 9.88888888888889,
+                  "edgeRft": 15.414213562373094,
+                  "lutakRft": 7.666666666666667,
+                  "cuttingRft": 29,
+                  "wastage": 1.4833333333333334,
+                  "finalSqFt": 11.372222222222224,
+                  "materialCost": 15352.500000000002,
+                  "edgeCost": 924.8528137423856,
+                  "sinkCost": 0,
+                  "lutakCost": 2300,
+                  "cuttingCost": 870,
+                  "totalCost": 19447.352813742385
+                }
+              }
+            ],
+            "vanityCalculations": [
+              {
+                "id": 1771328374653,
+                "name": "Vanity 1",
+                "layout": "straight",
+                "length": "48",
+                "width": "22",
+                "lShapeSideA": "48",
+                "lShapeSideB": "36",
+                "cutCornerX": "12",
+                "cutCornerY": "12",
+                "backsplash": {
+                  "back": false,
+                  "left": false,
+                  "right": false,
+                  "height": "4"
+                },
+                "lutak": {
+                  "front": true,
+                  "left": true,
+                  "right": true,
+                  "height": "4"
+                },
+                "sinks": [],
+                "profileType": "tukker",
+                "jointType": "litacGroove",
+                "selectedEdges": {
+                  "straight_front": true,
+                  "l_shape_front_a": true,
+                  "l_shape_front_b": true,
+                  "cut_corner_front": true,
+                  "cut_corner_cut": true,
+                  "straight_left": true,
+                  "straight_right": true
+                },
+                "calculations": {
+                  "totalArea": 9.88888888888889,
+                  "edgeRft": 15.414213562373094,
+                  "lutakRft": 7.666666666666667,
+                  "cuttingRft": 29,
+                  "wastage": 1.4833333333333334,
+                  "finalSqFt": 11.372222222222224,
+                  "materialCost": 15352.500000000002,
+                  "edgeCost": 924.8528137423856,
+                  "sinkCost": 0,
+                  "lutakCost": 2300,
+                  "cuttingCost": 870,
+                  "totalCost": 19447.352813742385
+                }
+              }
+            ],
+            "grandTotal": 19447.352813742385,
+            "rate": 1350
+          },
+          "marbleId": "blue-pearl",
+          "variantId": "variant-blue-pearl-0",
+          "marble": {
+            "id": "blue-pearl",
+            "name": "Blue Pearl",
+            "materialType": "Granite",
+            "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+            "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+            "imageHint": "blue pearl",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Blue and silver crystals",
+            "variants": [
+              {
+                "id": "variant-blue-pearl-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1350
+              },
+              {
+                "id": "variant-blue-pearl-1",
+                "thickness": "6-Sutar",
+                "size": "36\"",
+                "price": 1700
+              },
+              {
+                "id": "variant-blue-pearl-2",
+                "thickness": "6-Sutar",
+                "size": "48\"",
+                "price": 2200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "11. Blue Pearl",
+            "number": 11
+          },
+          "variant": {
+            "id": "variant-blue-pearl-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1350
+          }
+        }
+      ]
+    },
+    "applicationType": "floor, simple, simple, floor, window-sill, stairs, kitchen, vanity",
+    "id": "ORD-1771328406091",
+    "date": "2026-02-17T11:40:06.091Z"
+  },
+  {
+    "customerName": "Fida hussain",
+    "marbleName": "Ten Brown",
+    "quantity": 248056.5,
+    "totalPrice": 253056.5,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "ten-brown",
+        "name": "Ten Brown",
+        "materialType": "Granite",
+        "description": "A reliable brown granite with a consistent pattern.",
+        "imageUrl": "/images/ten-brown-1761314583493.jpg",
+        "imageHint": "brown granite",
+        "origin": "Imported",
+        "uses": "Flooring, Countertops, Wall Cladding",
+        "characteristics": "Consistent brown pattern",
+        "variants": [
+          {
+            "id": "variant-ten-brown-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1170
+          }
+        ],
+        "isFeatured": false,
+        "gallery": [],
+        "isHidden": false,
+        "nameWithNum": "24. Ten Brown",
+        "number": 24
+      },
+      "variant": {
+        "id": "variant-ten-brown-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1170
+      },
+      "customerInfo": {
+        "name": "Fida hussain",
+        "phone": "03003634052",
+        "address": "Thok Kalhor\nKH-96",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1771221376584,
+          "type": "kitchen",
+          "name": "Kitchen #1",
+          "total": 106635,
+          "details": {
+            "totalSqFt": 49,
+            "finalSqFt": 56.35,
+            "wastage": 7.35,
+            "rate": 1800,
+            "sinkCutouts": 1,
+            "stoveCutouts": 0,
+            "materialCost": 101430,
+            "sinkCost": 3000,
+            "stoveCost": 0,
+            "edgeRft": 24.5,
+            "edgeProfileCost": 2205,
+            "totalCost": 106635,
+            "layout": "u-shape",
+            "profileType": "halfGola",
+            "selectedEdges": {
+              "u_shape_front_right": true,
+              "u_shape_inner_right": true,
+              "u_shape_front_center": true,
+              "u_shape_inner_left": true,
+              "u_shape_front_left": true
+            },
+            "topPiece": {
+              "length": "150",
+              "width": "24",
+              "cutouts": [
+                {
+                  "id": "sink-1771221416197",
+                  "type": "sink",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 46,
+                  "y": 4
+                }
+              ]
+            },
+            "leftPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "rightPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "islands": []
+          },
+          "marbleId": "emprador-dark",
+          "variantId": "variant-emprador-dark-0",
+          "marble": {
+            "id": "emprador-dark",
+            "name": "Emprador Dark",
+            "materialType": "Marble",
+            "description": "A rich, dark brown marble with light veining.",
+            "imageUrl": "/images/emprador-dark-1761461583881.jpg",
+            "imageHint": "dark brown",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Rich dark brown, light veining",
+            "variants": [
+              {
+                "id": "variant-emprador-dark-0",
+                "thickness": "6-Sutar",
+                "size": "Gangsaws",
+                "price": 1800
+              }
+            ],
+            "gallery": [],
+            "isFeatured": false,
+            "isHidden": false,
+            "nameWithNum": "47. Emprador Dark",
+            "number": 47
+          },
+          "variant": {
+            "id": "variant-emprador-dark-0",
+            "thickness": "6-Sutar",
+            "size": "Gangsaws",
+            "price": 1800
+          }
+        },
+        {
+          "id": 1771221481049,
+          "type": "stairs",
+          "name": "Stairs #1",
+          "total": 141421.5,
+          "details": {
+            "totalSqFt": 97,
+            "wastage": 16.95,
+            "finalSqFt": 113.95,
+            "marbleTotal": 133321.5,
+            "rate": 1170,
+            "dimensionRows": [
+              {
+                "id": 1771221481532,
+                "length": "48",
+                "width": "12",
+                "quantity": "18",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": true
+                  }
+                },
+                "riser": {
+                  "front": false,
+                  "left": true,
+                  "right": false,
+                  "height": "6"
+                }
+              }
+            ],
+            "windowSillRows": [],
+            "winders": [
+              {
+                "id": 1771221519421,
+                "length": "48",
+                "width": "48",
+                "type": "2-step",
+                "turnDirection": "right",
+                "edges": {
+                  "top": false,
+                  "bottom": false,
+                  "left": false,
+                  "right": false,
+                  "diag1": false,
+                  "diag2": false,
+                  "inner_v": false,
+                  "inner_h": false
+                }
+              }
+            ],
+            "globalProfileType": "halfGola",
+            "edgeProfilingCosts": {
+              "halfGola": {
+                "rft": 90,
+                "cost": 8100
+              }
+            },
+            "innerCutCost": 0,
+            "innerCutRft": 0,
+            "wastagePercentage": 15
+          },
+          "marbleId": "ten-brown",
+          "variantId": "variant-ten-brown-0",
+          "marble": {
+            "id": "ten-brown",
+            "name": "Ten Brown",
+            "materialType": "Granite",
+            "description": "A reliable brown granite with a consistent pattern.",
+            "imageUrl": "/images/ten-brown-1761314583493.jpg",
+            "imageHint": "brown granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Consistent brown pattern",
+            "variants": [
+              {
+                "id": "variant-ten-brown-0",
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1170
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "24. Ten Brown",
+            "number": 24
+          },
+          "variant": {
+            "id": "variant-ten-brown-0",
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1170
+          }
+        }
+      ]
+    },
+    "applicationType": "kitchen, stairs",
+    "id": "ORD-1771221533781",
+    "date": "2026-02-16T05:58:53.781Z"
+  },
+  {
+    "customerName": "Fida hussain",
+    "marbleName": "Egypt Red",
+    "quantity": 610230,
+    "totalPrice": 620230,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "egypt-red",
+        "name": "Egypt Red",
+        "materialType": "Granite",
+        "description": "A vibrant red granite, perfect for statement pieces.",
+        "imageUrl": "/images/egypt-red-1761314132953.jpg",
+        "imageHint": "red granite",
+        "origin": "Imported",
+        "uses": "Flooring, Countertops, Wall Cladding",
+        "characteristics": "Vibrant color, durable",
+        "variants": [
+          {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        ],
+        "isFeatured": false,
+        "gallery": [],
+        "isHidden": false,
+        "nameWithNum": "8. Egypt Red",
+        "number": 8
+      },
+      "variant": {
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1200,
+        "id": "variant-egypt-red-1769369709867-0"
+      },
+      "customerInfo": {
+        "name": "Fida hussain",
+        "phone": "03003634052",
+        "address": "Thok Kalhor\nKH-96",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1771154233723,
+          "type": "kitchen",
+          "name": "Kitchen #1",
+          "total": 106650,
+          "details": {
+            "totalSqFt": 71,
+            "finalSqFt": 81.65,
+            "wastage": 10.65,
+            "rate": 1200,
+            "sinkCutouts": 1,
+            "stoveCutouts": 1,
+            "materialCost": 97980,
+            "sinkCost": 3000,
+            "stoveCost": 3000,
+            "edgeRft": 44.5,
+            "edgeProfileCost": 2670,
+            "totalCost": 106650,
+            "layout": "u-shape",
+            "profileType": "tukker",
+            "selectedEdges": {
+              "u_shape_inner_right": true,
+              "u_shape_front_right": true,
+              "u_shape_front_center": true,
+              "u_shape_inner_left": true,
+              "u_shape_front_left": true,
+              "island_1771154341020_right": true,
+              "island_1771154341020_top": true,
+              "island_1771154341020_left": true,
+              "island_1771154341020_bottom": true
+            },
+            "topPiece": {
+              "length": "150",
+              "width": "24",
+              "cutouts": [
+                {
+                  "id": "stove-1771154310988",
+                  "type": "stove",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 96.5,
+                  "y": 4
+                }
+              ]
+            },
+            "leftPiece": {
+              "length": "120",
+              "width": "24",
+              "cutouts": [
+                {
+                  "id": "sink-1771154289023",
+                  "type": "sink",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 4,
+                  "y": 63.5
+                }
+              ]
+            },
+            "rightPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "islands": [
+              {
+                "id": 1771154341020,
+                "length": "72",
+                "width": "36"
+              }
+            ]
+          },
+          "marbleId": "panda-karara",
+          "variantId": "variant-panda-karara-0",
+          "marble": {
+            "id": "panda-karara",
+            "name": "Panda Karara",
+            "materialType": "Marble",
+            "description": "A white marble with bold, contrasting black stripes.",
+            "imageUrl": "/images/panda-karara-1761320638941.jpg",
+            "imageHint": "panda marble",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "White, bold black stripes",
+            "variants": [
+              {
+                "id": "variant-panda-karara-0",
+                "thickness": "6-Sutar",
+                "size": "Gangsaws",
+                "price": 1200
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "32. Panda Karara",
+            "number": 32
+          },
+          "variant": {
+            "id": "variant-panda-karara-0",
+            "thickness": "6-Sutar",
+            "size": "Gangsaws",
+            "price": 1200
+          }
+        },
+        {
+          "id": 1771154395495,
+          "type": "stairs",
+          "name": "Stairs #1",
+          "total": 153660,
+          "details": {
+            "totalSqFt": 106,
+            "wastage": 18.3,
+            "finalSqFt": 124.3,
+            "marbleTotal": 149160,
+            "rate": 1200,
+            "dimensionRows": [
+              {
+                "id": 1771154396214,
+                "length": "48",
+                "width": "12",
+                "quantity": "15",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": true
+                  }
+                },
+                "riser": {
+                  "front": true,
+                  "left": false,
+                  "right": false,
+                  "height": "6"
+                }
+              }
+            ],
+            "windowSillRows": [],
+            "winders": [
+              {
+                "id": 1771154433098,
+                "length": "48",
+                "width": "48",
+                "type": "2-step",
+                "turnDirection": "right",
+                "edges": {
+                  "top": false,
+                  "bottom": false,
+                  "left": false,
+                  "right": false,
+                  "diag1": false,
+                  "diag2": false,
+                  "inner_v": false,
+                  "inner_h": false
+                }
+              }
+            ],
+            "globalProfileType": "tukker",
+            "edgeProfilingCosts": {
+              "tukker": {
+                "rft": 75,
+                "cost": 4500
+              }
+            },
+            "innerCutCost": 0,
+            "innerCutRft": 0,
+            "wastagePercentage": 15
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771154444525,
+          "type": "floor",
+          "name": "Floor #1",
+          "total": 276480,
+          "details": {
+            "totalFloorArea": 180,
+            "floorWastage": 27,
+            "finalFloorSqFt": 207,
+            "floorMaterialCost": 248400,
+            "skirtingRft": 54,
+            "skirtingSqFt": 18,
+            "skirtingWastage": 2.6999999999999997,
+            "finalSkirtingSqFt": 20.7,
+            "skirtingMaterialCost": 24840,
+            "skirtingHeight": 4,
+            "skirtingPolishCost": 3240,
+            "skirtingProfile": "tukker",
+            "grandTotal": 276480,
+            "rooms": [
+              {
+                "id": 1,
+                "length": "12",
+                "width": "15"
+              }
+            ],
+            "includeSkirting": true,
+            "rate": 1200,
+            "wastagePercentage": 15
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771154477743,
+          "type": "window-sill",
+          "name": "Window-sill #1",
+          "total": 73440,
+          "details": {
+            "totalSqFt": 48,
+            "wastage": 7.199999999999999,
+            "finalSqFt": 55.2,
+            "marbleTotal": 66240,
+            "rate": 1200,
+            "dimensionRows": [],
+            "windowSillRows": [
+              {
+                "id": 1771154477916,
+                "length": "96",
+                "width": "12",
+                "quantity": "6",
+                "innerCut": "5",
+                "edges": {
+                  "top": {
+                    "profiled": true
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": false
+                  }
+                }
+              },
+              {
+                "id": 1771154513066,
+                "length": "",
+                "width": "12",
+                "quantity": "1",
+                "innerCut": "5",
+                "edges": {
+                  "top": {
+                    "profiled": false
+                  },
+                  "bottom": {
+                    "profiled": false
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": false
+                  }
+                }
+              }
+            ],
+            "winders": [],
+            "globalProfileType": "tukker",
+            "edgeProfilingCosts": {
+              "tukker": {
+                "rft": 96,
+                "cost": 5760
+              }
+            },
+            "innerCutCost": 1440,
+            "innerCutRft": 48,
+            "wastagePercentage": 15
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        }
+      ]
+    },
+    "applicationType": "kitchen, stairs, floor, window-sill",
+    "id": "ORD-1771154578384",
+    "date": "2026-02-15T11:22:58.386Z"
+  },
+  {
+    "customerName": "Fida hussain",
+    "marbleName": "Sunny White",
+    "quantity": 879118.1861470757,
+    "totalPrice": 894118.1861470757,
+    "status": "Pending",
+    "calculationDetails": {
+      "marble": {
+        "id": "sunny-white-tiles",
+        "name": "Sunny White",
+        "materialType": "12x24 Tiles",
+        "origin": "Local",
+        "description": "Affordable and bright Sunny White tiles, perfect for flooring and walls.",
+        "imageUrl": "/images/sunny-white-tiles-1766150486818.jpg",
+        "imageHint": "white tile",
+        "uses": "Flooring, Bathrooms, Wall Cladding",
+        "characteristics": "Bright white, consistent color, affordable.",
+        "variants": [
+          {
+            "thickness": "4-Sutar",
+            "size": "12\"x24\"",
+            "price": 150,
+            "id": "variant-sunny-white-tiles-1770015569249-0"
+          },
+          {
+            "size": "12\"x24\"",
+            "thickness": "4-Sutar",
+            "price": 120,
+            "id": "variant-sunny-white-tiles-1770015569249-1"
+          },
+          {
+            "size": "12\"x24\"",
+            "thickness": "4-Sutar",
+            "price": 95,
+            "id": "variant-sunny-white-tiles-1770015569249-2"
+          }
+        ],
+        "gallery": [],
+        "isFeatured": false,
+        "isHidden": false,
+        "nameWithNum": "74. Sunny White",
+        "number": 74
+      },
+      "variant": {
+        "thickness": "4-Sutar",
+        "size": "12\"x24\"",
+        "price": 150,
+        "id": "variant-sunny-white-tiles-1770015569249-0"
+      },
+      "customerInfo": {
+        "name": "Fida hussain",
+        "phone": "03003634052",
+        "address": "Thok Kalhor\nKH-96",
+        "latitude": null,
+        "longitude": null
+      },
+      "requirements": [
+        {
+          "id": 1771108939624,
+          "type": "simple",
+          "name": "Simple #1",
+          "total": 554000,
+          "details": {
+            "totalArea": 400,
+            "wastage": 60,
+            "finalSqFt": 460,
+            "materialCost": 552000,
+            "skirtingRft": 50,
+            "skirtingHeight": 4,
+            "skirtingPolishCost": 2000,
+            "grandTotal": 554000,
+            "wastagePercentage": 15,
+            "rate": 1200
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771108976079,
+          "type": "floor",
+          "name": "Floor #1",
+          "total": 252900,
+          "details": {
+            "totalFloorArea": 168,
+            "floorWastage": 25.2,
+            "finalFloorSqFt": 193.2,
+            "floorMaterialCost": 231840,
+            "skirtingRft": 52,
+            "skirtingSqFt": 13,
+            "skirtingWastage": 1.95,
+            "finalSkirtingSqFt": 14.95,
+            "skirtingMaterialCost": 17940,
+            "skirtingHeight": 3,
+            "skirtingPolishCost": 3120,
+            "skirtingProfile": "tukker",
+            "grandTotal": 252900,
+            "rooms": [
+              {
+                "id": 1,
+                "length": "12",
+                "width": "14"
+              }
+            ],
+            "includeSkirting": true,
+            "rate": 1200,
+            "wastagePercentage": 15
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771109087822,
+          "type": "window-sill",
+          "name": "Window-sill #1",
+          "total": 7000.000000000001,
+          "details": {
+            "totalSqFt": 4.666666666666667,
+            "wastage": 0.7000000000000001,
+            "finalSqFt": 5.366666666666667,
+            "marbleTotal": 6440.000000000001,
+            "rate": 1200,
+            "dimensionRows": [],
+            "windowSillRows": [
+              {
+                "id": 1771109088241,
+                "length": "56",
+                "width": "12",
+                "quantity": "1",
+                "innerCut": "",
+                "edges": {
+                  "top": {
+                    "profiled": true
+                  },
+                  "bottom": {
+                    "profiled": true
+                  },
+                  "left": {
+                    "profiled": false
+                  },
+                  "right": {
+                    "profiled": false
+                  }
+                }
+              }
+            ],
+            "winders": [],
+            "globalProfileType": "tukker",
+            "edgeProfilingCosts": {
+              "tukker": {
+                "rft": 9.333333333333334,
+                "cost": 560
+              }
+            },
+            "innerCutCost": 0,
+            "innerCutRft": 0,
+            "wastagePercentage": 15
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771109146690,
+          "type": "vanity",
+          "name": "Vanity #1",
+          "total": 19108.18614707572,
+          "details": {
+            "vanities": [
+              {
+                "id": 1771109147506,
+                "name": "Vanity 1",
+                "layout": "straight",
+                "length": "48",
+                "width": "22",
+                "lShapeSideA": "48",
+                "lShapeSideB": "36",
+                "cutCornerX": "12",
+                "cutCornerY": "12",
+                "backsplash": {
+                  "back": false,
+                  "left": false,
+                  "right": false,
+                  "height": "4"
+                },
+                "lutak": {
+                  "front": true,
+                  "left": true,
+                  "right": false,
+                  "height": "4"
+                },
+                "sinks": [
+                  {
+                    "id": 1771109245693,
+                    "type": "undermount",
+                    "shape": "rectangle",
+                    "width": "18",
+                    "length": "12",
+                    "x": "15",
+                    "y": "5"
+                  }
+                ],
+                "profileType": "tukker",
+                "jointType": "litacGroove",
+                "selectedEdges": {
+                  "straight_front": true,
+                  "l_shape_front_a": true,
+                  "l_shape_front_b": true,
+                  "cut_corner_front": true,
+                  "cut_corner_cut": true,
+                  "straight_left": true
+                },
+                "calculations": {
+                  "totalArea": 9.277777777777779,
+                  "edgeRft": 13.580880229039762,
+                  "lutakRft": 5.833333333333333,
+                  "cuttingRft": 24.666666666666668,
+                  "wastage": 1.3916666666666668,
+                  "finalSqFt": 10.669444444444446,
+                  "materialCost": 12803.333333333336,
+                  "edgeCost": 814.8528137423857,
+                  "sinkCost": 3000,
+                  "lutakCost": 1750,
+                  "cuttingCost": 740,
+                  "totalCost": 19108.18614707572
+                }
+              }
+            ],
+            "vanityCalculations": [
+              {
+                "id": 1771109147506,
+                "name": "Vanity 1",
+                "layout": "straight",
+                "length": "48",
+                "width": "22",
+                "lShapeSideA": "48",
+                "lShapeSideB": "36",
+                "cutCornerX": "12",
+                "cutCornerY": "12",
+                "backsplash": {
+                  "back": false,
+                  "left": false,
+                  "right": false,
+                  "height": "4"
+                },
+                "lutak": {
+                  "front": true,
+                  "left": true,
+                  "right": false,
+                  "height": "4"
+                },
+                "sinks": [
+                  {
+                    "id": 1771109245693,
+                    "type": "undermount",
+                    "shape": "rectangle",
+                    "width": "18",
+                    "length": "12",
+                    "x": "15",
+                    "y": "5"
+                  }
+                ],
+                "profileType": "tukker",
+                "jointType": "litacGroove",
+                "selectedEdges": {
+                  "straight_front": true,
+                  "l_shape_front_a": true,
+                  "l_shape_front_b": true,
+                  "cut_corner_front": true,
+                  "cut_corner_cut": true,
+                  "straight_left": true
+                },
+                "calculations": {
+                  "totalArea": 9.277777777777779,
+                  "edgeRft": 13.580880229039762,
+                  "lutakRft": 5.833333333333333,
+                  "cuttingRft": 24.666666666666668,
+                  "wastage": 1.3916666666666668,
+                  "finalSqFt": 10.669444444444446,
+                  "materialCost": 12803.333333333336,
+                  "edgeCost": 814.8528137423857,
+                  "sinkCost": 3000,
+                  "lutakCost": 1750,
+                  "cuttingCost": 740,
+                  "totalCost": 19108.18614707572
+                }
+              }
+            ],
+            "grandTotal": 19108.18614707572,
+            "rate": 1200
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771109289052,
+          "type": "kitchen",
+          "name": "Kitchen #1",
+          "total": 34680,
+          "details": {
+            "totalSqFt": 20,
+            "finalSqFt": 23,
+            "wastage": 3,
+            "rate": 1200,
+            "sinkCutouts": 1,
+            "stoveCutouts": 1,
+            "materialCost": 27600,
+            "sinkCost": 3000,
+            "stoveCost": 3000,
+            "edgeRft": 12,
+            "edgeProfileCost": 1080,
+            "totalCost": 34680,
+            "layout": "straight",
+            "profileType": "halfGola",
+            "selectedEdges": {
+              "straight_front": true,
+              "straight_left": true
+            },
+            "topPiece": {
+              "length": "120",
+              "width": "24",
+              "cutouts": [
+                {
+                  "id": "sink-1771109325333",
+                  "type": "sink",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 17.5,
+                  "y": 4
+                },
+                {
+                  "id": "stove-1771109332439",
+                  "type": "stove",
+                  "width": 16,
+                  "depth": 16,
+                  "x": 68.5,
+                  "y": 4
+                }
+              ]
+            },
+            "leftPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "rightPiece": {
+              "length": "96",
+              "width": "24",
+              "cutouts": []
+            },
+            "islands": []
+          },
+          "marbleId": "egypt-red",
+          "variantId": "variant-egypt-red-1769369709867-0",
+          "marble": {
+            "id": "egypt-red",
+            "name": "Egypt Red",
+            "materialType": "Granite",
+            "description": "A vibrant red granite, perfect for statement pieces.",
+            "imageUrl": "/images/egypt-red-1761314132953.jpg",
+            "imageHint": "red granite",
+            "origin": "Imported",
+            "uses": "Flooring, Countertops, Wall Cladding",
+            "characteristics": "Vibrant color, durable",
+            "variants": [
+              {
+                "thickness": "6-Sutar",
+                "size": "24\"",
+                "price": 1200,
+                "id": "variant-egypt-red-1769369709867-0"
+              }
+            ],
+            "isFeatured": false,
+            "gallery": [],
+            "isHidden": false,
+            "nameWithNum": "8. Egypt Red",
+            "number": 8
+          },
+          "variant": {
+            "thickness": "6-Sutar",
+            "size": "24\"",
+            "price": 1200,
+            "id": "variant-egypt-red-1769369709867-0"
+          }
+        },
+        {
+          "id": 1771109368101,
+          "type": "fixing_material",
+          "name": "Sika® Ceram-90",
+          "total": 5200,
+          "details": {
+            "pricePerUnit": 650,
+            "unit": "20kg"
+          },
+          "fixingMaterialId": "sika-ceram-90",
+          "fixingMaterial": {
+            "id": "sika-ceram-90",
+            "name": "Sika® Ceram-90",
+            "description": "DESCRIPTION\r\nSika®Ceram-90 PK is a cementitious, non-shrink, polymer containing, thin bed tile adhesive used for permanent fixing of tiles, suitable for tropical and hot climatic conditions.\r\n\r\nCHARACTERISTICS / ADVANTAGES\r\n▪ High bond strengths\r\n▪ Easy to use, just add water\r\n▪ Excellent workability\r\n▪ Excellent pot life\r\n▪ Can be applied directly on cement screeds, concrete, or lime mortars\r\n▪ Non-Toxic\r\n▪ Suitable for indoor and outdoor application\r\n\r\nUSES\r\nSika®Ceram-90 PK is suitable for fixing:\r\n▪ Wall and floor tiles\r\n▪ Insulation and acoustic tiles\r\n▪ Marbles and terrazzo tiles\r\n▪ Mosaics",
+            "imageUrl": "/images/fix-mat-sika-ceram-90-1761557378667.jpeg",
+            "price": 650,
+            "unit": "20kg",
+            "category": "Adhesive",
+            "dataSheetUrl": "/datasheets/sika-ceram-90.pdf",
+            "isFeatured": true
+          },
+          "quantity": 8
+        },
+        {
+          "id": 1771109373447,
+          "type": "fixing_material",
+          "name": "Tile Levelling Plier",
+          "total": 1250,
+          "details": {
+            "pricePerUnit": 1250,
+            "unit": "Piece"
+          },
+          "fixingMaterialId": "tile-levelling-plier",
+          "fixingMaterial": {
+            "id": "tile-levelling-plier",
+            "name": "Tile Levelling Plier",
+            "description": "A durable plier used with tile levelling systems to ensure a perfectly flat surface.",
+            "imageUrl": "/images/fix-mat-tile-levelling-plier-1769362820117.jpg",
+            "price": 1250,
+            "unit": "Piece",
+            "category": "Tool",
+            "isFeatured": true
+          },
+          "quantity": 1
+        },
+        {
+          "id": 1771109379429,
+          "type": "fixing_material",
+          "name": "Tile Levelling Spacers (1.5mm)",
+          "total": 1750,
+          "details": {
+            "pricePerUnit": 350,
+            "unit": "50 pcs"
+          },
+          "fixingMaterialId": "tile-levelling-spacers-1-5mm",
+          "fixingMaterial": {
+            "id": "tile-levelling-spacers-1-5mm",
+            "name": "Tile Levelling Spacers (1.5mm)",
+            "description": "High-quality tile levelling spacers to ensure a professional and even finish. Pack of 50. Size: 1.5mm.",
+            "imageUrl": "/images/fix-mat-tile-levelling-spacers-1-5mm-2mm-3mm-1769363134037.jpg",
+            "price": 350,
+            "unit": "50 pcs",
+            "category": "Tool",
+            "isFeatured": false
+          },
+          "quantity": 5
+        },
+        {
+          "id": 1771109384862,
+          "type": "fixing_material",
+          "name": "Tile Levelling Spacers (2mm)",
+          "total": 1400,
+          "details": {
+            "pricePerUnit": 350,
+            "unit": "50 pcs"
+          },
+          "fixingMaterialId": "tile-levelling-spacers-2mm",
+          "fixingMaterial": {
+            "id": "tile-levelling-spacers-2mm",
+            "name": "Tile Levelling Spacers (2mm)",
+            "description": "High-quality tile levelling spacers to ensure a professional and even finish. Pack of 50. Size: 2mm.",
+            "imageUrl": "/images/fix-mat-tile-levelling-spacers-1-5mm-2mm-3mm-1769363134037.jpg",
+            "price": 350,
+            "unit": "50 pcs",
+            "category": "Tool",
+            "isFeatured": false
+          },
+          "quantity": 4
+        },
+        {
+          "id": 1771109389364,
+          "type": "fixing_material",
+          "name": "Tile Levelling Spacers (3mm)",
+          "total": 1050,
+          "details": {
+            "pricePerUnit": 350,
+            "unit": "50 pcs"
+          },
+          "fixingMaterialId": "tile-levelling-spacers-3mm",
+          "fixingMaterial": {
+            "id": "tile-levelling-spacers-3mm",
+            "name": "Tile Levelling Spacers (3mm)",
+            "description": "High-quality tile levelling spacers to ensure a professional and even finish. Pack of 50. Size: 3mm.",
+            "imageUrl": "/images/fix-mat-tile-levelling-spacers-1-5mm-2mm-3mm-1769363134037.jpg",
+            "price": 350,
+            "unit": "50 pcs",
+            "category": "Tool",
+            "isFeatured": false
+          },
+          "quantity": 3
+        },
+        {
+          "id": 1771109394062,
+          "type": "fixing_material",
+          "name": "SS Clip (1\"x1\", 2.5mm)",
+          "total": 80,
+          "details": {
+            "pricePerUnit": 80,
+            "unit": "Piece"
+          },
+          "fixingMaterialId": "ss-clip-1x1-2-5mm",
+          "fixingMaterial": {
+            "id": "ss-clip-1x1-2-5mm",
+            "name": "SS Clip (1\"x1\", 2.5mm)",
+            "description": "Stainless steel clip for facade mounting and other construction applications.",
+            "imageUrl": "/images/fix-mat-ss-clip-1-x1-2-5mm-1761558665294.jpeg",
+            "price": 80,
+            "unit": "Piece",
+            "category": "Tool",
+            "dataSheetUrl": null,
+            "isFeatured": false
+          },
+          "quantity": 1
+        },
+        {
+          "id": 1771109408497,
+          "type": "fixing_material",
+          "name": "Labor / Wages",
+          "total": 700,
+          "details": {
+            "pricePerUnit": 350,
+            "unit": "Per Day (Negotiable)"
+          },
+          "fixingMaterialId": "wages",
+          "fixingMaterial": {
+            "id": "wages",
+            "name": "Labor / Wages",
+            "description": "Daily labor charges for installation or other services. The price and unit are indicative and should be confirmed before ordering.",
+            "imageUrl": "/images/fix-mat-wages-1769363848701.jpg",
+            "price": 350,
+            "unit": "Per Day (Negotiable)",
+            "category": "Tool",
+            "isFeatured": true
+          },
+          "quantity": 2
+        }
+      ]
+    },
+    "applicationType": "simple, floor, window-sill, vanity, kitchen, fixing_material, fixing_material, fixing_material, fixing_material, fixing_material, fixing_material, fixing_material",
+    "id": "ORD-1771109489103",
+    "date": "2026-02-14T22:51:29.103Z"
+  }
+]

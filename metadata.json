@@ -1,0 +1,10 @@
+{
+  "name": "Marble Stock and Price Manager",
+  "description": "Comprehensive stock and price management dashboard with supplier cost comparison, custom markup adjustments, and profit margin analysis.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

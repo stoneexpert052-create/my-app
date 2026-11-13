@@ -1,0 +1,44 @@
+{
+  "buildWithUs": {
+    "en": {
+      "heading": "Build Your Home with Stone Expert",
+      "subheading": "We don't just supply marble and granite; we turn your dreams into reality. Our experts specialize in beautifying and renovating homes, plazas, offices, and restaurants. From civil work to finishing touches, we are with you."
+    },
+    "ur": {
+      "heading": "اپنا گھر سٹون ایکسپرٹ کے ساتھ بنائیں",
+      "subheading": "ہم صرف ماربل اور گرینائٹ فراہم نہیں کرتے، بلکہ آپ کے خوابوں کو حقیقت میں بدلتے ہیں۔ ہمارے ماہرین گھروں، پلازوں، دفاتر اور ریستورانوں کو خوبصورت بنانے اور ان کی تزئین و آرائش میں مہارت رکھتے ہیں۔ سول ورک سے لے کر فنشنگ تک، ہم آپ کے ساتھ ہیں۔"
+    },
+    "gallery": [
+      {
+        "id": "pair-1",
+        "before": "/images/homepage/before-pair-1-1771107581594.jpeg",
+        "after": "/images/homepage/after-pair-1-1771107581598.jpeg",
+        "description": "Modern Kitchen Renovation"
+      },
+      {
+        "id": "pair-2",
+        "before": "https://picsum.photos/seed/b2/600/400",
+        "after": "https://picsum.photos/seed/a2/600/400",
+        "description": "Luxury Bathroom Makeover"
+      },
+      {
+        "id": "pair-3",
+        "before": "https://picsum.photos/seed/b3/600/400",
+        "after": "https://picsum.photos/seed/a3/600/400",
+        "description": "Commercial Office Space"
+      },
+      {
+        "id": "new-pair-1771107486981",
+        "before": "https://picsum.photos/seed/new-before/600/400",
+        "after": "https://picsum.photos/seed/new-after/600/400",
+        "description": "New Project Description"
+      },
+      {
+        "id": "new-pair-1771107491536",
+        "before": "https://picsum.photos/seed/new-before/600/400",
+        "after": "https://picsum.photos/seed/new-after/600/400",
+        "description": "New Project Description"
+      }
+    ]
+  }
+}

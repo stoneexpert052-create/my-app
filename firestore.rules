@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Explicit collection rules for the ERP systems
+    match /marbles/{id} {
+      allow read, write: if true;
+    }
+    
+    match /fixing_materials/{id} {
+      allow read, write: if true;
+    }
+    
+    match /service_providers/{id} {
+      allow read, write: if true;
+    }
+    
+    match /rates/{id} {
+      allow read, write: if true;
+    }
+    
+    match /orders/{id} {
+      allow read, write: if true;
+    }
+    
+    match /searches/{id} {
+      allow read, write: if true;
+    }
+    
+    match /config/{id} {
+      allow read, write: if true;
+    }
+    
+    match /size_formats/{id} {
+      allow read, write: if true;
+    }
+
+    match /representatives/{id} {
+      allow read, write: if true;
+    }
+    
+    // Catch-all fallback rule to ensure absolute continuous availability
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

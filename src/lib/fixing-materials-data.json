@@ -1,0 +1,74 @@
+[
+  {
+    "id": "sika-ceram-90",
+    "name": "Sika® Ceram-90",
+    "description": "DESCRIPTION\r\nSika®Ceram-90 PK is a cementitious, non-shrink, polymer containing, thin bed tile adhesive used for permanent fixing of tiles, suitable for tropical and hot climatic conditions.\r\n\r\nCHARACTERISTICS / ADVANTAGES\r\n▪ High bond strengths\r\n▪ Easy to use, just add water\r\n▪ Excellent workability\r\n▪ Excellent pot life\r\n▪ Can be applied directly on cement screeds, concrete, or lime mortars\r\n▪ Non-Toxic\r\n▪ Suitable for indoor and outdoor application\r\n\r\nUSES\r\nSika®Ceram-90 PK is suitable for fixing:\r\n▪ Wall and floor tiles\r\n▪ Insulation and acoustic tiles\r\n▪ Marbles and terrazzo tiles\r\n▪ Mosaics",
+    "imageUrl": "/images/fix-mat-sika-ceram-90-1761557378667.jpeg",
+    "price": 650,
+    "unit": "20kg",
+    "category": "Adhesive",
+    "dataSheetUrl": "/datasheets/sika-ceram-90.pdf",
+    "isFeatured": true
+  },
+  {
+    "id": "tile-levelling-plier",
+    "name": "Tile Levelling Plier",
+    "description": "A durable plier used with tile levelling systems to ensure a perfectly flat surface.",
+    "imageUrl": "/images/fix-mat-tile-levelling-plier-1769362820117.jpg",
+    "price": 1250,
+    "unit": "Piece",
+    "category": "Tool",
+    "isFeatured": true
+  },
+  {
+    "id": "tile-levelling-spacers-1-5mm",
+    "name": "Tile Levelling Spacers (1.5mm)",
+    "description": "High-quality tile levelling spacers to ensure a professional and even finish. Pack of 50. Size: 1.5mm.",
+    "imageUrl": "/images/fix-mat-tile-levelling-spacers-1-5mm-2mm-3mm-1769363134037.jpg",
+    "price": 350,
+    "unit": "50 pcs",
+    "category": "Tool",
+    "isFeatured": false
+  },
+  {
+    "id": "tile-levelling-spacers-2mm",
+    "name": "Tile Levelling Spacers (2mm)",
+    "description": "High-quality tile levelling spacers to ensure a professional and even finish. Pack of 50. Size: 2mm.",
+    "imageUrl": "/images/fix-mat-tile-levelling-spacers-1-5mm-2mm-3mm-1769363134037.jpg",
+    "price": 350,
+    "unit": "50 pcs",
+    "category": "Tool",
+    "isFeatured": false
+  },
+  {
+    "id": "tile-levelling-spacers-3mm",
+    "name": "Tile Levelling Spacers (3mm)",
+    "description": "High-quality tile levelling spacers to ensure a professional and even finish. Pack of 50. Size: 3mm.",
+    "imageUrl": "/images/fix-mat-tile-levelling-spacers-1-5mm-2mm-3mm-1769363134037.jpg",
+    "price": 350,
+    "unit": "50 pcs",
+    "category": "Tool",
+    "isFeatured": false
+  },
+  {
+    "id": "ss-clip-1x1-2-5mm",
+    "name": "SS Clip (1\"x1\", 2.5mm)",
+    "description": "Stainless steel clip for facade mounting and other construction applications.",
+    "imageUrl": "/images/fix-mat-ss-clip-1-x1-2-5mm-1761558665294.jpeg",
+    "price": 80,
+    "unit": "Piece",
+    "category": "Tool",
+    "dataSheetUrl": null,
+    "isFeatured": false
+  },
+  {
+    "id": "wages",
+    "name": "Labor / Wages",
+    "description": "Daily labor charges for installation or other services. The price and unit are indicative and should be confirmed before ordering.",
+    "imageUrl": "/images/fix-mat-wages-1769363848701.jpg",
+    "price": 350,
+    "unit": "Per Day (Negotiable)",
+    "category": "Tool",
+    "isFeatured": true
+  }
+]

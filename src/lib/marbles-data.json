@@ -1,0 +1,2425 @@
+[
+  {
+    "id": "mdm-classic-composite",
+    "name": "MDM Classic Composite",
+    "materialType": "MDM Material",
+    "category": "MDM Material",
+    "description": "اعلیٰ کوالٹی MDM مٹیریل سلیب، مضبوط بناوٹ اور یکساں فنش کے ساتھ۔ فرش، کاؤنٹر ٹاپس اور وال کلاڈنگ کے لیے بہترین۔",
+    "imageUrl": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "Flooring, Elevation, Kitchen Counters & Stairs",
+    "characteristics": "ہائی ڈینسٹی کمپوزٹ میٹریل، اینٹی اسکریچ اور پائیدار پالش۔",
+    "variants": [
+      {
+        "id": "variant-mdm-classic-0",
+        "thickness": "6-Sutar",
+        "size": "Standard Slab (2ft x 4ft)",
+        "price": 320
+      },
+      {
+        "id": "variant-mdm-classic-1",
+        "thickness": "4-Sutar",
+        "size": "Tiles (12\" x 24\")",
+        "price": 220
+      }
+    ],
+    "gallery": [],
+    "isFeatured": true,
+    "isHidden": false
+  },
+  {
+    "id": "mdm-royal-grey",
+    "name": "MDM Royal Grey",
+    "materialType": "MDM Material",
+    "category": "MDM Material",
+    "description": "جدید ڈیزائن کے لیے امپورٹڈ فائنل فنش MDM گرے اسٹون سلیب، ہموار سطح اور نفاست سے بھرپور۔",
+    "imageUrl": "https://images.unsplash.com/photo-1584622650111-993a426fbf0a",
+    "imageHint": "marble",
+    "origin": "Imported",
+    "uses": "TV Lounge, Bedroom Flooring & Feature Walls",
+    "characteristics": "سکریچ ریزسٹنٹ، جدید ڈیزائن اور واٹر پروف سطح۔",
+    "variants": [
+      {
+        "id": "variant-mdm-grey-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaw Slab",
+        "price": 380
+      },
+      {
+        "id": "variant-mdm-grey-1",
+        "thickness": "4-Sutar",
+        "size": "Custom Cut",
+        "price": 260
+      }
+    ],
+    "gallery": [],
+    "isFeatured": true,
+    "isHidden": false
+  },
+  {
+    "id": "mdm-super-white",
+    "name": "MDM Super White",
+    "materialType": "MDM Material",
+    "category": "MDM Material",
+    "description": "چمکتار سفید فنش کے ساتھ تیار کردہ MDM میٹریل، بغیر کسی داغ اور دیرپا چمک کے ساتھ۔",
+    "imageUrl": "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "Flooring, Vanities & Kitchen Tops",
+    "characteristics": "سفید چمکدار فنش اور زیرو پوروسٹی۔",
+    "variants": [
+      {
+        "id": "variant-mdm-white-0",
+        "thickness": "6-Sutar",
+        "size": "Slab (2ft x 6ft)",
+        "price": 290
+      },
+      {
+        "id": "variant-mdm-white-1",
+        "thickness": "4-Sutar",
+        "size": "Tiles (12\" x 24\")",
+        "price": 195
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "fantastice",
+    "name": "Fantastice",
+    "materialType": "Vanity",
+    "description": "",
+    "imageUrl": "/images/fantastice-1770155039642.jpg",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "",
+    "characteristics": "",
+    "variants": [
+      {
+        "size": "",
+        "thickness": "",
+        "price": 26000,
+        "id": "variant-fantastice-1771102058504-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "walakas",
+    "name": "Walakas ",
+    "materialType": "Marble",
+    "description": "",
+    "imageUrl": "/images/walakas-1770020905244.jpg",
+    "imageHint": "marble",
+    "origin": "Imported",
+    "uses": "",
+    "characteristics": "",
+    "variants": [
+      {
+        "id": "variant-walakas-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaw Slab",
+        "price": 2500
+      }
+    ],
+    "gallery": [],
+    "isFeatured": true,
+    "isHidden": false
+  },
+  {
+    "id": "star-zabra",
+    "name": "star zabra",
+    "materialType": "12x24 Tiles",
+    "description": "",
+    "imageUrl": "/images/star-zabra-1766151208038.jpg",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "flooring",
+    "characteristics": "\"Star Zebra\" marble is a visually striking natural stone known for its dramatic and elegant appearance, primarily featuring bold black and white (or grey) contrasting stripes and veins that resemble a zebra's pattern. It is often sourced from Pakistan or Namibia and is used for luxurious interior flooring and accent features. ",
+    "variants": [
+      {
+        "size": "12\"x24\"",
+        "thickness": "4-Sutar",
+        "price": 160,
+        "id": "variant-star-zabra-1770015339470-0"
+      }
+    ],
+    "gallery": [
+      {
+        "id": "gallery-star-zabra-1767002257527",
+        "url": "/images/gallery/gallery-star-zabra-1767002257527.jpeg",
+        "altText": "Gallery image for star-zabra"
+      },
+      {
+        "id": "gallery-star-zabra-1767002258408",
+        "url": "/images/gallery/gallery-star-zabra-1767002258408.jpeg",
+        "altText": "Gallery image for star-zabra"
+      }
+    ],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "boski-whaite",
+    "name": "boski white",
+    "materialType": "12x24 Tiles",
+    "description": "flooring",
+    "imageUrl": "/images/boski-whaite-1766150996509.jpg",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "flooring",
+    "characteristics": "Boski White marble provides a bright, airy feel that makes even smaller kitchen spaces appear more expansive Boski White marble is a popular choice for high-end kitchen interiors in 2025 due to its luminous appearance and crystalline structure. In a kitchen setting, it is frequently utilized for both seamless flooring and integrated staircases to create a cohesive, luxury aesthetic. ",
+    "variants": [
+      {
+        "thickness": "4-Sutar",
+        "size": "12\"x24\"",
+        "price": 250,
+        "id": "variant-boski-whaite-1770015463634-0"
+      },
+      {
+        "size": "12\"x24\"",
+        "thickness": "4-Sutar",
+        "price": 220,
+        "id": "variant-boski-whaite-1770015463634-1"
+      },
+      {
+        "size": "12\"x24\"",
+        "thickness": "4-Sutar",
+        "price": 180,
+        "id": "variant-boski-whaite-1770015463634-2"
+      }
+    ],
+    "gallery": [
+      {
+        "id": "gallery-boski-whaite-1767000765896",
+        "url": "/images/gallery/gallery-boski-whaite-1767000765896.jpeg",
+        "altText": "Gallery image for boski-whaite"
+      },
+      {
+        "id": "gallery-boski-whaite-1767000767039",
+        "url": "/images/gallery/gallery-boski-whaite-1767000767039.jpg",
+        "altText": "Gallery image for boski-whaite"
+      }
+    ],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "parlino",
+    "name": "parlino",
+    "materialType": "Marble",
+    "description": "",
+    "imageUrl": "/images/parlino-1762362368224.jpg",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "",
+    "characteristics": "",
+    "variants": [
+      {
+        "size": "84\"",
+        "thickness": "6'''",
+        "price": 950,
+        "id": "variant-parlino-1762362487097-0"
+      },
+      {
+        "size": "24\"",
+        "thickness": "6'''",
+        "price": 700,
+        "id": "variant-parlino-1762362487097-1"
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "khanpur-chaklat",
+    "name": "khanpur chaklat",
+    "materialType": "Marble",
+    "description": "",
+    "imageUrl": "/images/khanpur-chaklat-1761556699085.jpeg",
+    "imageHint": "marble",
+    "origin": "Local",
+    "uses": "",
+    "characteristics": "Varies by material",
+    "variants": [
+      {
+        "size": "",
+        "thickness": "",
+        "price": 550,
+        "id": "variant-khanpur-chaklat-1761556751268-0"
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "egypt-green",
+    "name": "Egypt Green",
+    "materialType": "Granite",
+    "description": "A durable granite with a consistent green color.",
+    "imageUrl": "/images/egypt-green-1761500515984.jpeg",
+    "imageHint": "green granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Durable, consistent color",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1265,
+        "id": "variant-egypt-green-1761732429704-0"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 1725,
+        "id": "variant-egypt-green-1761732429704-1"
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "egypt-red",
+    "name": "Egypt Red",
+    "materialType": "Granite",
+    "description": "A vibrant red granite, perfect for statement pieces.",
+    "imageUrl": "/images/egypt-red-1761314132953.jpg",
+    "imageHint": "red granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Vibrant color, durable",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1200,
+        "id": "variant-egypt-red-1769369709867-0"
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "emerald-pearl-new",
+    "name": "Emerald Pearl New",
+    "materialType": "Granite",
+    "description": "A fresh take on the classic Emerald Pearl, with vibrant green and silver flecks.",
+    "imageUrl": "/images/emerald-pearl-new-1761313994812.jpg",
+    "imageHint": "green pearl",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Vibrant green, silver flecks",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1552,
+        "id": "variant-emerald-pearl-new-1769368266875-0"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 1955,
+        "id": "variant-emerald-pearl-new-1769368266875-1"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 2300,
+        "id": "variant-emerald-pearl-new-1769368266875-2"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "52\"",
+        "price": 2645,
+        "id": "variant-emerald-pearl-new-1769368266875-3"
+      }
+    ],
+    "isFeatured": true,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "silver-pearl",
+    "name": "Silver Pearl",
+    "materialType": "Granite",
+    "description": "A stunning granite with a silver-grey background and pearlescent flecks.",
+    "imageUrl": "/images/silver-pearl-1761313953577.jpg",
+    "imageHint": "silver granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Silver-grey, pearlescent flecks",
+    "variants": [
+      {
+        "id": "variant-silver-pearl-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1610
+      },
+      {
+        "id": "variant-silver-pearl-1",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 2070
+      },
+      {
+        "id": "variant-silver-pearl-2",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 2645
+      },
+      {
+        "id": "variant-silver-pearl-3",
+        "thickness": "6-Sutar",
+        "size": "52\"",
+        "price": 2875
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "blue-pearl",
+    "name": "Blue Pearl",
+    "materialType": "Granite",
+    "description": "An elegant granite featuring blue and silver pearlescent crystals.",
+    "imageUrl": "/images/blue-pearl-1761313960024.jpg",
+    "imageHint": "blue pearl",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Blue and silver crystals",
+    "variants": [
+      {
+        "id": "variant-blue-pearl-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1725
+      },
+      {
+        "id": "variant-blue-pearl-1",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 1955
+      },
+      {
+        "id": "variant-blue-pearl-2",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 2530
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "emerald-pearl-old",
+    "name": "Emerald Pearl Old",
+    "materialType": "Granite",
+    "description": "The classic, sought-after Emerald Pearl with deep green tones.",
+    "imageUrl": "/images/emerald-pearl-old-1761313968174.jpg",
+    "imageHint": "dark green",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Deep green tones",
+    "variants": [
+      {
+        "id": "variant-emerald-pearl-old-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1840
+      },
+      {
+        "id": "variant-emerald-pearl-old-1",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 2185
+      },
+      {
+        "id": "variant-emerald-pearl-old-2",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 2645
+      },
+      {
+        "id": "variant-emerald-pearl-old-3",
+        "thickness": "6-Sutar",
+        "size": "52\"",
+        "price": 2875
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "tiger-skin",
+    "name": "Tiger Skin",
+    "materialType": "Granite",
+    "description": "A dynamic granite with wavy patterns resembling a tiger's stripes.",
+    "imageUrl": "/images/tiger-skin-1761313970950.jpg",
+    "imageHint": "striped granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Wavy, striped pattern",
+    "variants": [
+      {
+        "id": "variant-tiger-skin-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1610
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "raw-silk",
+    "name": "Raw Silk",
+    "materialType": "Granite",
+    "description": "A fine-grained granite with a texture reminiscent of raw silk.",
+    "imageUrl": "/images/raw-silk-1761313975699.jpg",
+    "imageHint": "beige granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Fine-grained, silky texture",
+    "variants": [
+      {
+        "id": "variant-raw-silk-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1495
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "california-gold",
+    "name": "California Gold",
+    "materialType": "Granite",
+    "description": "A warm granite with a mix of gold, brown, and grey tones.",
+    "imageUrl": "/images/california-gold-1761313979319.jpg",
+    "imageHint": "gold granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Gold, brown, and grey tones",
+    "variants": [
+      {
+        "id": "variant-california-gold-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 2243
+      },
+      {
+        "id": "variant-california-gold-1",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 3105
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "labrador",
+    "name": "Labrador",
+    "materialType": "Granite",
+    "description": "A dark, iridescent granite known for its labradorite crystals.",
+    "imageUrl": "/images/labrador-1761313891425.jpg",
+    "imageHint": "dark granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Dark, iridescent, labradorite crystals",
+    "variants": [
+      {
+        "id": "variant-labrador-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1840
+      },
+      {
+        "id": "variant-labrador-1",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 2070
+      },
+      {
+        "id": "variant-labrador-2",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 3105
+      },
+      {
+        "id": "variant-labrador-3",
+        "thickness": "6-Sutar",
+        "size": "52\"",
+        "price": 3450
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "uba-tuba",
+    "name": "Uba Tuba",
+    "materialType": "Granite",
+    "description": "A very dark green granite with flecks of gold, brown, and green.",
+    "imageUrl": "/images/uba-tuba-1761314316034.jpg",
+    "imageHint": "dark green",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Dark green, gold flecks",
+    "variants": [
+      {
+        "id": "variant-uba-tuba-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1380
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "baltic-brown",
+    "name": "Baltic Brown",
+    "materialType": "Granite",
+    "description": "A distinctive brown granite with large, circular patterns.",
+    "imageUrl": "/images/baltic-brown-1761314359339.jpg",
+    "imageHint": "brown granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Brown, large circular patterns",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1139,
+        "id": "variant-baltic-brown-1770154597294-0"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 1610,
+        "id": "variant-baltic-brown-1770154597294-1"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 2070,
+        "id": "variant-baltic-brown-1770154597294-2"
+      },
+      {
+        "thickness": "6-Sutar",
+        "size": "52\"",
+        "price": 2530,
+        "id": "variant-baltic-brown-1770154597294-3"
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "ornamental-brown",
+    "name": "Ornamental Brown",
+    "materialType": "Granite",
+    "description": "A consistent, light brown granite perfect for any design.",
+    "imageUrl": "/images/ornamental-brown-1761314415199.jpg",
+    "imageHint": "light brown",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Light brown, consistent pattern",
+    "variants": [
+      {
+        "id": "variant-ornamental-brown-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1955
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "ornamental-white",
+    "name": "Ornamental White",
+    "materialType": "Granite",
+    "description": "A white granite with soft grey and brown veining.",
+    "imageUrl": "/images/ornamental-white-1761314453996.jpg",
+    "imageHint": "white granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "White, soft grey and brown veining",
+    "variants": [
+      {
+        "id": "variant-ornamental-white-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1955
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "mapel-red",
+    "name": "Mapel Red",
+    "materialType": "Granite",
+    "description": "A deep red granite that adds a touch of warmth and color.",
+    "imageUrl": "/images/mapel-red-1761314484849.jpg",
+    "imageHint": "deep red",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Deep red color",
+    "variants": [
+      {
+        "id": "variant-mapel-red-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1380
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "chilli-red",
+    "name": "Chilli Red",
+    "materialType": "Granite",
+    "description": "A vibrant and fiery red granite.",
+    "imageUrl": "/images/chilli-red-1761314525134.jpg",
+    "imageHint": "fiery red",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Vibrant, fiery red",
+    "variants": [
+      {
+        "id": "variant-chilli-red-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1438
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "cherry-pink",
+    "name": "Cherry Pink",
+    "materialType": "Granite",
+    "description": "A soft pink granite with a cherry-like hue.",
+    "imageUrl": "/images/cherry-pink-1761314552391.jpg",
+    "imageHint": "pink granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Soft pink, cherry hue",
+    "variants": [
+      {
+        "id": "variant-cherry-pink-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1380
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "ten-brown",
+    "name": "Ten Brown",
+    "materialType": "Granite",
+    "description": "A reliable brown granite with a consistent pattern.",
+    "imageUrl": "/images/ten-brown-1761314583493.jpg",
+    "imageHint": "brown granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Consistent brown pattern",
+    "variants": [
+      {
+        "id": "variant-ten-brown-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1357
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "fantasy-blue",
+    "name": "Fantasy Blue",
+    "materialType": "Granite",
+    "description": "A dreamy granite with swirls of blue, grey, and white.",
+    "imageUrl": "/images/fantasy-blue-1761314792379.jpg",
+    "imageHint": "blue granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Swirls of blue, grey, and white",
+    "variants": [
+      {
+        "id": "variant-fantasy-blue-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1955
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "indian-galaxy",
+    "name": "Indian Galaxy",
+    "materialType": "Granite",
+    "description": "A black granite with small gold or silver specks.",
+    "imageUrl": "/images/indian-galaxy-1761314870304.jpg",
+    "imageHint": "black galaxy",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Black, gold/silver specks",
+    "variants": [
+      {
+        "id": "variant-indian-galaxy-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1575
+      },
+      {
+        "id": "variant-indian-galaxy-1",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 2070
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "cherry-brown",
+    "name": "Cherry Brown",
+    "materialType": "Granite",
+    "description": "A warm, inviting brown granite with hints of red.",
+    "imageUrl": "/images/cherry-brown-1761314917962.jpg",
+    "imageHint": "brown granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Warm brown, hints of red",
+    "variants": [
+      {
+        "id": "variant-cherry-brown-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1323
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "ukraine-red",
+    "name": "Ukraine Red",
+    "materialType": "Granite",
+    "description": "A rich, deep red granite from Ukraine.",
+    "imageUrl": "/images/ukraine-red-1761315051419.jpg",
+    "imageHint": "red granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Rich, deep red",
+    "variants": [
+      {
+        "id": "variant-ukraine-red-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1438
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "tin-brown",
+    "name": "Tin Brown",
+    "materialType": "Granite",
+    "description": "A versatile brown granite with a metallic sheen.",
+    "imageUrl": "/images/tin-brown-1761316403106.jpg",
+    "imageHint": "brown metallic",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Brown, metallic sheen",
+    "variants": [
+      {
+        "id": "variant-tin-brown-0",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 1725
+      },
+      {
+        "id": "variant-tin-brown-1",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 2070
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "red-rubby-new",
+    "name": "Red Rubby New",
+    "materialType": "Granite",
+    "description": "A new variant of ruby red granite with striking color.",
+    "imageUrl": "/images/red-rubby-new-1761316498056.jpg",
+    "imageHint": "ruby red",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Ruby red, striking color",
+    "variants": [
+      {
+        "id": "variant-red-rubby-new-0",
+        "thickness": "6-Sutar",
+        "size": "36\"",
+        "price": 1840
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "galaxy",
+    "name": "Galaxy",
+    "materialType": "Granite",
+    "description": "A popular black granite with sparkling flecks.",
+    "imageUrl": "/images/galaxy-1761320627673.jpg",
+    "imageHint": "black galaxy",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Black, sparkling flecks",
+    "variants": [
+      {
+        "id": "variant-galaxy-0",
+        "thickness": "6-Sutar",
+        "size": "48\"",
+        "price": 3105
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "panda-karara",
+    "name": "Panda Karara",
+    "materialType": "Marble",
+    "description": "A white marble with bold, contrasting black stripes.",
+    "imageUrl": "/images/panda-karara-1761320638941.jpg",
+    "imageHint": "panda marble",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "White, bold black stripes",
+    "variants": [
+      {
+        "id": "variant-panda-karara-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1200
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "artificial-karara",
+    "name": "Artificial Karara",
+    "materialType": "Artificial Stone",
+    "description": "An engineered stone mimicking classic Carrara marble.",
+    "imageUrl": "/images/artificial-karara-1761456758351.jpg",
+    "imageHint": "white engineered",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Engineered, mimics Carrara",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1093,
+        "id": "variant-artificial-karara-0"
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "panda-white",
+    "name": "Panda White",
+    "materialType": "Marble",
+    "description": "A beautiful white marble with flowing black veins.",
+    "imageUrl": "/images/panda-white-1761456794361.jpg",
+    "imageHint": "white black",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "White, flowing black veins",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2645,
+        "id": "variant-panda-white-0"
+      }
+    ],
+    "isFeatured": true,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "armani-grey",
+    "name": "Armani Grey",
+    "materialType": "Marble",
+    "description": "A sophisticated grey marble with subtle veining.",
+    "imageUrl": "/images/armani-grey-1761456835253.jpg",
+    "imageHint": "grey marble",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Grey, subtle veining",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1955,
+        "id": "variant-armani-grey-0"
+      }
+    ],
+    "isFeatured": true,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "vietnam-white",
+    "name": "Vietnam White",
+    "materialType": "Marble",
+    "description": "A pure white marble known for its pristine appearance.",
+    "imageUrl": "/images/vietnam-white-1761320618837.jpg",
+    "imageHint": "pure white",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Pure white, pristine",
+    "variants": [
+      {
+        "id": "variant-vietnam-white-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 3795
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "artificial-cream",
+    "name": "Artificial Cream",
+    "materialType": "Artificial Stone",
+    "description": "A versatile and consistent cream-colored engineered stone.",
+    "imageUrl": "/images/artificial-cream-1761460978561.jpg",
+    "imageHint": "cream engineered",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Cream, consistent color",
+    "variants": [
+      {
+        "id": "variant-artificial-cream-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1150
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "lg-corian",
+    "name": "LG Corian",
+    "materialType": "Corian",
+    "description": "A high-quality solid surface material from LG, perfect for seamless countertops and modern designs.",
+    "imageUrl": "https://picsum.photos/seed/corian1/600/400",
+    "imageHint": "white solid surface",
+    "origin": "Imported",
+    "uses": "Kitchen Countertops, Vanity Tops, Wall Cladding, Commercial Spaces",
+    "characteristics": "Non-porous, seamless joints, durable, easy to repair",
+    "variants": [
+      {
+        "id": "variant-lg-corian-0",
+        "thickness": "12mm",
+        "size": "Slabs",
+        "price": 4500
+      }
+    ],
+    "isFeatured": true,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "rock-wall-cladding",
+    "name": "Rock Wall Cladding",
+    "materialType": "Facade Stone",
+    "origin": "Local",
+    "description": "Natural stone for exterior wall cladding and feature walls, giving a rustic and modern look.",
+    "imageUrl": "/images/rock-wall-cladding-1771328676303.jpg",
+    "imageHint": "stone wall",
+    "uses": "Front Elevation, Feature Walls, Exterior Cladding",
+    "characteristics": "Durable, weather-resistant, natural texture.",
+    "variants": [
+      {
+        "id": "variant-rock-wall-cladding-0",
+        "thickness": "Varies",
+        "size": "Interlocking Panels",
+        "price": 2500
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "antique-marble-fountain",
+    "name": "Hand-Carved Marble Fountain",
+    "materialType": "Antique",
+    "origin": "Local",
+    "description": "Exquisite antique-style (اینٹیک) hand-carved fountain made from a single block of marble.",
+    "imageUrl": "https://picsum.photos/seed/fountain1/600/400",
+    "imageHint": "fountain sculpture",
+    "uses": "Gardens, courtyards, grand entrances",
+    "characteristics": "Hand-carved, classic design, weather-resistant",
+    "variants": [
+      {
+        "id": "variant-antique-1",
+        "thickness": "N/A",
+        "size": "Per Piece",
+        "price": 75000
+      }
+    ],
+    "gallery": [],
+    "isFeatured": true,
+    "isHidden": false
+  },
+  {
+    "id": "ready-marble-vanity",
+    "name": "Ready-made Marble Vanity Top",
+    "materialType": "Vanity",
+    "origin": "Local",
+    "description": "Pre-cut and polished marble vanity top (تیار وینٹی), ready for installation. Sink cutout included.",
+    "imageUrl": "/images/ready-marble-vanity-1770154883241.jpg",
+    "imageHint": "vanity bathroom",
+    "uses": "Bathrooms, powder rooms",
+    "characteristics": "Polished finish, includes sink cutout, standard sizes",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "48\" x 22\"",
+        "price": 25000,
+        "id": "variant-ready-marble-vanity-1770154913812-0"
+      }
+    ],
+    "gallery": [
+      {
+        "id": "gallery-ready-marble-vanity-1770151731029",
+        "url": "/images/gallery/gallery-ready-marble-vanity-1770151731029.jpeg",
+        "altText": "Gallery image for ready-marble-vanity"
+      }
+    ],
+    "isFeatured": true,
+    "isHidden": false
+  },
+  {
+    "id": "ice-white-wave",
+    "name": "Ice White Wave",
+    "materialType": "Marble",
+    "description": "A white marble with dramatic, wave-like grey veining.",
+    "imageUrl": "/images/ice-white-wave-1761465238544.jpg",
+    "imageHint": "white wave",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "White, wave-like grey veining",
+    "variants": [
+      {
+        "id": "variant-ice-white-wave-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2645
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "wave-brown",
+    "name": "Wave Brown",
+    "materialType": "Marble",
+    "description": "A brown marble with flowing, wave-like patterns.",
+    "imageUrl": "/images/wave-brown-1761461324966.jpg",
+    "imageHint": "brown wave",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Brown, wave-like patterns",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 3105,
+        "id": "variant-wave-brown-1763103088686-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "snow-white",
+    "name": "Snow White",
+    "materialType": "Marble",
+    "description": "A crisp, clean white marble perfect for modern designs.",
+    "imageUrl": "/images/snow-white-1761489249888.jpeg",
+    "imageHint": "snow white",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Crisp, clean white",
+    "variants": [
+      {
+        "id": "variant-snow-white-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 977
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "supreme-white",
+    "name": "Supreme White",
+    "materialType": "Marble",
+    "description": "A luxurious white marble with soft, subtle veining.",
+    "imageUrl": "/images/supreme-white-1761500993396.jpeg",
+    "imageHint": "white marble",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Luxurious white, soft veining",
+    "variants": [
+      {
+        "id": "variant-supreme-white-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1093
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "ice-white",
+    "name": "Ice White",
+    "materialType": "Marble",
+    "description": "A cool, white marble with a clean and icy appearance.",
+    "imageUrl": "/images/ice-white-1761501409531.jpeg",
+    "imageHint": "icy white",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Cool white, icy appearance",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1955,
+        "id": "variant-ice-white-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "emprador-dark",
+    "name": "Emprador Dark",
+    "materialType": "Marble",
+    "description": "A rich, dark brown marble with light veining.",
+    "imageUrl": "/images/emprador-dark-1761461583881.jpg",
+    "imageHint": "dark brown",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Rich dark brown, light veining",
+    "variants": [
+      {
+        "id": "variant-emprador-dark-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1840
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "emprador-light",
+    "name": "Emprador Light",
+    "materialType": "Marble",
+    "description": "A lighter brown marble with a spiderweb of veining.",
+    "imageUrl": "/images/emprador-light-1761501569205.jpeg",
+    "imageHint": "light brown",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Light brown, spiderweb veining",
+    "variants": [
+      {
+        "id": "variant-emprador-light-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1725
+      }
+    ],
+    "isFeatured": false,
+    "gallery": [],
+    "isHidden": false
+  },
+  {
+    "id": "starlet-white",
+    "name": "Starlet White",
+    "materialType": "Marble",
+    "description": "A white marble with a starry, crystalline structure.",
+    "imageUrl": "/images/starlet-white-1761502529034.jpeg",
+    "imageHint": "white crystalline",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "White, starry crystalline structure",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1150,
+        "id": "variant-starlet-white-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "artificial-red",
+    "name": "Artificial Red",
+    "materialType": "Artificial Stone",
+    "description": "A bold, consistent red engineered stone.",
+    "imageUrl": "/images/artificial-red-1761502663041.jpeg",
+    "imageHint": "red engineered",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Bold, consistent red",
+    "variants": [
+      {
+        "id": "variant-artificial-red-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1265
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "artificial-blue",
+    "name": "Artificial Blue",
+    "materialType": "Artificial Stone",
+    "description": "A striking blue engineered stone for modern designs.",
+    "imageUrl": "/images/artificial-blue-1761502842222.jpeg",
+    "imageHint": "blue engineered",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Striking blue, modern",
+    "variants": [
+      {
+        "id": "variant-artificial-blue-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1265
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "star-gold",
+    "name": "Star Gold",
+    "materialType": "Granite",
+    "description": "A golden granite with star-like patterns.",
+    "imageUrl": "/images/star-gold-1761503022581.jpeg",
+    "imageHint": "gold granite",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Golden, star-like patterns",
+    "variants": [
+      {
+        "id": "variant-star-gold-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1552
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "indian-green",
+    "name": "Indian green",
+    "materialType": "Marble",
+    "description": "A classic green marble from India, known for its uniform color.",
+    "imageUrl": "/images/indian-green-1761503105948.jpeg",
+    "imageHint": "green marble",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Classic green, uniform color",
+    "variants": [
+      {
+        "id": "variant-indian-green-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1610
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "sardinia",
+    "name": "Sardinia",
+    "materialType": "Marble",
+    "description": "A beautiful grey marble with distinctive patterns.",
+    "imageUrl": "/images/sardinia-1761503293363.jpeg",
+    "imageHint": "grey marble",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Grey, distinctive patterns",
+    "variants": [
+      {
+        "id": "variant-sardinia-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2243
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "black-marquina",
+    "name": "Black Marquina",
+    "materialType": "Marble",
+    "description": "A striking black marble with contrasting white veins.",
+    "imageUrl": "/images/black-marquina-1761503409776.jpeg",
+    "imageHint": "black white",
+    "origin": "Imported",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Black, contrasting white veins",
+    "variants": [
+      {
+        "id": "variant-black-marquina-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1667
+      }
+    ],
+    "gallery": [],
+    "isFeatured": true,
+    "isHidden": false
+  },
+  {
+    "id": "local-paradiso-wave",
+    "name": "Local Paradiso Wave",
+    "materialType": "Granite",
+    "description": "A local marble with beautiful, flowing wave patterns.",
+    "imageUrl": "/images/local-paradiso-wave-1761503693394.jpeg",
+    "imageHint": "wave marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Flowing wave patterns",
+    "variants": [
+      {
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 506,
+        "id": "variant-local-paradiso-wave-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "local-paradiso-fantasy",
+    "name": "Local Paradiso - Fantasy",
+    "materialType": "Granite",
+    "description": "A fantasy variant of local Paradiso marble with unique patterns.",
+    "imageUrl": "/images/local-paradiso-fantasy-1761504055440.jpeg",
+    "imageHint": "fantasy marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Unique fantasy patterns",
+    "variants": [
+      {
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 460,
+        "id": "variant-local-paradiso-fantasy-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "jubirana-grey",
+    "name": "Jubirana Grey",
+    "materialType": "Granite",
+    "description": "A durable grey granite with a consistent texture.",
+    "imageUrl": "/images/jubirana-grey-1761504288262.jpeg",
+    "imageHint": "grey granite",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Durable grey, consistent texture",
+    "variants": [
+      {
+        "id": "variant-jubirana-grey-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 575
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "jubirana-local-epoxy",
+    "name": "Jubirana Local-Epoxy",
+    "materialType": "Granite",
+    "description": "A local variant of Jubirana treated with epoxy for enhanced durability.",
+    "imageUrl": "/images/jubirana-local-epoxy-1761504360890.jpeg",
+    "imageHint": "epoxy granite",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Epoxy-treated, enhanced durability",
+    "variants": [
+      {
+        "id": "variant-jubirana-local-epoxy-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 667
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "sadow-pink",
+    "name": "Sadow Pink",
+    "materialType": "Marble",
+    "description": "A soft pink marble, perfect for adding a touch of color.",
+    "imageUrl": "/images/sadow-pink-1761504446704.jpeg",
+    "imageHint": "pink marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Soft pink color",
+    "variants": [
+      {
+        "id": "variant-sadow-pink-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 402
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "emperial-white",
+    "name": "Emperial White",
+    "materialType": "Marble",
+    "description": "A luxurious white marble with a majestic appearance.",
+    "imageUrl": "/images/emperial-white-1761504548156.jpeg",
+    "imageHint": "imperial white",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Luxurious white, majestic",
+    "variants": [
+      {
+        "id": "variant-emperial-white-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 448
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "indus-gold-local",
+    "name": "Indus Gold",
+    "materialType": "Marble",
+    "description": "A local variant of the famous Indus Gold marble.",
+    "imageUrl": "/images/indus-gold-local-1761504649152.jpeg",
+    "imageHint": "gold marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Golden hues, local variant",
+    "variants": [
+      {
+        "id": "variant-indus-gold-local-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 345
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "chaghi-pink",
+    "name": "Chaghi Pink",
+    "materialType": "Marble",
+    "description": "A beautiful pink marble from the Chaghi district.",
+    "imageUrl": "/images/chaghi-pink-1761504721751.jpeg",
+    "imageHint": "pink marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Pink, from Chaghi",
+    "variants": [
+      {
+        "id": "variant-chaghi-pink-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 518
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "local-camel-brown",
+    "name": "Local Camel Brown",
+    "materialType": "Marble",
+    "description": "A warm, camel-colored marble sourced locally.",
+    "imageUrl": "/images/local-camel-brown-1761504835204.jpeg",
+    "imageHint": "brown marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Warm camel color",
+    "variants": [
+      {
+        "id": "variant-local-camel-brown-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 633
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "hunza-green",
+    "name": "Hunza Green",
+    "materialType": "Marble",
+    "description": "A unique green marble from the scenic Hunza valley.",
+    "imageUrl": "/images/hunza-green-1761504918416.jpeg",
+    "imageHint": "green marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Green, from Hunza",
+    "variants": [
+      {
+        "id": "variant-hunza-green-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 610
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "silbata-24",
+    "name": "Silbata 24\"",
+    "materialType": "Marble",
+    "description": "A versatile local marble.",
+    "imageUrl": "/images/silbata-24-1761505049124.jpeg",
+    "imageHint": "local marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Versatile local marble",
+    "variants": [
+      {
+        "id": "variant-silbata-24-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 541
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "silbata-12",
+    "name": "Silbata 12\"",
+    "materialType": "Marble",
+    "description": "A smaller variant of the Silbata local marble.",
+    "imageUrl": "/images/silbata-12-1761505119924.jpeg",
+    "imageHint": "local marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Versatile local marble",
+    "variants": [
+      {
+        "id": "variant-silbata-12-0",
+        "thickness": "4-Sutar",
+        "size": "12\"",
+        "price": 402
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "dir-white",
+    "name": "Dir White",
+    "materialType": "Marble",
+    "description": "A pristine white marble from the Dir region.",
+    "imageUrl": "/images/dir-white-1761505215844.jpeg",
+    "imageHint": "white marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Pristine white, from Dir",
+    "variants": [
+      {
+        "id": "variant-dir-white-0",
+        "thickness": "4-Sutar",
+        "size": "12\"",
+        "price": 402
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "bampokha-no-1-12",
+    "name": "Bampokha No.1 12\"",
+    "materialType": "Marble",
+    "description": "A prime quality local marble.",
+    "imageUrl": "/images/bampokha-no-1-12-1761505514672.jpeg",
+    "imageHint": "local marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Prime quality local marble",
+    "variants": [
+      {
+        "id": "variant-bampokha-no-1-12-0",
+        "thickness": "4-Sutar",
+        "size": "12\"",
+        "price": 350
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "loralai-cream",
+    "name": "Loralai Cream",
+    "materialType": "Marble",
+    "description": "A soft cream-colored marble for elegant counters.",
+    "imageUrl": "/images/loralai-cream-1761505603046.jpeg",
+    "imageHint": "cream marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Soft cream color",
+    "variants": [
+      {
+        "id": "variant-loralai-cream-0",
+        "thickness": "6-Sutar",
+        "size": "Counters",
+        "price": 667
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "tarvatine",
+    "name": "Tarvatine",
+    "materialType": "Marble",
+    "description": "A beautiful travertine-style marble for counters.",
+    "imageUrl": "/images/tarvatine-1761505758056.jpg",
+    "imageHint": "travertine marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Travertine style",
+    "variants": [
+      {
+        "id": "variant-tarvatine-0",
+        "thickness": "6-Sutar",
+        "size": "Counters",
+        "price": 633
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "bermateek",
+    "name": "Bermateek",
+    "materialType": "Marble",
+    "description": "A unique local marble, great for countertops.",
+    "imageUrl": "/images/bermateek-1761505836626.jpeg",
+    "imageHint": "teak marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Unique local marble",
+    "variants": [
+      {
+        "id": "variant-bermateek-0",
+        "thickness": "6-Sutar",
+        "size": "Counters",
+        "price": 1150
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "boticena-cream-slab",
+    "name": "Boticena Cream Slab",
+    "materialType": "Marble",
+    "description": "A classic cream marble, available in large slabs.",
+    "imageUrl": "/images/boticena-cream-slab-1761505912764.jpeg",
+    "imageHint": "cream marble",
+    "origin": "Local",
+    "uses": "Flooring, Countertops, Wall Cladding",
+    "characteristics": "Classic cream, large slabs",
+    "variants": [
+      {
+        "thickness": "6-Sutar",
+        "size": "Counters",
+        "price": 747,
+        "id": "variant-boticena-cream-slab-1771221742865-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "sunny-white-tiles",
+    "name": "Sunny White",
+    "materialType": "12x24 Tiles",
+    "origin": "Local",
+    "description": "Affordable and bright Sunny White tiles, perfect for flooring and walls.",
+    "imageUrl": "/images/sunny-white-tiles-1766150486818.jpg",
+    "imageHint": "white tile",
+    "uses": "Flooring, Bathrooms, Wall Cladding",
+    "characteristics": "Bright white, consistent color, affordable.",
+    "variants": [
+      {
+        "thickness": "4-Sutar",
+        "size": "12\"x24\"",
+        "price": 150,
+        "id": "variant-sunny-white-tiles-1770015569249-0"
+      },
+      {
+        "size": "12\"x24\"",
+        "thickness": "4-Sutar",
+        "price": 120,
+        "id": "variant-sunny-white-tiles-1770015569249-1"
+      },
+      {
+        "size": "12\"x24\"",
+        "thickness": "4-Sutar",
+        "price": 95,
+        "id": "variant-sunny-white-tiles-1770015569249-2"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "sunny-grey-tiles",
+    "name": "Silky Grey",
+    "materialType": "12x24 Tiles",
+    "origin": "Local",
+    "description": "Versatile and modern Sunny Grey tiles for a sleek finish.",
+    "imageUrl": "/images/sunny-grey-tiles-1766150688755.jpg",
+    "imageHint": "grey tile",
+    "uses": "Flooring, Office spaces, modern interiors",
+    "characteristics": "Neutral grey, durable, easy to maintain.",
+    "variants": [
+      {
+        "thickness": "4-Sutar",
+        "size": "12\"x24\"",
+        "price": 135,
+        "id": "variant-sunny-grey-tiles-1770015611571-0"
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "indian-red-ruby",
+    "name": "Indian Red Ruby",
+    "materialType": "Granite",
+    "origin": "Imported",
+    "description": "Rich Indian ruby red granite of deep texture and extreme durability.",
+    "imageUrl": "https://placehold.co/150?text=Indian+Red+Ruby",
+    "imageHint": "red granite",
+    "variants": [
+      {
+        "id": "variant-indian-red-ruby-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1610
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "imported-paradeso",
+    "name": "Imported Paradeso",
+    "materialType": "Granite",
+    "origin": "Imported",
+    "description": "Elegant imported paradiso granite.",
+    "imageUrl": "https://placehold.co/150?text=Imported+Paradeso",
+    "imageHint": "granite",
+    "variants": [
+      {
+        "id": "variant-imported-paradeso-0",
+        "thickness": "6-Sutar",
+        "size": "24\"",
+        "price": 1610
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "chitral-white",
+    "name": "Chitral white",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Local Chitral white marble with soft grey undertones.",
+    "imageUrl": "https://placehold.co/150?text=Chitral+White",
+    "imageHint": "white marble",
+    "variants": [
+      {
+        "id": "variant-chitral-white-0",
+        "thickness": "4-Sutar",
+        "size": "24\"",
+        "price": 460
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "royal-cream-slab",
+    "name": "Royal Cream Slab",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Elegant local Royal Cream Slab.",
+    "imageUrl": "https://placehold.co/150?text=Royal+Cream+Slab",
+    "imageHint": "cream marble",
+    "variants": [
+      {
+        "id": "variant-royal-cream-slab-0",
+        "thickness": "6-Sutar",
+        "size": "Slab",
+        "price": 747
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "local-armani-grey",
+    "name": "Local Armani Grey",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Local Armani Grey marble countertop format.",
+    "imageUrl": "https://placehold.co/150?text=Local+Armani+Grey",
+    "imageHint": "grey marble",
+    "variants": [
+      {
+        "id": "variant-local-armani-grey-0",
+        "thickness": "6-Sutar",
+        "size": "Counters",
+        "price": 1150
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "local-coffee-brown",
+    "name": "Local Coffee Brown",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Rich local Coffee Brown marble countertop format.",
+    "imageUrl": "https://placehold.co/150?text=Local+Coffee+Brown",
+    "imageHint": "brown marble",
+    "variants": [
+      {
+        "id": "variant-local-coffee-brown-0",
+        "thickness": "6-Sutar",
+        "size": "Counters",
+        "price": 1150
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "silbata-plain-4",
+    "name": "Silbata Plain 4\"",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Unpolished rustic local Silbata plain format.",
+    "imageUrl": "https://placehold.co/150?text=Silbata+Plain+4",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-silbata-plain-4-0",
+        "thickness": "4-Sutar",
+        "size": "4\"",
+        "price": 241
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "silbata-mate-polish-4",
+    "name": "Silbata Mate Polish 4\"",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Smooth mate polish local Silbata format.",
+    "imageUrl": "https://placehold.co/150?text=Silbata+Mate+Polish",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-silbata-mate-polish-4-0",
+        "thickness": "4-Sutar",
+        "size": "4\"",
+        "price": 276
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "silbata-full-polish-4",
+    "name": "Silbata Full Polish 4\"",
+    "materialType": "Marble",
+    "origin": "Local",
+    "description": "Shiny high-gloss full polish local Silbata format.",
+    "imageUrl": "https://placehold.co/150?text=Silbata+Full+Polish",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-silbata-full-polish-4-0",
+        "thickness": "4-Sutar",
+        "size": "4\"",
+        "price": 288
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "kolkata-gold",
+    "name": "Kolkata Gold",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Beautiful gangsaw slab format of Kolkata Gold marble.",
+    "imageUrl": "https://placehold.co/150?text=Kolkata+Gold",
+    "imageHint": "white gold marble",
+    "variants": [
+      {
+        "id": "variant-kolkata-gold-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 3220
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "ice-white-golden-line",
+    "name": "Ice White Golden line",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Chilly Ice White background with subtle golden threads.",
+    "imageUrl": "https://placehold.co/150?text=Ice+White+Golden+Line",
+    "imageHint": "white marble",
+    "variants": [
+      {
+        "id": "variant-ice-white-golden-line-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 3220
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "fish-belly",
+    "name": "Fish Belly",
+    "materialType": "Artificial Stone",
+    "origin": "Imported",
+    "description": "Artificial Fish Belly stone slab format.",
+    "imageUrl": "https://placehold.co/150?text=Fish+Belly",
+    "imageHint": "artificial stone",
+    "variants": [
+      {
+        "id": "variant-fish-belly-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1380
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "mehran-green",
+    "name": "Mehran Green",
+    "materialType": "Artificial Stone",
+    "origin": "Imported",
+    "description": "Artificial Mehran Green stone slab format.",
+    "imageUrl": "https://placehold.co/150?text=Mehran+Green",
+    "imageHint": "artificial stone",
+    "variants": [
+      {
+        "id": "variant-mehran-green-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1380
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "ash-grey",
+    "name": "Ash Grey",
+    "materialType": "Artificial Stone",
+    "origin": "Imported",
+    "description": "Artificial Ash Grey stone slab format.",
+    "imageUrl": "https://placehold.co/150?text=Ash+Grey",
+    "imageHint": "artificial stone",
+    "variants": [
+      {
+        "id": "variant-ash-grey-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1380
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "indus-grey",
+    "name": "Indus Grey",
+    "materialType": "Artificial Stone",
+    "origin": "Imported",
+    "description": "Artificial Indus Grey stone slab format.",
+    "imageUrl": "https://placehold.co/150?text=Indus+Grey",
+    "imageHint": "artificial stone",
+    "variants": [
+      {
+        "id": "variant-indus-grey-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1380
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "venus-gold",
+    "name": "Venus Gold",
+    "materialType": "Artificial Stone",
+    "origin": "Imported",
+    "description": "Artificial Venus Gold stone slab format.",
+    "imageUrl": "https://placehold.co/150?text=Venus+Gold",
+    "imageHint": "artificial stone",
+    "variants": [
+      {
+        "id": "variant-venus-gold-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1265
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "panda-black-karara",
+    "name": "Panda Black Karara",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Beautiful black marble slab with Karara white veins.",
+    "imageUrl": "https://placehold.co/150?text=Panda+Black+Karara",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-panda-black-karara-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1265
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "panda-karara-snow",
+    "name": "Panda Karara(snow quality)",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "White snow quality marble slab with bold black strokes.",
+    "imageUrl": "https://placehold.co/150?text=Panda+Karara+Snow",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-panda-karara-snow-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1208
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "brown-wood",
+    "name": "Brown Wood",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Striking wood grain brown marble slab format.",
+    "imageUrl": "https://placehold.co/150?text=Brown+Wood",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-brown-wood-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2070
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "white-wood",
+    "name": "White Wood",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Soft wood textured white marble slab format.",
+    "imageUrl": "https://placehold.co/150?text=White+Wood",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-white-wood-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2300
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "sofital-gold",
+    "name": "Sofital Gold",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Polished Sofital Gold imported marble slab format.",
+    "imageUrl": "https://placehold.co/150?text=Sofital+Gold",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-sofital-gold-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2875
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "black-forest",
+    "name": "Black Forest",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Deep black with majestic grey waves of Black Forest marble.",
+    "imageUrl": "https://placehold.co/150?text=Black+Forest",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-black-forest-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 2415
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "red-tervertine",
+    "name": "Red Tervertine",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Beautiful red tervertine imported marble slab format.",
+    "imageUrl": "https://placehold.co/150?text=Red+Tervertine",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-red-tervertine-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1667
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "silver-tervertine",
+    "name": "Silver Tervertine",
+    "materialType": "Marble",
+    "origin": "Imported",
+    "description": "Rich silver tervertine imported marble slab format.",
+    "imageUrl": "https://placehold.co/150?text=Silver+Tervertine",
+    "imageHint": "marble",
+    "variants": [
+      {
+        "id": "variant-silver-tervertine-0",
+        "thickness": "6-Sutar",
+        "size": "Gangsaws",
+        "price": 1840
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": false
+  },
+  {
+    "id": "general-supplies-order",
+    "name": "General Supplies & Fixing Materials",
+    "materialType": "Facade Stone",
+    "origin": "Local",
+    "description": "A general-purpose category for ordering fixing materials, tools, and other supplies without selecting a specific marble.",
+    "imageUrl": "https://picsum.photos/seed/supplies/600/400",
+    "imageHint": "tools supplies",
+    "uses": "For creating quotations that primarily consist of fixing materials or tools.",
+    "characteristics": "Not a physical product.",
+    "variants": [
+      {
+        "id": "variant-general-supplies-0",
+        "thickness": "N/A",
+        "size": "N/A",
+        "price": 0
+      }
+    ],
+    "gallery": [],
+    "isFeatured": false,
+    "isHidden": true
+  }
+]

@@ -1,0 +1,85 @@
+{
+  "businessName": "STONE EXPERT",
+  "affiliation": "Sales Affiliation with MDM (Mohmand Dada Minerals)",
+  "letterheadUrl": "",
+  "logoUrl": "/logo.svg",
+  "ceoName": "Fida Hussain",
+  "ceoTitle": "CEO STONE EXPERT",
+  "ceoPhone": "0300-3634052",
+  "ceoWhatsApp": "923003634052",
+  "businessPhoneNumber": "0300-3634052",
+  "businessWhatsAppNumber": "923003634052",
+  "address": "Plot # 375-A, Potohar Road, I-9/3, Islamabad",
+  "addressUr": "پلاٹ نمبر 375-A، پوٹھوہار روڈ، آئی نائن تھری (I-9/3)، اسلام آباد",
+  "googleSearch": "Stone Expert Marble & Construction Solution",
+  "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=Plot+375-A+Potohar+Road+I-9-3+Islamabad",
+  "sharedAppUrl": "https://stoneexpert.net",
+  "publicDomain": "https://stoneexpert.net",
+  "cardAddresses": [
+    {
+      "title": "Head Office & Marble Yard",
+      "titleUr": "مرکزی آفس و ماربل یارڈ",
+      "address": "Plot # 375-A, Potohar Road, I-9/3, Islamabad",
+      "addressUr": "پلاٹ نمبر 375-A، پوٹھوہار روڈ، آئی نائن تھری (I-9/3)، اسلام آباد"
+    },
+    {
+      "title": "Rawalpindi Office (Visiting Card)",
+      "titleUr": "راولپنڈی آفس (کارڈ ایڈریس)",
+      "address": "Dhok Chaudhrian Bangash Colony Near Car Chowk Chaklala Scheme III Rawalpindi",
+      "addressUr": "ڈھوک چوہدریاں، بنگش کالونی، نزد کار چوک، چکلالہ سکیم 3، راولپنڈی"
+    },
+    {
+      "title": "DHA 2 Regional Office",
+      "titleUr": "ڈی ایچ اے 2 و اسلام آباد ریجنل رابطہ",
+      "address": "DHA Phase 2, Main GT Road, Islamabad",
+      "addressUr": "ڈی ایچ اے فیز 2، مین جی ٹی روڈ، اسلام آباد"
+    }
+  ],
+  "contacts": [
+    {
+      "name": "Fida Hussain",
+      "nameUr": "فدا حسین",
+      "role": "CEO STONE EXPERT",
+      "phone": "0300-3634052",
+      "whatsapp": "923003634052"
+    },
+    {
+      "name": "Fayyaz Hussain",
+      "nameUr": "فیاض حسین",
+      "role": "Regional Representative (Islamabad DHA 2 & Surrounding Areas)",
+      "phone": "0303-1512554",
+      "whatsapp": "923031512554"
+    }
+  ],
+  "socials": {
+    "instagram": "@STONEEXPERT052",
+    "instagramUrl": "https://instagram.com/STONEEXPERT052",
+    "tiktok": "@stoneexpert.islamabad052",
+    "tiktokUrl": "https://tiktok.com/@stoneexpert.islamabad052"
+  },
+  "categoryOrder": [
+    "Sale & Discount",
+    "Vanity",
+    "Marble Tiles",
+    "Local Marble",
+    "Imported Marble",
+    "Local Granite",
+    "Imported Granite",
+    "MDM Material",
+    "Artificial Stone",
+    "Inlay",
+    "Antique",
+    "Corian",
+    "Facade Stone",
+    "Limestone",
+    "Adhesive",
+    "Tool",
+    "Chemical",
+    "Abrasive"
+  ],
+  "serviceTypes": [
+    "Marble & Tile Fixing",
+    "Marble Polishing",
+    "suzuki wala"
+  ]
+}

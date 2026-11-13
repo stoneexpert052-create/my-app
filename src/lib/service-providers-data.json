@@ -1,0 +1,96 @@
+[
+  {
+    "id": "sp-1775056486161",
+    "name": "Fida hussain",
+    "service": "suzuki wala",
+    "phone": "03027998398",
+    "status": "active",
+    "rating": 3,
+    "gallery": [],
+    "socials": {},
+    "jobs": [
+      {
+        "id": "job-fh-1",
+        "title": "Batta / Marble Block Transportation (Twin Cities)",
+        "price": 1200,
+        "unit": "job"
+      },
+      {
+        "id": "job-fh-2",
+        "title": "Loose Sand / Gravel Material Supply",
+        "price": 3500,
+        "unit": "job"
+      }
+    ]
+  },
+  {
+    "id": "sp-1",
+    "name": "Riyaz Hussain",
+    "service": "Marble & Tile Fixing",
+    "phone": "03070511355",
+    "imageUrl": "/images/providers/sp-1.jpg",
+    "status": "active",
+    "rating": 5,
+    "gallery": [
+      {
+        "id": "sp-gallery-sp-1-1770143132190",
+        "url": "/images/providers/sp-gallery-sp-1-1770143132190.jpg",
+        "altText": "Work sample for Arif Khan"
+      }
+    ],
+    "socials": {
+      "whatsapp": "03070511355"
+    },
+    "jobs": [
+      {
+        "id": "job-rh-1",
+        "title": "Badal Marble Fixing on Floor",
+        "price": 45,
+        "unit": "sqft"
+      },
+      {
+        "id": "job-rh-2",
+        "title": "Sunny Grey Marble Stair Fixing",
+        "price": 250,
+        "unit": "piece"
+      },
+      {
+        "id": "job-rh-3",
+        "title": "Porcelain/Ceramic Floor Tile Fixing",
+        "price": 65,
+        "unit": "sqft"
+      },
+      {
+        "id": "job-rh-4",
+        "title": "Marble Border/Skirting Running Fitting",
+        "price": 20,
+        "unit": "rft"
+      }
+    ]
+  },
+  {
+    "id": "sp-2",
+    "name": "شہباز حیدر",
+    "service": "Marble Polishing",
+    "phone": "03219863400",
+    "imageUrl": "/images/placeholder-avatar.png",
+    "status": "active",
+    "rating": 4,
+    "gallery": [],
+    "socials": {},
+    "jobs": [
+      {
+        "id": "job-sh-1",
+        "title": "Diamond Marble Cutting & Rough Polishing",
+        "price": 25,
+        "unit": "sqft"
+      },
+      {
+        "id": "job-sh-2",
+        "title": "Chemical Gloss & Polish Finishing",
+        "price": 40,
+        "unit": "sqft"
+      }
+    ]
+  }
+]
