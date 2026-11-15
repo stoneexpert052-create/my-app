@@ -50,6 +50,10 @@ import { useToast } from '@/hooks/use-toast';
 import { SlabPdfBlueprintModal } from '@/components/slab-pdf-blueprint-modal';
 import { BookmatchStudioPanel } from '@/components/bookmatch-studio-panel';
 import {
+  RoomFloorBookmatchPlanner,
+  type RoomGeneratedPart,
+} from '@/components/room-floor-bookmatch-planner';
+import {
   AutoCadMovableBar,
   AutoCadWorkspaceControlBar,
   CadWindowHeaderBar,
@@ -1821,7 +1825,12 @@ export function CuttingOptimizerPro({
 
   // Interface Language State ('en' = English by default, 'ur' = Urdu on toggle)
   const [cadLang, setCadLang] = useState<'en' | 'ur'>('en');
-  const tr = (en: string, ur: string) => (cadLang === 'ur' ? ur : en);
+  const tr = (en: string, ur: string) =>
+    cadLang === 'ur'
+      ? ur
+      : en
+          .replace(/\s*\([^)]*[\u0600-\u06FF][^)]*\)/g, '')
+          .replace(/\s*—\s*[\u0600-\u06FF].*$/g, '');
 
   // AutoCAD Top Dropdown Menu State ('none' | 'slab_setup' | 'cut_pieces' | 'block_defects' | 'view_hd' | 'presets_export')
   const [activeDropdownMenu, setActiveDropdownMenu] = useState<
@@ -3371,7 +3380,7 @@ export function CuttingOptimizerPro({
     }
   };
 
-  // Handle File Upload from PC or Mobile Gallery -> Immediately opens Frame Calibrator!
+  // Handle File Upload from PC or Mobile Gallery -> Immediately applies & saves photo so switching tabs never loses it, then opens Frame Calibrator!
   const handleSlabFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -3379,7 +3388,38 @@ export function CuttingOptimizerPro({
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        openFrameCalibrator(targetSlab, reader.result, file.name || 'Uploaded Slab');
+        const dataUrl = reader.result;
+        const label = file.name || 'Uploaded Slab';
+        if (targetSlab === 0) {
+          setSlabImageUrl(dataUrl);
+          setSlabImageSourceLabel(label);
+          setSavedStockList((prev) =>
+            prev.map((st, idx) =>
+              st.lotId === slabConfig.lotId || idx === 0
+                ? { ...st, slabImageUrl: dataUrl, slabImageSourceLabel: label }
+                : st
+            )
+          );
+        } else {
+          setSlabOverrides((prev) => ({
+            ...prev,
+            [targetSlab]: {
+              ...(prev[targetSlab] || {
+                slabNumber: targetSlab,
+                frameScale: 100,
+                frameOffsetX: 0,
+                frameOffsetY: 0,
+                frameRotation: 0,
+                mirrorMode: targetSlab % 2 === 0 ? 'flip_h' : 'none',
+                defects: [],
+              }),
+              slabNumber: targetSlab,
+              imageUrl: dataUrl,
+              sourceLabel: `Slab #${targetSlab} (${label})`,
+            },
+          }));
+        }
+        openFrameCalibrator(targetSlab, dataUrl, label);
       }
     };
     reader.readAsDataURL(file);
@@ -4786,6 +4826,10 @@ export function CuttingOptimizerPro({
     });
   };
 
+  const [simpleMainScreen, setSimpleMainScreen] = useState<
+    'floor_planner' | 'slab_cutter' | 'stock_slabs' | 'excel_bill'
+  >('floor_planner');
+
   const hiContrastInputClass =
     'h-9 text-xs font-medium bg-slate-950 text-slate-100 border-slate-700 placeholder:text-slate-500 focus-visible:ring-sky-500';
   const cadBtnSecondary =
@@ -4836,41 +4880,6 @@ export function CuttingOptimizerPro({
             <span className="px-2.5 py-1 rounded bg-sky-500/15 border border-sky-500/40 text-sky-300 text-xs font-mono font-semibold">
               FULLSCREEN CAD VIEWPORT (100% SCREEN)
             </span>
-            <div className="flex items-center gap-1 rounded-md bg-slate-950 p-1 border border-slate-800">
-              <button
-                type="button"
-                onClick={() => handleSetFullscreenMode('workstation')}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  fullscreenTarget === 'workstation'
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                مکمل ورک اسٹیشن (Full Workstation)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetFullscreenMode('slab_diagram')}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  fullscreenTarget === 'slab_diagram'
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                ڈایاگرام 1: سلیب کٹنگ (Slab Cutting Only)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetFullscreenMode('floor_diagram')}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  fullscreenTarget === 'floor_diagram'
-                    ? 'bg-sky-600 text-white'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                ڈایاگرام 2: فلور فکسنگ نقشہ (Floor Map Only)
-              </button>
-            </div>
           </div>
 
           <button
@@ -4879,225 +4888,120 @@ export function CuttingOptimizerPro({
             className="h-8 px-3.5 rounded-md border border-slate-600 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold flex items-center gap-1.5"
           >
             <Minimize2 className="h-3.5 w-3.5 text-sky-400" />
-            <span>نارمل سکرین پر واپس آئیں (Exit Fullscreen · ESC)</span>
+            <span>{tr('Exit Fullscreen (ESC)', 'نارمل سکرین پر واپس آئیں (ESC)')}</span>
           </button>
         </div>
       )}
 
-      {/* AutoCAD Style Top Menu & Dropdown Ribbon Bar */}
+      {/* =====================================================================
+          CLEAN, SIMPLE TOP BAR & 4 LARGE MAIN WORKSPACE BUTTONS
+          (بغیر کسی پیچیدگی کے — ایک بٹن صرف ایک جگہ، بڑے اور آسان بٹن)
+         ===================================================================== */}
       {fullscreenTarget !== 'slab_diagram' && fullscreenTarget !== 'floor_diagram' && (
-        <div className="relative z-40 rounded-lg border border-slate-800 bg-slate-900 text-white mb-3 shadow-md print:hidden">
-          {/* Top Bar Row 1: AutoCAD Brand, Language Switcher, Dropdown Menu Strip & Primary Save/Fullscreen Actions */}
-          <div className="px-3 py-2 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-2">
-            {/* Left: AutoCAD Identity + Language Toggle + Top Dropdown Menus */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <div className="flex items-center gap-2 pr-2 mr-1 border-r border-slate-800">
-                <div className="flex h-7 w-7 items-center justify-center rounded bg-sky-600 text-white font-mono font-bold text-xs shadow-2xs">
-                  CAD
+        <div
+          className="relative z-40 rounded-xl border border-slate-800 bg-slate-900 text-white mb-4 shadow-lg print:hidden overflow-hidden"
+          dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
+        >
+          {/* Row 1: Clean Brand Header + Language Switcher + Primary Export Actions */}
+          <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3">
+            {/* Left: Brand Identity */}
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-slate-950 font-mono font-extrabold text-xs shadow">
+                CAD
+              </div>
+              <div>
+                <div className="text-sm font-extrabold text-white">
+                  {tr(
+                    'StoneExpert — Simple Floor Planner, Bookmatch & Cutting Optimizer',
+                    'اسٹون ایکسپرٹ — سادہ روم فلور پلانر، بک میچ اور کٹنگ آپٹیمائزر'
+                  )}
                 </div>
-                <div>
-                  <div className="text-xs font-bold tracking-wide text-slate-100 flex items-center gap-1.5">
-                    <span>{tr('STONECAD 2D OPTIMIZER', 'اسٹون کیڈ 2D کٹنگ آپٹیمائزر')}</span>
-                    <span className="px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-sky-400">
-                      HD
-                    </span>
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-400">
-                    {slabConfig.materialName.slice(0, 26)} · {slabConfig.length}×{slabConfig.width}{' '}
-                    {unit} · {tr('Yield', 'پتھر استعمال')}: {summary.overallYieldPercent.toFixed(1)}%
-                  </div>
+                <div className="text-[11px] font-mono text-slate-400">
+                  {slabConfig.materialName} · {tr('Slab Size', 'سلیب سائز')}: {slabConfig.width}&quot; ×{' '}
+                  {slabConfig.length}&quot; ({slabConfig.quantity} {tr('Slabs', 'سلیب')})
+                  {computerLastSavedAt
+                    ? ` · ✓ ${tr('Saved on PC', 'کمپیوٹر میں محفوظ')}: ${computerLastSavedAt}`
+                    : ''}
                 </div>
               </div>
+            </div>
 
-              {/* DEDICATED PROMINENT LANGUAGE SWITCHER BUTTON (English Default | اردو Toggle) */}
-              <div
-                className="inline-flex items-center rounded-md border-2 border-amber-500/80 bg-slate-900 p-0.5 shadow-sm mr-1"
-                title="Switch interface language between English and Urdu"
-              >
-                <button
-                  type="button"
-                  onClick={() => setCadLang('en')}
-                  className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
-                    cadLang === 'en'
-                      ? 'bg-amber-500 text-slate-950 shadow-2xs'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                >
-                  English
-                </button>
+            {/* Center: Language Switcher (اردو | English) + Unit Switcher */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center rounded-lg border-2 border-amber-500/80 bg-slate-900 p-0.5">
                 <button
                   type="button"
                   onClick={() => setCadLang('ur')}
-                  className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                  className={`px-3 py-1 rounded-md text-xs font-extrabold transition-colors ${
                     cadLang === 'ur'
-                      ? 'bg-amber-500 text-slate-950 shadow-2xs'
+                      ? 'bg-amber-500 text-slate-950'
                       : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   اردو
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setCadLang('en')}
+                  className={`px-3 py-1 rounded-md text-xs font-extrabold transition-colors ${
+                    cadLang === 'en'
+                      ? 'bg-amber-500 text-slate-950'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  English
+                </button>
               </div>
 
-              {/* Quick Unit Switcher right in the Top Bar */}
-              <div className="flex items-center gap-1 rounded-md border border-slate-800 bg-slate-900 p-0.5 mr-1">
-                {(['in', 'ft', 'mm', 'cm'] as UnitType[]).map((u) => (
+              <div className="flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 p-0.5">
+                {(['in', 'ft'] as UnitType[]).map((u) => (
                   <button
                     key={u}
                     type="button"
                     onClick={() => handleUnitChange(u)}
-                    className={`px-2 py-1 text-[11px] font-mono font-bold rounded transition-colors ${
-                      unit === u
-                        ? 'bg-sky-600 text-white'
-                        : 'text-slate-400 hover:text-white'
+                    className={`px-2.5 py-1 text-xs font-mono font-bold rounded transition-colors ${
+                      unit === u ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    {u === 'in' ? 'IN"' : u.toUpperCase()}
+                    {u === 'in' ? tr('Inches (")', 'انچ (")') : tr('Feet (ft)', 'فٹ (ft)')}
                   </button>
                 ))}
               </div>
-
-              {/* Sootar (سوتر) Precision Blade Kerf Selector */}
-              <div className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900 px-2 py-1 mr-1">
-                <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">
-                  {tr('Kerf (سوتر):', 'بلیڈ کٹ (سوتر):')}
-                </span>
-                <select
-                  value={String(slabConfig.kerf)}
-                  onChange={(e) =>
-                    setSlabConfig((s) => ({
-                      ...s,
-                      kerf: Math.max(0, parseFloat(e.target.value) || 0),
-                    }))
-                  }
-                  className="bg-transparent text-[11px] font-mono font-bold text-amber-400 focus:outline-none cursor-pointer"
-                >
-                  <option value="0.125" className="bg-slate-900 text-white">
-                    1 Sootar · 1/8&quot; (0.125&quot;)
-                  </option>
-                  <option value="0.1875" className="bg-slate-900 text-white">
-                    1.5 Sootar · 3/16&quot; (0.1875&quot;)
-                  </option>
-                  <option value="0.25" className="bg-slate-900 text-white">
-                    2 Sootar · 1/4&quot; (0.25&quot;)
-                  </option>
-                  <option value="0.15" className="bg-slate-900 text-white">
-                    Standard · 0.15&quot;
-                  </option>
-                  <option value="0" className="bg-slate-900 text-white">
-                    0 Sootar · 0&quot;
-                  </option>
-                </select>
-              </div>
-
-              {/* Non-Duplicate Top Utility Menus (Presets, Export & HD View Only) */}
-              {(
-                [
-                  {
-                    id: 'view_hd',
-                    label: tr('HD View & Overlays ▾', 'ایچ ڈی ویو سیٹنگز ▾'),
-                  },
-                  {
-                    id: 'presets_export',
-                    label: tr('Presets & Print PDF ▾', 'ڈیزائن اور پرنٹ PDF ▾'),
-                  },
-                ] as const
-              ).map((menu) => {
-                const isOpen = activeDropdownMenu === menu.id;
-                return (
-                  <button
-                    key={menu.id}
-                    type="button"
-                    onClick={() =>
-                      setActiveDropdownMenu((prev) => (prev === menu.id ? 'none' : menu.id))
-                    }
-                    className={`h-8 px-2.5 rounded text-xs font-semibold transition-colors flex items-center gap-1 border ${
-                      isOpen
-                        ? 'bg-sky-600 border-sky-400 text-white shadow-xs'
-                        : 'bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <span>{menu.label}</span>
-                  </button>
-                );
-              })}
             </div>
 
-            {/* Right: Essential Global Actions + Windows Workspace Setup Button */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            {/* Right: One-Click Excel Download + PDF Print + Fullscreen */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  setCadWorkspace((prev) => ({
-                    ...prev,
-                    customizeMode: !prev.customizeMode,
-                  }))
-                }
-                className={`h-8 px-3 rounded-md border text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
-                  cadWorkspace.customizeMode
-                    ? 'bg-amber-500 border-amber-300 text-slate-950'
-                    : 'bg-slate-900 hover:bg-slate-800 border-amber-500/70 text-amber-300'
-                }`}
-                title="Customize Screens (Minimize, Resize 50%/100%) and Place Buttons Inside or Outside Diagrams"
+                onClick={() => handleGenerateExcelBill(true)}
+                className="h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow border border-emerald-400/50"
               >
-                <Grid className="h-3.5 w-3.5" />
-                <span>
-                  {cadWorkspace.customizeMode
-                    ? tr('✓ Close Workspace Setup', '✓ ورک سپیس سیٹنگ بند کریں')
-                    : tr('🪟 Workspace & Windows Setup', '🪟 ورک سپیس اور سکرین سیٹنگ')}
-                </span>
+                <FileSpreadsheet className="h-4 w-4" />
+                <span>{tr('📊 Download Excel Bill (.xls)', '📊 ایکسل بل ڈاؤن لوڈ (.xls)')}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handlePrintWorkshopSheet}
-                className={cadBtnPrimary}
-                title="View Marked Stock Slab PDF Blueprint & Download .PDF File"
+                className="h-9 px-3.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow"
               >
-                <Printer className="h-3.5 w-3.5" />
-                <span>{tr('PDF Blueprint (سلیب نقشہ PDF)', 'پی ڈی ایف نقشہ دیکھیں (PDF)')}</span>
+                <Printer className="h-4 w-4" />
+                <span>{tr('🖨️ PDF Blueprint', '🖨️ پی ڈی ایف نقشہ (PDF)')}</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setIsLeftDockCollapsed((c) => !c)}
-                className={isLeftDockCollapsed ? cadBtnPrimary : cadBtnSecondary}
-                title="Show or hide the left Stock Slab & Cut Pieces input column"
-              >
-                {isLeftDockCollapsed ? (
-                  <>
-                    <PanelLeftOpen className="h-3.5 w-3.5" />
-                    <span>{tr('Show Sidebar', 'سائیڈ بار دکھائیں')}</span>
-                  </>
-                ) : (
-                  <>
-                    <PanelLeftClose className="h-3.5 w-3.5 text-sky-400" />
-                    <span>{tr('Wide Canvas', 'بڑا کینوس')}</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleSetFullscreenMode(isFullscreen ? 'none' : 'workstation')
-                }
-                className={isFullscreen ? cadBtnPrimary : cadBtnSecondary}
-                title="Toggle 100% Fullscreen Workstation"
+                onClick={() => handleSetFullscreenMode(isFullscreen ? 'none' : 'workstation')}
+                className="h-9 px-3 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold flex items-center gap-1.5"
               >
                 {isFullscreen ? (
-                  <>
-                    <Minimize2 className="h-3.5 w-3.5" />
-                    <span>{tr('Exit Fullscreen', 'نارمل سکرین')}</span>
-                  </>
+                  <Minimize2 className="h-3.5 w-3.5 text-sky-400" />
                 ) : (
-                  <>
-                    <Maximize2 className="h-3.5 w-3.5 text-sky-400" />
-                    <span>{tr('Full Screen', 'فل سکرین')}</span>
-                  </>
+                  <Maximize2 className="h-3.5 w-3.5 text-sky-400" />
                 )}
+                <span>{isFullscreen ? tr('Normal', 'نارمل') : tr('Full Screen', 'بڑی سکرین')}</span>
               </button>
 
-              {/* Customer Quotation Save Action */}
               {onSaveToCustomerQuote && (
                 <button
                   type="button"
@@ -5124,839 +5028,474 @@ export function CuttingOptimizerPro({
                       variant: initialVariant,
                     });
                   }}
-                  className="h-8 px-3.5 rounded-md border border-emerald-500/60 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shadow-xs"
+                  className="h-9 px-3.5 rounded-lg border border-emerald-500/60 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>
-                    {tr(
-                      `Save to Quotation (PKR ${summary.estimatedTotalSlabCostPKR.toLocaleString()})`,
-                      `کوٹیشن میں محفوظ کریں (PKR ${summary.estimatedTotalSlabCostPKR.toLocaleString()})`
-                    )}
-                  </span>
-                </button>
-              )}
-
-              {onCancel && (
-                <button type="button" onClick={onCancel} className={cadBtnSecondary}>
-                  <span>{tr('Back', 'واپس')}</span>
-                </button>
-              )}
-
-              {!isCustomerMode && !onSaveToCustomerQuote && onSendToManualOrder && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onSendToManualOrder({
-                      materialName: slabConfig.materialName,
-                      lotId: slabConfig.lotId,
-                      unit,
-                      slabConfig,
-                      parts,
-                      summary,
-                    })
-                  }
-                  className={cadBtnPrimary}
-                >
-                  <ShoppingCart className="h-3.5 w-3.5" />
-                  <span>{tr('Add to Manual Order', 'مینوئل آرڈر میں شامل کریں')}</span>
+                  <span>{tr('Save Quote', 'کوٹیشن سیو کریں')}</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* AUTOCAD WORKSPACE & BAR CUSTOMIZER PANEL */}
-          <AutoCadWorkspaceControlBar
-            workspace={cadWorkspace}
-            setWorkspace={setCadWorkspace}
-            onUpdateBar={handleUpdateCadBar}
-            onResetWorkspace={handleResetCadWorkspace}
-            cadLang={cadLang}
-          />
-
-          {/* TOP APPLICATION CATEGORY BAR (3rd Line — Short Buttons + Window Sill + Opens Category-Specific Diagram Below) */}
-          <AutoCadMovableBar
-            barId="preset_bar"
-            workspace={cadWorkspace}
-            onUpdateBar={handleUpdateCadBar}
-            cadLang={cadLang}
-          >
-            <div
-              className="px-3 py-2 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2"
-              dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
-            >
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-xs font-bold text-amber-400 mr-1">
-                  {tr('Category:', 'کیٹگری منتخب کریں:')}
-                </span>
-                {(
-                  [
-                    {
-                      id: 'flooring',
-                      label: tr('🏠 Flooring (فرش)', '🏠 فرش فلورنگ'),
-                      activeClass: 'bg-sky-600 border-sky-400 text-white shadow-sm',
-                    },
-                    {
-                      id: 'bookmatch_wall',
-                      label: tr('🦋 Bookmatch (بک میچ)', '🦋 بک میچ'),
-                      activeClass: 'bg-amber-500 border-amber-300 text-slate-950 shadow-sm',
-                    },
-                    {
-                      id: 'stairs',
-                      label: tr('🪜 Stairs (سیڑھی ٹپے)', '🪜 سیڑھی ٹپے'),
-                      activeClass: 'bg-emerald-600 border-emerald-400 text-white shadow-sm',
-                    },
-                    {
-                      id: 'kitchen',
-                      label: tr('🍳 Kitchen (کچن سلیب)', '🍳 کچن سلیب'),
-                      activeClass: 'bg-rose-600 border-rose-400 text-white shadow-sm',
-                    },
-                    {
-                      id: 'vanity',
-                      label: tr('🚰 Vanity (وینٹی)', '🚰 وینٹی'),
-                      activeClass: 'bg-purple-600 border-purple-400 text-white shadow-sm',
-                    },
-                    {
-                      id: 'window_sill',
-                      label: tr('🪟 Window Sill (ونڈو سل)', '🪟 ونڈو سل'),
-                      activeClass: 'bg-teal-600 border-teal-400 text-white shadow-sm',
-                    },
-                  ] as const
-                ).map((cat) => {
-                  const isSelected = activeCategoryPreset === cat.id && activeResultTab === 'dual_diagrams';
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => applyPreset(cat.id)}
-                      className={`h-8 px-3 rounded-md text-xs font-bold transition-all border flex items-center gap-1 ${
-                        isSelected
-                          ? cat.activeClass
-                          : 'bg-slate-950 border-slate-700 text-slate-200 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <span>{cat.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-center gap-2 text-[11px] font-mono">
-                <span className="px-2.5 py-1 rounded bg-slate-950 border border-slate-700 text-sky-300 font-bold">
-                  {activeCategoryPreset === 'flooring' && tr('Active Diagram: Room Flooring', 'فعال ڈایاگرام: فرش فلورنگ نقشہ')}
-                  {activeCategoryPreset === 'bookmatch_wall' && tr('Active Diagram: 4-Slab Bookmatch', 'فعال ڈایاگرام: 4-سلیب بک میچ نقشہ')}
-                  {activeCategoryPreset === 'stairs' && tr('Active Diagram: Stairs & Risers', 'فعال ڈایاگرام: سیڑھی ٹپے اور رائزر')}
-                  {activeCategoryPreset === 'kitchen' && tr('Active Diagram: Kitchen Slab & Island', 'فعال ڈایاگرام: کچن سلیب اور کاؤنٹر')}
-                  {activeCategoryPreset === 'vanity' && tr('Active Diagram: Vanity Top & Latak', 'فعال ڈایاگرام: وینٹی ٹاپ اور لٹک')}
-                  {activeCategoryPreset === 'window_sill' && tr('Active Diagram: Window Sill (Khirkee)', 'فعال ڈایاگرام: ونڈو سل (کھڑکی سل)')}
-                </span>
-              </div>
-            </div>
-          </AutoCadMovableBar>
-
-          {/* VOICE & NATURAL LANGUAGE COMMAND BAR (Movable, Dockable, Resizable) */}
-          <AutoCadMovableBar
-            barId="voice_cmd_bar"
-            workspace={cadWorkspace}
-            onUpdateBar={handleUpdateCadBar}
-            cadLang={cadLang}
-          >
-            <div
-              className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-slate-900/95 border-b border-slate-800"
-              dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
-            >
-              <button
-                type="button"
-                onClick={handleStartVoiceCommand}
-                className={isListeningVoice ? cadBtnPrimary : cadBtnSecondary}
-                title="Speak Urdu or English cutting command"
-              >
-                <span>
-                  {isListeningVoice
-                    ? tr('Listening...', 'سن رہا ہے...')
-                    : tr('🎤 Voice Command', '🎤 آواز سے کمانڈ دیں')}
-                </span>
-              </button>
-              <Input
-                value={nlpCommandText}
-                onChange={(e) => setNlpCommandText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleExecuteNlpCommand();
-                }}
-                placeholder={tr(
-                  'Type command: e.g. "120 by 65 slab par 3 steps 48 by 12 aur 1 kitchen top 96 by 24 cut karo" or "Set blade kerf to 1.5 sootar"',
-                  'اردو یا انگلش میں لکھیں: مثلاً "120 by 65 slab par 3 steps 48 by 12 aur 1 kitchen top 96 by 24 cut karo"'
+          {/* Row 1B: ONCE-IN-MAIN-APP GENERAL CUTTING & EDGE TRIM (SAFAI) SETTINGS BAR
+              (مین ایپ میں ایک دفعہ جنرل سیٹنگ: بلیڈ تھکنس اور سلیب کی صفائی / ایج ٹرم — نیچے ڈایاگرامز میں دوبارہ نہیں آئے گی) */}
+          <div className="px-4 py-2 border-b border-slate-800 bg-slate-900/95 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono font-extrabold text-[11px]">
+                {tr(
+                  '⚙️ General Machine & Slab Trim Settings (Set Once):',
+                  '⚙️ جنرل کٹنگ سیٹنگ (مین ایپ میں ایک دفعہ سیٹ کریں):'
                 )}
-                className="flex-1 h-8 text-xs font-mono bg-slate-950 border-slate-700 text-white"
-              />
-              <button
-                type="button"
-                onClick={() => handleExecuteNlpCommand()}
-                className={cadBtnPrimary}
-              >
-                <span>{tr('Parse & Cut', 'خودکار کٹنگ کریں')}</span>
-              </button>
-            </div>
-          </AutoCadMovableBar>
+              </span>
 
-          {/* =====================================================================
-              TOP UTILITY DROPDOWN PANELS (Only HD View & Presets/Export — No Duplicate Stock/Pieces)
-             ===================================================================== */}
-          {activeDropdownMenu !== 'none' && (
-            <div
-              className="p-4 bg-slate-900/98 border-b border-sky-500/40 shadow-2xl space-y-3"
-              dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
-            >
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-sky-400">
-                  {activeDropdownMenu === 'view_hd' &&
-                    tr(
-                      'ULTRA-HD STONE CLARITY, CAD OVERLAYS & UNITS',
-                      'ایچ ڈی ماربل ویو اور پیمائش کی اکائی'
-                    )}
-                  {activeDropdownMenu === 'presets_export' &&
-                    tr(
-                      'READY CAD PRESETS, CATALOG & CNC EXPORT',
-                      'تیار ڈیزائن پری سیٹس اور پی ڈی ایف / ایکسل پرنٹ'
-                    )}
+              {/* 1. Blade Thickness / Saw Kerf (بلیڈ کتنی تھکنس کاٹے گا) */}
+              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                <span className="text-[11px] font-bold text-rose-300">
+                  {tr('🪚 Blade Thickness (Kerf):', '🪚 بلیڈ کی موٹائی (تھکنس):')}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveDropdownMenu('none')}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+                <select
+                  value={String(slabConfig.kerf)}
+                  onChange={(e) =>
+                    setSlabConfig((prev) => ({
+                      ...prev,
+                      kerf: Math.max(0, Number(e.target.value) || 0),
+                    }))
+                  }
+                  className="h-6 rounded bg-slate-900 border border-rose-500/50 text-white font-mono text-[11px] font-bold px-1.5 cursor-pointer"
                 >
-                  {tr('✕ Close', '✕ بند کریں')}
-                </button>
+                  <option value="0">{tr('0" (Zero Kerf)', '0" (بغیر بلیڈ گیپ)')}</option>
+                  <option value="0.125">
+                    {tr('1 Sootar (0.125" / 3mm)', '1 سوتر (0.125" / 3mm)')}
+                  </option>
+                  <option value="0.15">
+                    {tr('1.2 Sootar (0.15" / 3.8mm)', 'سوا سوتر (0.15" اسٹینڈرڈ)')}
+                  </option>
+                  <option value="0.1875">
+                    {tr('1.5 Sootar (0.1875" / 4.5mm)', 'ڈیڑھ سوتر (0.1875" / 4.5mm)')}
+                  </option>
+                  <option value="0.25">
+                    {tr('2 Sootar (0.25" / 6mm)', '2 سوتر (0.25" / 6mm)')}
+                  </option>
+                </select>
+                <Input
+                  type="number"
+                  step="0.025"
+                  min="0"
+                  max="1"
+                  value={slabConfig.kerf}
+                  onChange={(e) =>
+                    setSlabConfig((prev) => ({
+                      ...prev,
+                      kerf: Math.max(0, Number(e.target.value) || 0),
+                    }))
+                  }
+                  className="h-6 w-16 px-1.5 bg-slate-900 border-slate-700 text-white font-mono text-[11px] font-bold"
+                />
               </div>
 
-              {/* DROPDOWN 3: BLOCK SLABS & CRACK / DEFECT ZONES */}
-              {activeDropdownMenu === 'block_defects' && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleApplyTextureToAllBlockSlabs}
-                      className={cadBtnPrimary}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>تمام {slabConfig.quantity} سلیبوں پر یکساں ٹیکسچر لگائیں (Sync Block)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAutoBlockBookmatchPattern('ab')}
-                      className={cadBtnSecondary}
-                    >
-                      <FlipHorizontal className="h-3.5 w-3.5 text-sky-400" />
-                      <span>Auto A/B Bookmatch Pairs</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAutoBlockBookmatchPattern('abcd')}
-                      className={cadBtnSecondary}
-                    >
-                      <Grid className="h-3.5 w-3.5 text-sky-400" />
-                      <span>Auto A/B/C/D Quad Diamond</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => bulkSlabsInputRef.current?.click()}
-                      className={cadBtnSecondary}
-                    >
-                      <Layers className="h-3.5 w-3.5 text-sky-400" />
-                      <span>ملٹی سلیب تصاویر اپ لوڈ (Bulk Upload 1–50)</span>
-                    </button>
-                  </div>
+              {/* 2. Slab Edge Trim / Safai (سلیب کو چاروں طرف سے کتنی صفائی / ایج ٹرم لگانی ہے: انچی، پونے انچی، آدھی انچی) */}
+              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                <span className="text-[11px] font-bold text-sky-300">
+                  {tr('📏 Slab Edge Trim (Safai):', '📏 سلیب کی صفائی (ایج ٹرم):')}
+                </span>
+                <select
+                  value={String(slabConfig.edgeTrim)}
+                  onChange={(e) =>
+                    setSlabConfig((prev) => ({
+                      ...prev,
+                      edgeTrim: Math.max(0, Number(e.target.value) || 0),
+                    }))
+                  }
+                  className="h-6 rounded bg-slate-900 border border-sky-500/50 text-white font-mono text-[11px] font-bold px-1.5 cursor-pointer"
+                >
+                  <option value="0">{tr('0" (No Edge Trim / Full Slab)', '0" (بغیر صفائی / پوری سلیب)')}</option>
+                  <option value="0.5">
+                    {tr('0.5" (Half Inch / آدھی انچی)', '0.5" (آدھی انچی صفائی)')}
+                  </option>
+                  <option value="0.75">
+                    {tr('0.75" (3/4 Inch / پونے انچی)', '0.75" (پونے انچی صفائی — 3/4")')}
+                  </option>
+                  <option value="1">
+                    {tr('1.0" (1 Inch / ایک انچی)', '1.0" (ایک انچی صفائی — 1")')}
+                  </option>
+                  <option value="1.5">
+                    {tr('1.5" (1.5 Inch / ڈیڑھ انچی)', '1.5" (ڈیڑھ انچی صفائی)')}
+                  </option>
+                </select>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  max="4"
+                  value={slabConfig.edgeTrim}
+                  onChange={(e) =>
+                    setSlabConfig((prev) => ({
+                      ...prev,
+                      edgeTrim: Math.max(0, Number(e.target.value) || 0),
+                    }))
+                  }
+                  className="h-6 w-14 px-1.5 bg-slate-900 border-slate-700 text-white font-mono text-[11px] font-bold"
+                />
+              </div>
+            </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end pt-2 border-t border-slate-800">
-                    <div>
-                      <Label className="text-[11px] text-slate-300">Target Slab #</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max={slabConfig.quantity}
-                        value={defectSlabTarget}
-                        onChange={(e) =>
-                          setDefectSlabTarget(
-                            Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1))
-                          )
-                        }
-                        className={hiContrastInputClass}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-300">Crack X ({unit})</Label>
-                      <Input
-                        type="number"
-                        value={newDefectX}
-                        onChange={(e) => setNewDefectX(Number(e.target.value) || 0)}
-                        className={hiContrastInputClass}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-300">Crack Y ({unit})</Label>
-                      <Input
-                        type="number"
-                        value={newDefectY}
-                        onChange={(e) => setNewDefectY(Number(e.target.value) || 0)}
-                        className={hiContrastInputClass}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-300">Crack Len ({unit})</Label>
-                      <Input
-                        type="number"
-                        value={newDefectW}
-                        onChange={(e) => setNewDefectW(Number(e.target.value) || 1)}
-                        className={hiContrastInputClass}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[11px] text-slate-300">Crack Wid ({unit})</Label>
-                      <Input
-                        type="number"
-                        value={newDefectH}
-                        onChange={(e) => setNewDefectH(Number(e.target.value) || 1)}
-                        className={hiContrastInputClass}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleAddDefectToSlab(defectSlabTarget)}
-                      className="h-9 rounded-md border border-rose-500/60 bg-rose-950/80 hover:bg-rose-900 text-rose-100 text-xs font-semibold"
-                    >
-                      + کریک زون لگائیں
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* DROPDOWN 4: ULTRA-HD STONE CLARITY, OVERLAYS & UNITS */}
-              {activeDropdownMenu === 'view_hd' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-200 font-semibold">
-                      1. Marble Photo HD Display Mode (ماربل تصویر کی کوالٹی):
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPieceOverlayOpacity(0.08);
-                          setHdContrastBoost(true);
-                        }}
-                        className={
-                          pieceOverlayOpacity <= 0.12 ? cadBtnPrimary : cadBtnSecondary
-                        }
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Crystal HD Real Stone (اصلی ایچ ڈی ماربل)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPieceOverlayOpacity(0.28)}
-                        className={
-                          pieceOverlayOpacity > 0.12 && pieceOverlayOpacity <= 0.35
-                            ? cadBtnPrimary
-                            : cadBtnSecondary
-                        }
-                      >
-                        <span>CAD Blueprint Tint (28%)</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPieceOverlayOpacity(0.55)}
-                        className={
-                          pieceOverlayOpacity > 0.35 ? cadBtnPrimary : cadBtnSecondary
-                        }
-                      >
-                        <span>Solid Part Colors (55%)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-200 font-semibold">
-                      2. AutoCAD Overlays &amp; Polish Enhancer:
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setHdContrastBoost((v) => !v)}
-                        className={hdContrastBoost ? cadBtnPrimary : cadBtnSecondary}
-                      >
-                        <span>HD Polish &amp; Vein Sharpness: {hdContrastBoost ? 'ON' : 'OFF'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCadCrosshairs((v) => !v)}
-                        className={showCadCrosshairs ? cadBtnPrimary : cadBtnSecondary}
-                      >
-                        <span>CAD Dimension Arrows: {showCadCrosshairs ? 'ON' : 'OFF'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowKerfLines((v) => !v)}
-                        className={showKerfLines ? cadBtnPrimary : cadBtnSecondary}
-                      >
-                        <span>Saw Cut Lines: {showKerfLines ? 'ON' : 'OFF'}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-slate-200 font-semibold">
-                      3. Measurement Unit (پیمائش کی اکائی):
-                    </Label>
-                    <div className="flex items-center gap-1">
-                      {(['in', 'ft', 'mm', 'cm'] as UnitType[]).map((u) => (
-                        <button
-                          key={u}
-                          type="button"
-                          onClick={() => handleUnitChange(u)}
-                          className={`px-3 py-1.5 text-xs font-mono font-bold rounded border ${
-                            unit === u
-                              ? 'bg-sky-600 border-sky-400 text-white'
-                              : 'bg-slate-950 border-slate-700 text-slate-300 hover:text-white'
-                          }`}
-                        >
-                          {u === 'in' ? 'INCHES (")' : u === 'ft' ? 'FEET' : u.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* DROPDOWN 5: PRESETS & EXPORT */}
-              {activeDropdownMenu === 'presets_export' && (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-slate-400 font-mono">LOAD CAD PRESET:</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        applyPreset('bookmatch_wall');
-                        setActiveDropdownMenu('none');
-                      }}
-                      className={cadBtnSecondary}
-                    >
-                      <span>بک میچ فرش (Bookmatch Floor)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        applyPreset('kitchen');
-                        setActiveDropdownMenu('none');
-                      }}
-                      className={cadBtnSecondary}
-                    >
-                      <span>کچن سلیب (Kitchen Counter)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        applyPreset('stairs');
-                        setActiveDropdownMenu('none');
-                      }}
-                      className={cadBtnSecondary}
-                    >
-                      <span>سیڑھی (Stairs &amp; Risers)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        applyPreset('vanity');
-                        setActiveDropdownMenu('none');
-                      }}
-                      className={cadBtnSecondary}
-                    >
-                      <span>وینٹی ٹاپ (Vanity Top)</span>
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleExportCSV}
-                      className={cadBtnSecondary}
-                    >
-                      <FileSpreadsheet className="h-3.5 w-3.5 text-sky-400" />
-                      <span>Export CSV / Excel BOM</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePrintWorkshopSheet}
-                      className={cadBtnPrimary}
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      <span>Print CNC Blueprint PDF</span>
-                    </button>
-                  </div>
-                </div>
+            <div className="text-[11px] font-mono text-emerald-300">
+              {tr(
+                `✓ Net Usable Slab after Trim: ${Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}" × ${Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}" (Kerf: ${slabConfig.kerf}")`,
+                `✓ صفائی کے بعد صافی سلیب سائز: ${Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}" × ${Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}" (بلیڈ: ${slabConfig.kerf}")`
               )}
             </div>
-          )}
+          </div>
+
+          {/* Row 2: 4 BIG, SIMPLE, SINGLE-PURPOSE MAIN BUTTONS (بڑے بڑے سادہ بٹن — ہر کام کے لیے صرف ایک بٹن!) */}
+          <div className="p-3 bg-slate-900 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* BIG BUTTON 1: FLOOR PLANNER & ROOM BOOKMATCH */}
+            <button
+              type="button"
+              onClick={() => {
+                setSimpleMainScreen('floor_planner');
+                setActiveResultTab('dual_diagrams');
+              }}
+              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
+                simpleMainScreen === 'floor_planner'
+                  ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-lg scale-[1.01]'
+                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-amber-500/60 hover:bg-slate-900'
+              }`}
+            >
+              <div
+                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
+                  simpleMainScreen === 'floor_planner'
+                    ? 'bg-slate-950 text-amber-400'
+                    : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                }`}
+              >
+                🏛️
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm sm:text-base font-extrabold truncate">
+                  {tr('1. Floor Planner & Bookmatch', '1. فلور پلانر اور روم بک میچ')}
+                </div>
+                <div
+                  className={`text-[11px] truncate ${
+                    simpleMainScreen === 'floor_planner'
+                      ? 'text-slate-900 font-bold'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {tr(
+                    'Room Size + 4-Piece BM + Brass Patti + Border + Slab Crop',
+                    'کمرے کا سائز، سینٹر بک میچ، براس پٹی، بارڈر اور سلیب سلیکشن'
+                  )}
+                </div>
+              </div>
+            </button>
+
+            {/* BIG BUTTON 2: SLAB CUTTING DIAGRAM (Stairs, Kitchen, Vanity, Window Sill) */}
+            <button
+              type="button"
+              onClick={() => {
+                setSimpleMainScreen('slab_cutter');
+                setActiveResultTab('dual_diagrams');
+              }}
+              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
+                simpleMainScreen === 'slab_cutter'
+                  ? 'bg-sky-600 border-sky-300 text-white shadow-lg scale-[1.01]'
+                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-sky-500/60 hover:bg-slate-900'
+              }`}
+            >
+              <div
+                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
+                  simpleMainScreen === 'slab_cutter'
+                    ? 'bg-slate-950 text-sky-400'
+                    : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                }`}
+              >
+                ✂️
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm sm:text-base font-extrabold truncate">
+                  {tr('2. Slab Cutting Optimizer', '2. سلیب کٹنگ ڈایاگرام (سیڑھی/کچن/وینٹی)')}
+                </div>
+                <div
+                  className={`text-[11px] truncate ${
+                    simpleMainScreen === 'slab_cutter' ? 'text-sky-100 font-bold' : 'text-slate-400'
+                  }`}
+                >
+                  {tr(
+                    `Cut ${parts.length} Sizes on ${slabConfig.quantity} Slabs (Stairs, Kitchen, Vanity)`,
+                    `سلیب پر کٹنگ کا نقشہ، سیڑھی ٹپے، کچن، وینٹی اور ونڈو سل`
+                  )}
+                </div>
+              </div>
+            </button>
+
+            {/* BIG BUTTON 3: STOCK SLABS & PHOTO UPLOAD */}
+            <button
+              type="button"
+              onClick={() => {
+                setSimpleMainScreen('stock_slabs');
+                setActiveResultTab('slab_manager');
+              }}
+              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
+                simpleMainScreen === 'stock_slabs'
+                  ? 'bg-purple-600 border-purple-300 text-white shadow-lg scale-[1.01]'
+                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-purple-500/60 hover:bg-slate-900'
+              }`}
+            >
+              <div
+                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
+                  simpleMainScreen === 'stock_slabs'
+                    ? 'bg-slate-950 text-purple-300'
+                    : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                }`}
+              >
+                📦
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm sm:text-base font-extrabold truncate">
+                  {tr('3. Stock Slabs & Photo Upload', '3. اسٹاک سلیب اور تصویر اپ لوڈ')}
+                </div>
+                <div
+                  className={`text-[11px] truncate ${
+                    simpleMainScreen === 'stock_slabs'
+                      ? 'text-purple-100 font-bold'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {tr(
+                    `Stock: ${slabConfig.quantity} Slabs (${slabConfig.width}"×${slabConfig.length}")`,
+                    `سلیب سائز: ${slabConfig.width}"×${slabConfig.length}" (${slabConfig.quantity} سلیب) · فوٹو اپ لوڈ`
+                  )}
+                </div>
+              </div>
+            </button>
+
+            {/* BIG BUTTON 4: EXCEL BILL & RATES */}
+            <button
+              type="button"
+              onClick={() => {
+                setSimpleMainScreen('excel_bill');
+                setActiveResultTab('bom');
+              }}
+              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
+                simpleMainScreen === 'excel_bill'
+                  ? 'bg-emerald-600 border-emerald-300 text-white shadow-lg scale-[1.01]'
+                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-emerald-500/60 hover:bg-slate-900'
+              }`}
+            >
+              <div
+                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
+                  simpleMainScreen === 'excel_bill'
+                    ? 'bg-slate-950 text-emerald-400'
+                    : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                }`}
+              >
+                📊
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm sm:text-base font-extrabold truncate">
+                  {tr('4. Excel Bill & Rates (.xls)', '4. ایکسل بل، ریٹ اور کمپیوٹر ریکارڈ')}
+                </div>
+                <div
+                  className={`text-[11px] truncate ${
+                    simpleMainScreen === 'excel_bill'
+                      ? 'text-emerald-100 font-bold'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  {tr(
+                    `Total: PKR ${cuttingStats.grandTotalInvoicePKR.toLocaleString()} (Cutting + Polish + Edge)`,
+                    `کل بل: PKR ${cuttingStats.grandTotalInvoicePKR.toLocaleString()} (کٹنگ + پالش + ایج پروفائل)`
+                  )}
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Main Full-Width Workstation Layout (بڑی اور صاف سکرین — اوپر سٹاک اپلوڈ ڈراپ ڈاؤن + ڈایاگرام کے اوپر کٹ سائزز ڈراپ ڈاؤن) */}
-      <div className="flex flex-col gap-3 w-full">
+      {/* =====================================================================
+          SCREEN 1 (DEFAULT): DEDICATED 4-WINDOW FLOOR PLANNER & ROOM BOOKMATCH
+          Opens when Big Button #1 ("1. فلور پلانر اور روم بک میچ") is selected!
+         ===================================================================== */}
+      {/* =====================================================================
+          SCREEN 1 (DEFAULT): DEDICATED 4-WINDOW FLOOR PLANNER & ROOM BOOKMATCH
+          Kept mounted at all times so switching between Stock and Diagram never resets or loses uploaded photos!
+         ===================================================================== */}
+      <div
+        className={
+          simpleMainScreen === 'floor_planner' &&
+          fullscreenTarget !== 'slab_diagram' &&
+          fullscreenTarget !== 'floor_diagram'
+            ? 'mb-4 block'
+            : 'hidden'
+        }
+      >
+        <RoomFloorBookmatchPlanner
+          cadLang={cadLang}
+          slabImageUrl={slabImageUrl}
+          slabMaterialName={slabConfig.materialName}
+          slabWidthIn={slabConfig.width}
+          slabLengthIn={slabConfig.length}
+          slabQuantity={slabConfig.quantity}
+          slabRatePerSqFt={slabConfig.ratePerSqFt}
+          bladeKerfIn={slabConfig.kerf}
+          edgeTrimIn={slabConfig.edgeTrim}
+          savedStockLots={savedStockList.map((st) => ({
+            id: st.id,
+            category: st.category,
+            materialName: st.materialName,
+            lotId: st.lotId,
+            width: st.width,
+            length: st.length,
+            quantity: st.quantity,
+            ratePerSqFt: st.ratePerSqFt,
+            slabImageUrl: st.slabImageUrl,
+            notes: st.notes,
+          }))}
+          onSaveWasteOffcutsToOptimizer={(wasteItems) => {
+            const timestamp = Date.now();
+            const newItems: SavedStockSlabItem[] = wasteItems.map((w, idx) => ({
+              id: `room-offcut-${timestamp}-${idx}`,
+              category: 'usable_offcut',
+              materialName: w.materialName,
+              lotId: `OFFCUT-${Math.floor(100 + Math.random() * 900)}`,
+              width: Number(w.width.toFixed(1)),
+              length: Number(w.length.toFixed(1)),
+              quantity: w.quantity,
+              ratePerSqFt: w.ratePerSqFt,
+              kerf: slabConfig.kerf,
+              edgeTrim: 0,
+              unit: 'in',
+              slabImageUrl: w.slabImageUrl,
+              slabImageSourceLabel: `${w.materialName} (${w.width.toFixed(1)}×${w.length.toFixed(1)})`,
+              masterFrameScale: 100,
+              masterFrameOffsetX: 0,
+              masterFrameOffsetY: 0,
+              masterFrameRotation: 0,
+              locationRack: 'Waste / Offcut Bank',
+              notes: w.notes,
+              savedAt: new Date().toLocaleTimeString(),
+            }));
+            setSavedStockList((prev) => [...newItems, ...prev]);
+            toast({
+              title: tr(
+                `${newItems.length} Remaining Waste Size(s) Saved to Optimizer Bank!`,
+                `${newItems.length} بچے ہوئے ویسٹ پیسز آپٹیمائزر بینک میں محفوظ ہو گئے!`
+              ),
+              description: tr(
+                'Ready to reuse in the Next Room Floor, Outer Border, or Slab Cutting Optimizer.',
+                'اب آپ ان بچے ہوئے پیسز کو اگلے کمرے کے فرش، بارڈر یا سلیب کٹنگ آپٹیمائزر میں استعمال کر سکتے ہیں۔'
+              ),
+            });
+          }}
+          onLoadSavedStockInSlabCutter={(stockId) => {
+            const target = savedStockList.find((s) => s.id === stockId);
+            if (!target) return;
+            handleLoadStockItemIntoOptimizer(target);
+            setSimpleMainScreen('slab_cutter');
+          }}
+          onAddBorderSlabToStock={(newBorderSlab) => {
+            const newItem: SavedStockSlabItem = {
+              id: `border-stock-${Date.now()}`,
+              category: 'full_slab_lot',
+              materialName: newBorderSlab.materialName,
+              lotId: `BORDER-${Math.floor(100 + Math.random() * 900)}`,
+              width: newBorderSlab.width,
+              length: newBorderSlab.length,
+              quantity: newBorderSlab.quantity,
+              ratePerSqFt: newBorderSlab.ratePerSqFt,
+              kerf: slabConfig.kerf,
+              edgeTrim: slabConfig.edgeTrim,
+              unit: 'in',
+              slabImageUrl: newBorderSlab.slabImageUrl,
+              slabImageSourceLabel: `${newBorderSlab.materialName} (${newBorderSlab.width}×${newBorderSlab.length})`,
+              masterFrameScale: 100,
+              masterFrameOffsetX: 0,
+              masterFrameOffsetY: 0,
+              masterFrameRotation: 0,
+              locationRack: 'Room Border Stock',
+              notes: 'Room Outer Border Marble Slab',
+              savedAt: new Date().toLocaleTimeString(),
+            };
+            setSavedStockList((prev) => [newItem, ...prev]);
+            toast({
+              title: tr(
+                'Border Marble Slab Saved to Stock!',
+                'بارڈر ماربل سلیب اسٹاک میں محفوظ ہو گئی!'
+              ),
+              description: `${newBorderSlab.materialName} (${newBorderSlab.width}" × ${newBorderSlab.length}")`,
+            });
+          }}
+          onUpdateSlabConfig={(patch) =>
+            setSlabConfig((prev) => ({
+              ...prev,
+              ...patch,
+            }))
+          }
+          onTriggerSlabPhotoUpload={() => triggerSlabUpload(0, false)}
+          onSelectPresetSlabTexture={(preset) => {
+            const nextUrl = createSyntheticVeinedSlabDataUrl(preset);
+            setSlabImageUrl(nextUrl);
+            setSlabImageSourceLabel(
+              preset === 'statuario'
+                ? 'White Statuario Vein'
+                : preset === 'black_gold'
+                ? 'Black & Gold Marble'
+                : 'Emerald Green Onyx'
+            );
+          }}
+          onApplyRoomPartsToCutter={(roomParts: RoomGeneratedPart[]) => {
+            const maxTargetSlab = roomParts.reduce(
+              (mx, rp) => Math.max(mx, rp.targetSlabNumber || 0),
+              4
+            );
+            const converted: CutPartInput[] = roomParts.map((rp, i) => ({
+              id: `room-pt-${Date.now()}-${i}`,
+              label: rp.label,
+              width: rp.widthIn,
+              length: rp.lengthIn,
+              quantity: rp.quantity,
+              allowRotation: !rp.isBookmatch,
+              isBookmatchedPair: rp.isBookmatch,
+              installZone: 'floor',
+              priority: rp.isBookmatch ? 'high' : 'normal',
+              color: rp.color || PART_PALETTE[i % PART_PALETTE.length],
+              edgeProfile: 'flat_polish',
+              targetSlabNumber: rp.targetSlabNumber,
+            }));
+            setSlabConfig((prev) => ({
+              ...prev,
+              quantity: Math.max(prev.quantity, maxTargetSlab),
+            }));
+            setParts(converted);
+            setFourSlabBookmatchMode(true);
+            setSimpleMainScreen('slab_cutter');
+            setActiveResultTab('dual_diagrams');
+            toast({
+              title: tr(
+                'Room Floor & Border Pieces Sent to Slab Cutter!',
+                'کمرے کے بک میچ اور بارڈر پیسز سلیب کٹنگ ڈایاگرام میں سیٹ ہو گئے!'
+              ),
+              description: tr(
+                'Outer border strips are automatically paired onto the leftover space of the Bookmatch slabs.',
+                'بارڈر کے پیسز خودکار طور پر بک میچ سلیب کے بچے ہوئے حصے میں ایڈجسٹ ہو گئے ہیں۔'
+              ),
+            });
+          }}
+          onGenerateExcelBill={() => handleGenerateExcelBill(true)}
+        />
+      </div>
+
+      {/* Main Full-Width Workstation Layout (Shown when Slab Cutter, Stock Slabs, or Excel Bill is active) */}
+      <div className={`${simpleMainScreen === 'floor_planner' ? 'hidden' : 'flex flex-col gap-3 w-full'}`}>
         {fullscreenTarget !== 'slab_diagram' && fullscreenTarget !== 'floor_diagram' && (
           <div className="w-full space-y-2.5 print:hidden" dir={cadLang === 'ur' ? 'rtl' : 'ltr'}>
             {/* =====================================================================
-                1. SEPARATE TOP STOCK UPLOAD SECTION (اوپر الگ سٹاک اپلوڈ کرنے کی جگہ — ڈراپ ڈاؤن کے ساتھ)
+                CUT SIZES & CATEGORY BAR DIRECTLY ABOVE THE SLAB DIAGRAM
+                (صرف سلیب کٹنگ موڈ میں نظر آئے گا — کوئی ڈبل بٹن نہیں!)
                ===================================================================== */}
-            <div className="rounded-xl border-2 border-sky-500/60 bg-slate-900 text-white shadow-md overflow-hidden">
-              <div className="px-3 py-2 bg-slate-950/90 flex flex-wrap items-center justify-between gap-2">
-                {/* Left: Mini Slab Photo Preview + Material Name + Quick Slab Size Inputs */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <div
-                    onClick={() => openFrameCalibrator(0)}
-                    className="relative h-10 w-16 rounded overflow-hidden border border-sky-400/70 shrink-0 bg-slate-900 cursor-pointer"
-                    title="Click to calibrate slab frame or mark cracks"
-                  >
-                    <div
-                      className="w-full h-full bg-no-repeat bg-center"
-                      style={{
-                        backgroundImage: `url("${slabImageUrl}")`,
-                        backgroundSize: `${masterFrameScale}% ${masterFrameScale}%`,
-                        backgroundPosition: `${50 + masterFrameOffsetX}% ${50 + masterFrameOffsetY}%`,
-                        transform: `rotate(${masterFrameRotation}deg)`,
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-sky-600 text-white font-mono text-[10px] font-extrabold uppercase">
-                        {tr('📦 TOP STOCK UPLOAD', '📦 سٹاک اپلوڈ (اوپر الگ سیکشن)')}
-                      </span>
-                      <span className="text-xs font-extrabold text-white">
-                        {slabConfig.materialName} ({slabConfig.lotId})
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">
-                      {tr(
-                        `Stock: ${slabConfig.quantity} Slabs · W:${slabConfig.width}" × L:${slabConfig.length}"`,
-                        `اسٹاک: ${slabConfig.quantity} سلیب · چوڑائی ${slabConfig.width}" × لمبائی ${slabConfig.length}"`
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Quick Inline Stock Slab Width × Length × Qty Inputs */}
-                  <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
-                    <span className="text-[10px] font-bold text-amber-300">
-                      {tr(`1.W (${unit}):`, `1.چوڑائی (${unit}):`)}
-                    </span>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="1"
-                      value={slabConfig.width}
-                      onChange={(e) =>
-                        setSlabConfig((s) => ({
-                          ...s,
-                          width: Number(e.target.value) || 0,
-                        }))
-                      }
-                      className="h-7 w-16 px-1.5 text-xs bg-slate-950 border-amber-500/60 text-white font-mono font-bold"
-                    />
-                    <span className="text-slate-500 font-bold">×</span>
-                    <span className="text-[10px] font-bold text-sky-300">
-                      {tr(`2.L (${unit}):`, `2.لمبائی (${unit}):`)}
-                    </span>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="1"
-                      value={slabConfig.length}
-                      onChange={(e) =>
-                        setSlabConfig((s) => ({
-                          ...s,
-                          length: Number(e.target.value) || 0,
-                        }))
-                      }
-                      className="h-7 w-16 px-1.5 text-xs bg-slate-950 border-sky-500/60 text-white font-mono font-bold"
-                    />
-                    <span className="text-[10px] font-bold text-slate-300 ml-1">
-                      {tr('Slabs:', 'تعداد:')}
-                    </span>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={slabConfig.quantity}
-                      onChange={(e) =>
-                        setSlabConfig((s) => ({
-                          ...s,
-                          quantity: Math.max(1, Math.min(50, parseInt(e.target.value, 10) || 1)),
-                        }))
-                      }
-                      className="h-7 w-14 px-1.5 text-xs bg-slate-950 border-slate-700 text-white font-mono font-bold"
-                    />
-                  </div>
-                </div>
-
-                {/* Right: Direct Upload Buttons + Stock Dropdown Toggle */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => triggerSlabUpload(0, false)}
-                    className="px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-extrabold flex items-center gap-1 shadow-sm"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    <span>{tr('Upload Slab Photo', 'سلیب تصویر اپ لوڈ')}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => startLiveCamera(0)}
-                    className={cadBtnSubtle}
-                  >
-                    <Camera className="h-3.5 w-3.5 text-sky-400" />
-                    <span>{tr('Camera', 'کیمرہ')}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => openFrameCalibrator(0)}
-                    className={cadBtnSubtle}
-                  >
-                    <Crop className="h-3.5 w-3.5 text-amber-400" />
-                    <span>{tr('Frame / Crack', 'فریم / کریک')}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleGenerateExcelBill(true)}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md border border-emerald-400/60"
-                    title="Generate Microsoft Excel (.xls) Bill with Slabs, Cutting, Polish & Edge Profiles and save to computer"
-                  >
-                    <FileSpreadsheet className="h-3.5 w-3.5" />
-                    <span>
-                      {tr(
-                        '📊 Generate Excel Bill (.xls)',
-                        '📊 ایکسل بل فائل جنریٹ کریں (.xls)'
-                      )}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveResultTab('bom')}
-                    className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/60 text-emerald-300 text-xs font-bold flex items-center gap-1"
-                  >
-                    <HardDrive className="h-3.5 w-3.5" />
-                    <span>
-                      {tr(
-                        `💻 Saved Excel Bills (${savedComputerExcelBills.length})`,
-                        `💻 کمپیوٹر ایکسل بل (${savedComputerExcelBills.length})`
-                      )}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsTopStockDropdownOpen((v) => !v)}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-extrabold flex items-center gap-1.5 transition-all ${
-                      isTopStockDropdownOpen
-                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-md'
-                        : 'bg-slate-900 border-sky-500/60 text-sky-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    <span>
-                      {isTopStockDropdownOpen
-                        ? tr('✓ Close Stock & Rates ▴', '✓ سٹاک اور ریٹ ڈراپ ڈاؤن بند کریں ▴')
-                        : tr('📦 Stock & Billing Rates ▾', '📦 سٹاک، سلیب ریٹ، کٹنگ، پالش اور ایج ریٹ ▾')}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Collapsible Top Stock Upload & Billing Rates Dropdown */}
-              {isTopStockDropdownOpen && (
-                <div className="p-3.5 bg-slate-900 border-t border-slate-800 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800 text-xs">
-                    <span className="font-extrabold text-amber-300">
-                      {tr(
-                        '💻 Auto-Saved to Your Computer — Set Stock Sizes & Rates for Excel Bill (Slabs, Cutting, Polish & Edge Profile):',
-                        '💻 آپ کے کمپیوٹر میں ڈیٹا خودکار سیو ہو رہا ہے — ایکسل بل کے لیے سلیب سائز، کٹنگ، پالش اور ایج پروفائل ریٹ سیٹ کریں:'
-                      )}
-                    </span>
-                    {computerLastSavedAt && (
-                      <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-mono text-[10px]">
-                        {tr(`✓ Auto-Saved on PC @ ${computerLastSavedAt}`, `✓ کمپیوٹر میں محفوظ: ${computerLastSavedAt}`)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 items-end">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-slate-300">
-                        {tr('Customer / Project', 'گاہک / پروجیکٹ کا نام')}
-                      </Label>
-                      <Input
-                        value={billCustomerName}
-                        onChange={(e) => setBillCustomerName(e.target.value)}
-                        className="h-8 text-xs bg-slate-950 border-slate-700 text-white"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-medium text-slate-300">
-                        {tr('Material Name', 'پتھر / ماربل کا نام')}
-                      </Label>
-                      <Input
-                        value={slabConfig.materialName}
-                        onChange={(e) =>
-                          setSlabConfig((s) => ({ ...s, materialName: e.target.value }))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-slate-700 text-white"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-bold text-amber-300">
-                        {tr(`1. Slab Width (${unit})`, `1. سلیب چوڑائی (${unit})`)}
-                      </Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        min="1"
-                        value={slabConfig.width}
-                        onChange={(e) =>
-                          setSlabConfig((s) => ({
-                            ...s,
-                            width: Number(e.target.value) || 0,
-                          }))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-amber-500/60 text-white font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-bold text-sky-300">
-                        {tr(`2. Slab Length (${unit})`, `2. سلیب لمبائی (${unit})`)}
-                      </Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        min="1"
-                        value={slabConfig.length}
-                        onChange={(e) =>
-                          setSlabConfig((s) => ({
-                            ...s,
-                            length: Number(e.target.value) || 0,
-                          }))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-sky-500/60 text-white font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-bold text-emerald-300">
-                        {tr('Slab Rate / Sq.Ft', 'سلیب ریٹ فی فٹ')}
-                      </Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={slabConfig.ratePerSqFt}
-                        onChange={(e) =>
-                          setSlabConfig((s) => ({
-                            ...s,
-                            ratePerSqFt: Math.max(0, Number(e.target.value) || 0),
-                          }))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-emerald-500/60 text-white font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-bold text-amber-300">
-                        {tr('Cutting Rate / R.Ft', 'کٹنگ ریٹ فی رننگ فٹ')}
-                      </Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={cuttingRatePerRft}
-                        onChange={(e) =>
-                          setCuttingRatePerRft(Math.max(0, Number(e.target.value) || 0))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-amber-500/60 text-white font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-bold text-sky-300">
-                        {tr('Polish Rate / Sq.Ft', 'پالش ریٹ فی مربع فٹ')}
-                      </Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={polishRatePerSqFt}
-                        onChange={(e) =>
-                          setPolishRatePerSqFt(Math.max(0, Number(e.target.value) || 0))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-sky-500/60 text-white font-mono font-bold"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-bold text-purple-300">
-                        {tr('Edge Profile / R.Ft', 'ایج پروفائل ریٹ/فٹ')}
-                      </Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={edgeProfileRatePerRft}
-                        onChange={(e) =>
-                          setEdgeProfileRatePerRft(Math.max(0, Number(e.target.value) || 0))
-                        }
-                        className="h-8 text-xs bg-slate-950 border-purple-500/60 text-white font-mono font-bold"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveCurrentSlabToStock(false)}
-                        className="h-8 px-3 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-emerald-300 font-bold text-xs flex items-center gap-1"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span>{tr('💾 Save Slab to Stock', '💾 اسٹاک میں سیو کریں')}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateExcelBill(true)}
-                        className="h-8 px-3.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow"
-                      >
-                        <FileSpreadsheet className="h-3.5 w-3.5" />
-                        <span>
-                          {tr(
-                            '📊 Download Excel Bill (.xls) & Save to PC',
-                            '📊 ایکسل بل ڈاؤن لوڈ اور کمپیوٹر میں سیو کریں (.xls)'
-                          )}
-                        </span>
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsTopStockDropdownOpen(false)}
-                      className="h-8 px-4 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs"
-                    >
-                      {tr('✓ Done — Close Dropdown ▴', '✓ سلیکٹ کر کے ڈراپ ڈاؤن بند کریں ▴')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* =====================================================================
-                2. CUT SIZES & CATEGORY BAR DIRECTLY ABOVE THE DIAGRAM
-                   (ڈایاگرام کے بالکل اوپر کیٹگری اور کٹ سائز شامل کرنے کی جگہ + ڈراپ ڈاؤن لسٹ)
-               ===================================================================== */}
+            {simpleMainScreen === 'slab_cutter' && (
             <div className="rounded-xl border-2 border-emerald-500/60 bg-slate-900 text-white shadow-md overflow-hidden">
               {/* Row 1: Category Buttons + Quick Cut Size Input Right Above the Diagram */}
               <div className="p-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
@@ -7340,6 +6879,7 @@ export function CuttingOptimizerPro({
                 </div>
               )}
             </div>
+            )}
           </div>
         )}
 
@@ -7435,119 +6975,108 @@ export function CuttingOptimizerPro({
 
           {/* Main Workspace Card */}
           <div className="rounded-lg border border-slate-800 bg-slate-900 text-white overflow-hidden">
-            {/* CLEAN TOP NAVIGATION TABS (ہر چیز الگ الگ دیکھنے کے لیے واضح ٹاپ بٹن) */}
+            {/* CONTEXTUAL VIEW SWITCHER (کوئی ڈبل بٹن نہیں — صرف منتخب موڈ کے ضروری بٹن) */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 border-b border-slate-800 bg-slate-950 print:hidden">
               <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-lg bg-slate-900 border border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setActiveResultTab('dual_diagrams')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                    activeResultTab === 'dual_diagrams'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <Scissors className="h-3.5 w-3.5" />
-                  <span>
-                    {tr(
-                      '1. Slab Cutting & Floor Map',
-                      '1. سلیب کٹنگ اور فلور نقشہ'
-                    )}
-                  </span>
-                </button>
+                {simpleMainScreen === 'slab_cutter' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveResultTab('dual_diagrams')}
+                      className={`px-3.5 py-1.5 text-xs font-extrabold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                        activeResultTab === 'dual_diagrams'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <Scissors className="h-3.5 w-3.5" />
+                      <span>
+                        {tr('✂️ Slab Cutting Diagram', '✂️ سلیب کٹنگ کا بڑا ڈایاگرام')}
+                      </span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSetFullscreenMode(isFullscreen ? 'workstation' : 'none');
-                    setActiveResultTab('stock_inventory');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                    activeResultTab === 'stock_inventory'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-emerald-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <HardDrive className="h-3.5 w-3.5" />
-                  <span>
-                    {tr(
-                      `2. Computer Stock & Multi-Stock (${savedStockList.length})`,
-                      `2. کمپیوٹر اسٹاک اور ملٹی اسٹاک (${savedStockList.length})`
-                    )}
-                  </span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveResultTab('schedule')}
+                      className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
+                        activeResultTab === 'schedule'
+                          ? 'bg-emerald-600 text-white'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {tr(
+                        `📋 Cut Schedule List (${summary.slabs.reduce((s, sl) => s + sl.cuts.length, 0)})`,
+                        `📋 کٹنگ شیڈول لسٹ (${summary.slabs.reduce((s, sl) => s + sl.cuts.length, 0)})`
+                      )}
+                    </button>
+                  </>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSetFullscreenMode(isFullscreen ? 'workstation' : 'none');
-                    setActiveResultTab('slab_manager');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                    activeResultTab === 'slab_manager'
-                      ? 'bg-sky-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <Layers className="h-3.5 w-3.5" />
-                  <span>
-                    {tr(
-                      `3. Change Slabs & Cracks (${slabConfig.quantity})`,
-                      `3. ہر سلیب چیک / تبدیل کریں (${slabConfig.quantity})`
-                    )}
-                  </span>
-                </button>
+                {simpleMainScreen === 'stock_slabs' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveResultTab('stock_inventory')}
+                      className={`px-3.5 py-1.5 text-xs font-extrabold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                        activeResultTab === 'stock_inventory'
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <HardDrive className="h-3.5 w-3.5" />
+                      <span>
+                        {tr(
+                          `📦 Stock Slabs & Photo Upload (${savedStockList.length})`,
+                          `📦 اسٹاک سلیب سائز اور تصویر اپ لوڈ (${savedStockList.length})`
+                        )}
+                      </span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSetFullscreenMode(isFullscreen ? 'workstation' : 'none');
-                    setActiveResultTab('bookmatch');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                    activeResultTab === 'bookmatch'
-                      ? 'bg-amber-500 text-slate-950 shadow-xs'
-                      : 'text-amber-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <FlipHorizontal className="h-3.5 w-3.5" />
-                  <span>
-                    {tr('4. Bookmatch Studio', '4. بک میچ اسٹوڈیو')}
-                  </span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveResultTab('slab_manager')}
+                      className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                        activeResultTab === 'slab_manager'
+                          ? 'bg-sky-600 text-white shadow-xs'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      <span>
+                        {tr(
+                          `🔍 Inspect Individual Slabs & Cracks (${slabConfig.quantity})`,
+                          `🔍 ہر سلیب الگ چیک / کریک نکالیں (${slabConfig.quantity})`
+                        )}
+                      </span>
+                    </button>
+                  </>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSetFullscreenMode(isFullscreen ? 'workstation' : 'none');
-                    setActiveResultTab('schedule');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                    activeResultTab === 'schedule'
-                      ? 'bg-sky-600 text-white'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {tr(
-                    `5. Cut Schedule (${summary.slabs.reduce((s, sl) => s + sl.cuts.length, 0)})`,
-                    `5. کٹنگ شیڈول (${summary.slabs.reduce((s, sl) => s + sl.cuts.length, 0)})`
-                  )}
-                </button>
+                {simpleMainScreen === 'excel_bill' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setActiveResultTab('bom')}
+                      className="px-3.5 py-1.5 text-xs font-extrabold rounded-md bg-violet-600 text-white shadow-xs flex items-center gap-1.5"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      <span>
+                        {tr('📊 Detailed Bill, Rates & Edge Polish', '📊 تفصیلی بل، کٹنگ، پالش اور ایج ریٹ')}
+                      </span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSetFullscreenMode(isFullscreen ? 'workstation' : 'none');
-                    setActiveResultTab('bom');
-                  }}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                    activeResultTab === 'bom'
-                      ? 'bg-sky-600 text-white'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {tr('6. Bill (BOM)', '6. تفصیلی بل (BOM)')}
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateExcelBill(true)}
+                      className="px-4 py-1.5 text-xs font-black rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-xs flex items-center gap-1.5"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>
+                        {tr('📥 Download Excel Bill (.xls)', '📥 ایکسل بل ڈاؤن لوڈ کریں (.xls)')}
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Zoom, Texture Opacity & Fullscreen Controls */}
@@ -7601,12 +7130,12 @@ export function CuttingOptimizerPro({
                   {isFullscreen ? (
                     <>
                       <Minimize2 className="h-3.5 w-3.5 text-sky-400" />
-                      <span>نارمل</span>
+                      <span>{tr('Normal', 'نارمل')}</span>
                     </>
                   ) : (
                     <>
                       <Maximize2 className="h-3.5 w-3.5 text-sky-400" />
-                      <span>فل سکرین</span>
+                      <span>{tr('Fullscreen', 'فل سکرین')}</span>
                     </>
                   )}
                 </button>
@@ -8379,16 +7908,16 @@ export function CuttingOptimizerPro({
                         // Helper to describe which region of the slab this Zone is located in
                         const horizRegionUr =
                           zoneX1 < sLen * 0.25
-                            ? 'بایاں حصہ (Left Side)'
+                            ? tr('Left Side', 'بایاں حصہ')
                             : zoneX1 > sLen * 0.45
-                            ? 'دایاں حصہ (Right Side)'
-                            : 'درمیانی حصہ (Center)';
+                            ? tr('Right Side', 'دایاں حصہ')
+                            : tr('Center', 'درمیانی حصہ');
                         const vertRegionUr =
                           zoneY1 < sWid * 0.25
-                            ? 'اوپر والا حصہ (Top)'
+                            ? tr('Top', 'اوپر والا حصہ')
                             : zoneY1 > sWid * 0.45
-                            ? 'نیچے والا حصہ (Bottom)'
-                            : 'درمیان (Middle)';
+                            ? tr('Bottom', 'نیچے والا حصہ')
+                            : tr('Middle', 'درمیان');
 
                         const slabVis1 = getSlabVisualConfig(1);
                         const bgWidthPct = (sLen / Math.max(1, pieceL)) * 100;
@@ -9046,12 +8575,12 @@ export function CuttingOptimizerPro({
                                     const sVis = getSlabVisualConfig(slabNum);
                                     const roleBadge =
                                       quadIdx === 0
-                                        ? '1: Top-Left (سیدھا ↗)'
+                                        ? tr('1: Top-Left (Normal ↗)', '1: اوپر بائیں (سیدھا ↗)')
                                         : quadIdx === 1
-                                        ? '2: Top-Right (الٹ ↔ ↖)'
+                                        ? tr('2: Top-Right (Flip H ↔ ↖)', '2: اوپر دائیں (الٹ ↔ ↖)')
                                         : quadIdx === 2
-                                        ? '3: Bottom-Left (الٹ ↕ ↘)'
-                                        : '4: Bottom-Right (الٹ ↔↕ ↙)';
+                                        ? tr('3: Bottom-Left (Flip V ↕ ↘)', '3: نیچے بائیں (الٹ ↕ ↘)')
+                                        : tr('4: Bottom-Right (Flip HV ↔↕ ↙)', '4: نیچے دائیں (الٹ ↔↕ ↙)');
                                     return (
                                       <div
                                         key={`${quadIdx}-${slabNum}`}
@@ -9315,7 +8844,58 @@ export function CuttingOptimizerPro({
                                   title={`Download PDF Blueprint for Slab #${slab.slabIndex}`}
                                 >
                                   <Download className="h-3 w-3" />
-                                  <span>{tr('PDF Download', 'پی ڈی ایف ڈاؤن لوڈ')}</span>
+                                  <span>{tr('PDF', 'پی ڈی ایف')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const lines: string[] = [
+                                      '0', 'SECTION', '2', 'HEADER', '9', '$INSUNITS', '70', '1', '0', 'ENDSEC',
+                                      '0', 'SECTION', '2', 'ENTITIES',
+                                    ];
+                                    const pushRect = (x: number, y: number, w: number, h: number, layer: string, col: number) => {
+                                      const pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+                                      for (let i = 0; i < 4; i++) {
+                                        lines.push(
+                                          '0', 'LINE', '8', layer, '62', String(col),
+                                          '10', pts[i][0].toFixed(2), '20', pts[i][1].toFixed(2), '30', '0.0',
+                                          '11', pts[i + 1][0].toFixed(2), '21', pts[i + 1][1].toFixed(2), '31', '0.0'
+                                        );
+                                      }
+                                    };
+                                    const pushTxt = (x: number, y: number, h: number, txt: string, layer: string, col: number) => {
+                                      lines.push(
+                                        '0', 'TEXT', '8', layer, '62', String(col),
+                                        '10', x.toFixed(2), '20', y.toFixed(2), '30', '0.0',
+                                        '40', h.toFixed(2), '1', txt.replace(/[^\x20-\x7E]/g, '')
+                                      );
+                                    };
+                                    pushRect(0, 0, slab.slabLength, slab.slabWidth, 'SLAB_OUTLINE', 7);
+                                    pushTxt(2, slab.slabWidth + 3, 2.5, `SLAB #${slab.slabIndex} (${slab.slabWidth}x${slab.slabLength} ${unit})`, 'TEXT', 7);
+                                    slab.placedPieces.forEach((p) => {
+                                      pushRect(p.x, p.y, p.width, p.height, 'USED_PIECES', 3);
+                                      pushTxt(p.x + 2, p.y + p.height / 2, 2.0, `${p.pieceCode}: ${p.height}x${p.width}`, 'TEXT', 7);
+                                    });
+                                    slab.freeRects.forEach((o, oi) => {
+                                      pushRect(o.x, o.y, o.width, o.height, 'WASTE_OFFCUTS', 1);
+                                      pushTxt(o.x + 1.5, o.y + o.height / 2, 1.8, `W${oi + 1}: ${o.height}x${o.width}`, 'WASTE_TEXT', 1);
+                                    });
+                                    lines.push('0', 'ENDSEC', '0', 'EOF');
+                                    const blob = new Blob([lines.join('\n')], { type: 'application/acad' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `Slab_${slab.slabIndex}_${slab.slabWidth}x${slab.slabLength}_AutoCAD_2D.dwg`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    setTimeout(() => URL.revokeObjectURL(url), 1500);
+                                  }}
+                                  className="h-7 px-2.5 rounded border border-amber-400 bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-black flex items-center gap-1 whitespace-nowrap transition-colors shadow-2xs cursor-pointer"
+                                  title="Download 2D AutoCAD .DWG File"
+                                >
+                                  <Download className="h-3 w-3" />
+                                  <span>📐 .DWG</span>
                                 </button>
                                 <button
                                   type="button"
@@ -10010,45 +9590,45 @@ export function CuttingOptimizerPro({
                                             />
                                           )}
 
-                                        {/* AutoCAD Center Dimension Callout (Compact Pill at Top-Left Corner so center veins are 100% visible) */}
+                                        {/* AutoCAD Short-Form Dimension Callout (Larger, crisp, high-contrast, zero clutter) */}
                                         {pw >= 42 && ph >= 22 && (
-                                          <g>
+                                          <g pointerEvents="none">
                                             <rect
                                               x={px + 4}
                                               y={py + 4}
-                                              width={Math.min(pw - 8, 152)}
-                                              height={ph >= 42 ? 32 : 17}
+                                              width={Math.min(pw - 8, 165)}
+                                              height={ph >= 44 ? 36 : 20}
                                               rx="3"
-                                              fill="rgba(2, 6, 23, 0.86)"
-                                              stroke={isSelected ? '#38BDF8' : 'rgba(148, 163, 184, 0.45)'}
-                                              strokeWidth="1"
+                                              fill="rgba(2, 6, 23, 0.92)"
+                                              stroke={isSelected ? '#F8FAFC' : 'rgba(255, 255, 255, 0.7)'}
+                                              strokeWidth="1.2"
                                             />
                                             <text
-                                              x={px + 8}
-                                              y={py + (ph >= 42 ? 14 : 13)}
-                                              fill="#38BDF8"
-                                              fontSize="9.5"
+                                              x={px + 9}
+                                              y={py + (ph >= 44 ? 17 : 17)}
+                                              fill="#FFFFFF"
+                                              fontSize="11.5"
                                               fontFamily="monospace"
                                               fontWeight="bold"
                                             >
-                                              [{piece.pieceCode}] {piece.label.slice(0, 14)}
+                                              {`${piece.pieceCode} · ${formatNum(piece.height)}"×${formatNum(piece.width)}"`}
                                             </text>
-                                            {ph >= 42 && (
+                                            {ph >= 44 && (
                                               <text
-                                                x={px + 8}
-                                                y={py + 28}
-                                                fill="#F8FAFC"
-                                                fontSize="9"
+                                                x={px + 9}
+                                                y={py + 33}
+                                                fill="#FDE047"
+                                                fontSize="10.5"
                                                 fontFamily="monospace"
                                                 fontWeight="bold"
                                               >
-                                                W:{formatNum(piece.height)}×L:{formatNum(piece.width)}{unit} ➔ R{piece.floorRow}C{piece.floorCol}
+                                                {piece.label.slice(0, 16)}
                                               </text>
                                             )}
                                           </g>
                                         )}
 
-                                        {/* Thin Horizontal Latak / Riser Strip Callout (e.g. 2", 3", 4" Front/Back Latak) */}
+                                        {/* Thin Horizontal Strip Callout */}
                                         {pw >= 40 && ph >= 9 && ph < 22 && (
                                           <g pointerEvents="none">
                                             <rect
@@ -10057,17 +9637,17 @@ export function CuttingOptimizerPro({
                                               width={Math.min(pw - 4, 150)}
                                               height={Math.max(8, ph - 2)}
                                               rx="2"
-                                              fill="rgba(2, 6, 23, 0.88)"
+                                              fill="rgba(2, 6, 23, 0.90)"
                                             />
                                             <text
                                               x={px + 6}
-                                              y={py + ph / 2 + 3}
-                                              fill="#FDE047"
-                                              fontSize="8.5"
+                                              y={py + ph / 2 + 3.5}
+                                              fill="#FFFFFF"
+                                              fontSize="10"
                                               fontFamily="monospace"
                                               fontWeight="bold"
                                             >
-                                              [{piece.pieceCode}] {piece.bookmatchTag || 'LATAK'} ({formatNum(piece.height)}&quot;×{formatNum(piece.width)}&quot;)
+                                              {`${piece.pieceCode} · ${formatNum(piece.height)}"×${formatNum(piece.width)}"`}
                                             </text>
                                           </g>
                                         )}
@@ -10132,22 +9712,56 @@ export function CuttingOptimizerPro({
                                     );
                                   })}
 
-                                  {/* Saw Kerf Cut Lines */}
+                                  {/* Saw Kerf Cut Lines + Exact Running Inches Cut Callout */}
                                   {showKerfLines &&
                                     slab.cuts
                                       .filter((c) => c.type !== 'edge_trim')
-                                      .map((cut) => (
-                                        <line
-                                          key={`cut-${cut.step}`}
-                                          x1={padLeft + cut.x1 * scale}
-                                          y1={padTop + cut.y1 * scale}
-                                          x2={padLeft + cut.x2 * scale}
-                                          y2={padTop + cut.y2 * scale}
-                                          stroke="#F43F5E"
-                                          strokeWidth={Math.max(1.8, slab.kerf * scale)}
-                                          strokeDasharray="6 3"
-                                        />
-                                      ))}
+                                      .map((cut) => {
+                                        const cx1 = padLeft + cut.x1 * scale;
+                                        const cy1 = padTop + cut.y1 * scale;
+                                        const cx2 = padLeft + cut.x2 * scale;
+                                        const cy2 = padTop + cut.y2 * scale;
+                                        const midX = (cx1 + cx2) / 2;
+                                        const midY = (cy1 + cy2) / 2;
+                                        return (
+                                          <g key={`cut-${cut.step}`}>
+                                            <line
+                                              x1={cx1}
+                                              y1={cy1}
+                                              x2={cx2}
+                                              y2={cy2}
+                                              stroke="#F43F5E"
+                                              strokeWidth={Math.max(2, slab.kerf * scale)}
+                                              strokeDasharray="6 3"
+                                            />
+                                            {cut.length * scale >= 45 && (
+                                              <g pointerEvents="none">
+                                                <rect
+                                                  x={midX - 42}
+                                                  y={midY - 8}
+                                                  width="84"
+                                                  height="16"
+                                                  rx="3"
+                                                  fill="rgba(136, 19, 55, 0.92)"
+                                                  stroke="#FDA4AF"
+                                                  strokeWidth="0.8"
+                                                />
+                                                <text
+                                                  x={midX}
+                                                  y={midY + 3}
+                                                  textAnchor="middle"
+                                                  fill="#FFE4E6"
+                                                  fontSize="8.5"
+                                                  fontFamily="monospace"
+                                                  fontWeight="bold"
+                                                >
+                                                  ✂️ Cut: {formatNum(cut.length, 1)}&quot; R.In
+                                                </text>
+                                              </g>
+                                            )}
+                                          </g>
+                                        );
+                                      })}
                                 </svg>
                               </div>
 
@@ -10155,7 +9769,10 @@ export function CuttingOptimizerPro({
                               <div className="rounded-lg border border-slate-800 bg-slate-950 p-2.5">
                                 <div className="text-[11px] font-bold text-slate-300 mb-2 flex items-center justify-between">
                                   <span>
-                                    Slab #{slab.slabIndex} Placed Cut Pieces (ٹکڑے پر کلک کر کے ایڈٹ کریں یا سلیب پر ماؤس سے کھینچیں):
+                                    {tr(
+                                      `Slab #${slab.slabIndex} Placed Cut Pieces (Click any piece to edit or drag on slab):`,
+                                      `سلیب #${slab.slabIndex} کے کٹے ہوئے ٹکڑے (ٹکڑے پر کلک کر کے ایڈٹ کریں یا سلیب پر ماؤس سے کھینچیں):`
+                                    )}
                                   </span>
                                   <span className="font-mono text-sky-400">
                                     {slab.placedPieces.length} Pieces Cut
@@ -10193,6 +9810,174 @@ export function CuttingOptimizerPro({
                                     );
                                   })}
                                 </div>
+                              </div>
+
+                              {/* Dedicated Remaining / Waste Pieces & Offcut Bank inside Slab Cutting Optimizer */}
+                              <div className="rounded-lg border border-amber-500/40 bg-slate-950 p-3 space-y-2.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                                  <div>
+                                    <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                      <span>
+                                        {tr(
+                                          `♻️ Slab #${slab.slabIndex} Remaining / Waste Pieces & Optimizer Offcut Bank`,
+                                          `♻️ سلیب #${slab.slabIndex} کے بچے ہوئے ویسٹ پیسز اور آپٹیمائزر بینک (اگلے روم یا فلور کے لیے)`
+                                        )}
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400">
+                                      {tr(
+                                        'Save remaining waste pieces into the Optimizer Bank and load them anytime for the next room floor, border, stairs, or skirting.',
+                                        'سلیب کٹنے کے بعد بچنے والے پیسز کو بینک میں محفوظ کریں اور نیکسٹ روم، فلور، بارڈر یا سیڑھی میں استعمال کریں۔'
+                                      )}
+                                    </p>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={handleSaveUsableOffcutsToStock}
+                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-[11px] shadow transition-colors"
+                                    >
+                                      {tr(
+                                        '💾 Save Current Slab Waste to Bank',
+                                        '💾 بچے ہوئے پیس بینک میں محفوظ کریں'
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handlePrintWorkshopSheet}
+                                      className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] shadow transition-colors"
+                                    >
+                                      {tr(
+                                        '🖨️ PDF Report (Cuts + Waste Schedule)',
+                                        '🖨️ پی ڈی ایف رپورٹ (کارآمد + ویسٹ تفصیل)'
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {slab.freeRects.length > 0 && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                    {slab.freeRects.map((wz, wIdx) => {
+                                      const minD = Math.min(wz.width, wz.height);
+                                      const maxD = Math.max(wz.width, wz.height);
+                                      const nextUseLabel =
+                                        minD >= 24 && maxD >= 24
+                                          ? tr('Next Room Floor / Large Tile', 'اگلے کمرے کا فرش / بڑی ٹائل')
+                                          : minD >= 12 && maxD >= 36
+                                          ? tr('Stair Step (Tappa) / Bathroom Floor', 'سیڑھی کا ٹپہ / باتھ روم فلور')
+                                          : minD >= 6 && maxD >= 24
+                                          ? tr('Outer Room Border / Stair Riser', 'کمرے کا بارڈر / سیڑھی کا رائزر')
+                                          : minD >= 4 && maxD >= 18
+                                          ? tr('4" Wall Skirting / Contrast Patti', '4 انچ اسکرٹنگ / پٹی')
+                                          : tr('Small Mosaic / Threshold', 'چھوٹی پٹی / دہلیز');
+                                      return (
+                                        <div
+                                          key={`free-wz-${wIdx}`}
+                                          className="rounded border border-amber-500/30 bg-amber-950/15 p-2 flex flex-col justify-between gap-1.5"
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-[11px] font-mono font-bold text-amber-300">
+                                              [W{wIdx + 1}] {formatNum(wz.width)}×{formatNum(wz.height)} {unit}
+                                            </span>
+                                            <span className="text-[10px] font-mono font-bold text-emerald-300">
+                                              {toSqFt(wz.width * wz.height, unit).toFixed(2)} Sq.Ft
+                                            </span>
+                                          </div>
+                                          <div className="text-[10px] text-amber-200 font-semibold">
+                                            ➔ {nextUseLabel}
+                                          </div>
+                                          <div className="flex items-center gap-1 pt-1 border-t border-slate-800/80">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSlabConfig((prev) => ({
+                                                  ...prev,
+                                                  materialName: `${prev.materialName} (Waste W${wIdx + 1})`,
+                                                  width: Number(wz.width.toFixed(1)),
+                                                  length: Number(wz.height.toFixed(1)),
+                                                  quantity: 1,
+                                                  edgeTrim: 0,
+                                                }));
+                                                toast({
+                                                  title: tr(
+                                                    'Waste Piece Loaded as Active Slab!',
+                                                    'بچا ہوا پیس کٹنگ کے لیے لوڈ ہو گیا!'
+                                                  ),
+                                                  description: `${formatNum(wz.width)}×{formatNum(wz.height)} ${unit}`,
+                                                });
+                                              }}
+                                              className="flex-1 px-2 py-1 rounded bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold transition-colors"
+                                            >
+                                              {tr('✂️ Cut This Piece Now', '✂️ اسی پیس میں کٹنگ کریں')}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setSlabConfig((prev) => ({
+                                                  ...prev,
+                                                  materialName: `${prev.materialName} (Waste W${wIdx + 1})`,
+                                                  width: Number(wz.width.toFixed(1)),
+                                                  length: Number(wz.height.toFixed(1)),
+                                                  quantity: 1,
+                                                  edgeTrim: 0,
+                                                }));
+                                                setSimpleMainScreen('floor_planner');
+                                              }}
+                                              className="flex-1 px-2 py-1 rounded bg-violet-600 hover:bg-violet-500 text-white text-[10px] font-bold transition-colors"
+                                            >
+                                              {tr('🏠 Use in Next Room', '🏠 اگلے روم میں لگائیں')}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {savedStockList.filter((s) => s.category === 'usable_offcut').length > 0 && (
+                                  <div className="pt-2 border-t border-slate-800">
+                                    <div className="text-[11px] font-bold text-emerald-300 mb-1.5">
+                                      {tr(
+                                        `📦 Saved Remaining / Waste Pieces in Bank (${savedStockList.filter((s) => s.category === 'usable_offcut').length}) — Click to Reuse:`,
+                                        `📦 آپٹیمائزر بینک میں محفوظ شدہ بچے ہوئے پیسز (${savedStockList.filter((s) => s.category === 'usable_offcut').length}) — دوبارہ استعمال کریں:`
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {savedStockList
+                                        .filter((s) => s.category === 'usable_offcut')
+                                        .map((offcut) => (
+                                          <div
+                                            key={offcut.id}
+                                            className="rounded border border-emerald-500/40 bg-emerald-950/20 px-2.5 py-1.5 flex items-center gap-2 text-[11px]"
+                                          >
+                                            <div>
+                                              <span className="font-bold text-white">{offcut.materialName}</span>{' '}
+                                              <span className="font-mono font-bold text-amber-300">
+                                                ({offcut.width}&quot;×{offcut.length}&quot; × {offcut.quantity})
+                                              </span>
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleLoadStockItemIntoOptimizer(offcut)}
+                                              className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-[10px]"
+                                            >
+                                              {tr('Load Here', 'یہاں لوڈ کریں')}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                handleLoadStockItemIntoOptimizer(offcut);
+                                                setSimpleMainScreen('floor_planner');
+                                              }}
+                                              className="px-2 py-0.5 rounded bg-violet-600 hover:bg-violet-500 text-white font-bold text-[10px]"
+                                            >
+                                              {tr('Next Room', 'نیکسٹ روم')}
+                                            </button>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -10870,7 +10655,10 @@ export function CuttingOptimizerPro({
                                       />
                                       <rect x="260" y="23" width="460" height="28" rx="4" fill="rgba(2,6,23,0.86)" />
                                       <text x="490" y="42" textAnchor="middle" fill="#7DD3FC" fontSize="13" fontFamily="monospace" fontWeight="bold">
-                                        1. BACK SIDE SPLASH (بیک سائیڈ سلیش): {pSplashH}&quot; × {pLen}&quot;
+                                        {tr(
+                                          `1. BACK SIDE SPLASH: ${pSplashH}" × ${pLen}"`,
+                                          `1. بیک سائیڈ سلیش: ${pSplashH}" × ${pLen}"`
+                                        )}
                                       </text>
                                     </g>
                                   )}
@@ -10945,7 +10733,10 @@ export function CuttingOptimizerPro({
                                       />
                                       <rect x="280" y="67" width="420" height="28" rx="4" fill="rgba(2,6,23,0.88)" />
                                       <text x="490" y="85" textAnchor="middle" fill="#FDE047" fontSize="12.5" fontFamily="monospace" fontWeight="bold">
-                                        4. BACK SIDE LATAK (بیک سائیڈ لٹک): {pLatakW}&quot; × {pLen}&quot;
+                                        {tr(
+                                          `4. BACK SIDE LATAK: ${pLatakW}" × ${pLen}"`,
+                                          `4. بیک سائیڈ لٹک: ${pLatakW}" × ${pLen}"`
+                                        )}
                                       </text>
                                     </g>
                                   )}
@@ -11035,7 +10826,7 @@ export function CuttingOptimizerPro({
                                         BASIN CUTOUT #1
                                       </text>
                                       <text x="330" y="240" textAnchor="middle" fill="#E2E8F0" fontSize="12" fontFamily="monospace">
-                                        18&quot; × 14&quot; (بیسن کٹ آؤٹ)
+                                        {tr('18" × 14" (Basin Cutout)', '18" × 14" (بیسن کٹ آؤٹ)')}
                                       </text>
 
                                       <circle cx="650" cy="136" r="8" fill="#0F172A" stroke="#38BDF8" strokeWidth="2.5" />
@@ -11053,7 +10844,7 @@ export function CuttingOptimizerPro({
                                         BASIN CUTOUT #2
                                       </text>
                                       <text x="650" y="240" textAnchor="middle" fill="#E2E8F0" fontSize="12" fontFamily="monospace">
-                                        18&quot; × 14&quot; (بیسن کٹ آؤٹ)
+                                        {tr('18" × 14" (Basin Cutout)', '18" × 14" (بیسن کٹ آؤٹ)')}
                                       </text>
                                     </>
                                   ) : (
@@ -11070,7 +10861,7 @@ export function CuttingOptimizerPro({
                                         strokeDasharray="8 4"
                                       />
                                       <text x="490" y="222" textAnchor="middle" fill="#38BDF8" fontSize="14" fontFamily="monospace" fontWeight="bold">
-                                        OVAL BASIN CUTOUT (واش بیسن کٹ آؤٹ)
+                                        {tr('OVAL BASIN CUTOUT', 'اوول واش بیسن کٹ آؤٹ')}
                                       </text>
                                       <text x="490" y="242" textAnchor="middle" fill="#E2E8F0" fontSize="12" fontFamily="monospace">
                                         18&quot; × 14&quot; Center Cut
@@ -11106,7 +10897,10 @@ export function CuttingOptimizerPro({
                                         fontFamily="monospace"
                                         fontWeight="bold"
                                       >
-                                        1. FRONT SIDE LATAK (فرنٹ سائیڈ لٹک — نو سلیش لائن): {pLatakW}&quot; × {pLen}&quot;
+                                        {tr(
+                                          `1. FRONT SIDE LATAK (No Splash Line): ${pLatakW}" × ${pLen}"`,
+                                          `1. فرنٹ سائیڈ لٹک (نو سلیش لائن): ${pLatakW}" × ${pLen}"`
+                                        )}
                                       </text>
                                     </g>
                                   )}
@@ -11152,7 +10946,10 @@ export function CuttingOptimizerPro({
                                       />
                                       <rect x="260" y="18" width="460" height="26" rx="4" fill="rgba(2,6,23,0.88)" />
                                       <text x="490" y="35" textAnchor="middle" fill="#7DD3FC" fontSize="12.5" fontFamily="monospace" fontWeight="bold">
-                                        1. KITCHEN BACK SPLASH (بیک سائیڈ سلیش): {pSplashH}&quot; × {pLen}&quot;
+                                        {tr(
+                                          `1. KITCHEN BACK SPLASH: ${pSplashH}" × ${pLen}"`,
+                                          `1. کچن بیک سائیڈ سلیش: ${pSplashH}" × ${pLen}"`
+                                        )}
                                       </text>
                                     </g>
                                   )}
@@ -11227,7 +11024,10 @@ export function CuttingOptimizerPro({
                                       />
                                       <rect x="290" y="57" width="400" height="26" rx="4" fill="rgba(2,6,23,0.88)" />
                                       <text x="490" y="74" textAnchor="middle" fill="#FDE047" fontSize="12" fontFamily="monospace" fontWeight="bold">
-                                        4. BACK SIDE LATAK (بیک سائیڈ لٹک): {pLatakW}&quot; × {pLen}&quot;
+                                        {tr(
+                                          `4. BACK SIDE LATAK: ${pLatakW}" × ${pLen}"`,
+                                          `4. بیک سائیڈ لٹک: ${pLatakW}" × ${pLen}"`
+                                        )}
                                       </text>
                                     </g>
                                   )}
@@ -11316,7 +11116,7 @@ export function CuttingOptimizerPro({
                                     DOUBLE SINK CUTOUT
                                   </text>
                                   <text x="275" y="184" textAnchor="middle" fill="#E2E8F0" fontSize="12" fontFamily="monospace">
-                                    32&quot; × 18&quot; (کچن سنک)
+                                    {tr('32" × 18" (Kitchen Sink)', '32" × 18" (کچن سنک)')}
                                   </text>
 
                                   {/* Stove / Hob Cutout (Right) */}
@@ -11336,7 +11136,7 @@ export function CuttingOptimizerPro({
                                   <circle cx="655" cy="190" r="14" fill="none" stroke="#F43F5E" strokeWidth="2" />
                                   <circle cx="745" cy="190" r="14" fill="none" stroke="#F43F5E" strokeWidth="2" />
                                   <text x="702" y="174" textAnchor="middle" fill="#FDA4AF" fontSize="12" fontFamily="monospace" fontWeight="bold">
-                                    HOB / STOVE (چولہا 30&quot;×20&quot;)
+                                    {tr('HOB / STOVE (30"×20")', 'چولہا / سٹوو (30"×20")')}
                                   </text>
 
                                   {/* Main Counter Label */}
@@ -11359,7 +11159,10 @@ export function CuttingOptimizerPro({
                                       />
                                       <rect x="250" y="271" width="480" height="28" rx="5" fill="rgba(2,6,23,0.9)" />
                                       <text x="490" y="290" textAnchor="middle" fill="#FDE047" fontSize="13" fontFamily="monospace" fontWeight="bold">
-                                        1. FRONT SIDE LATAK (فرنٹ سائیڈ لٹک — نو سلیش): {pLatakW}&quot; × {pLen}&quot;
+                                        {tr(
+                                          `1. FRONT SIDE LATAK (No Splash): ${pLatakW}" × ${pLen}"`,
+                                          `1. فرنٹ سائیڈ لٹک (نو سلیش): ${pLatakW}" × ${pLen}"`
+                                        )}
                                       </text>
                                     </g>
                                   )}
@@ -11376,7 +11179,7 @@ export function CuttingOptimizerPro({
                                   />
                                   <rect x="300" y="382" width="380" height="46" rx="6" fill="rgba(2,6,23,0.88)" stroke="#FBBF24" strokeWidth="1.5" />
                                   <text x="490" y="402" textAnchor="middle" fill="#FDE047" fontSize="14" fontFamily="monospace" fontWeight="bold">
-                                    KITCHEN ISLAND SLAB (کچن آئی لینڈ ٹیبل)
+                                    {tr('KITCHEN ISLAND SLAB', 'کچن آئی لینڈ ٹیبل')}
                                   </text>
                                   <text x="490" y="420" textAnchor="middle" fill="#FFFFFF" fontSize="12" fontFamily="monospace">
                                     36&quot; × 72&quot; + 4-Side Waterfall / Latak ({pLatakW}&quot;)
@@ -11838,7 +11641,10 @@ export function CuttingOptimizerPro({
                                             )}
                                           </span>
                                           <span className="text-[11px] font-mono text-sky-300">
-                                            Continuous Bookmatch Vein Flow (رگ سے رگ ملتی ہوئی سیڑھی)
+                                            {tr(
+                                              'Continuous Bookmatch Vein Flow',
+                                              'رگ سے رگ ملتی ہوئی بک میچ سیڑھی'
+                                            )}
                                           </span>
                                         </div>
                                         <svg
@@ -11896,7 +11702,10 @@ export function CuttingOptimizerPro({
                                                   fontFamily="monospace"
                                                   fontWeight="bold"
                                                 >
-                                                  1. STEP #{sIdx + 1} TREAD (یہ سٹیپ / ٹپہ ہے): {stairTreadDepth}&quot; × {stairStepLength}&quot;
+                                                  {tr(
+                                                    `1. STEP #${sIdx + 1} TREAD: ${stairTreadDepth}" × ${stairStepLength}"`,
+                                                    `1. سٹیپ ٹپہ #${sIdx + 1}: ${stairTreadDepth}" × ${stairStepLength}"`
+                                                  )}
                                                 </text>
 
                                                 {/* Left / Right Return Latak Indicators if enabled */}
@@ -11952,7 +11761,10 @@ export function CuttingOptimizerPro({
                                                       fontFamily="monospace"
                                                       fontWeight="bold"
                                                     >
-                                                      💡 2. ROPE-LIGHT LATAK #{sIdx + 1} (یہ لٹک ہے + ایل ای ڈی روپ لائٹ): {stairLatakHeight}&quot; × {stairStepLength}&quot;
+                                                      {tr(
+                                                        `💡 2. ROPE-LIGHT LATAK #${sIdx + 1}: ${stairLatakHeight}" × ${stairStepLength}"`,
+                                                        `💡 2. روپ لائٹ لٹک #${sIdx + 1}: ${stairLatakHeight}" × ${stairStepLength}"`
+                                                      )}
                                                     </text>
                                                     {/* Warm LED Rope Light Glow Line right under the Latak */}
                                                     <line
@@ -11996,7 +11808,10 @@ export function CuttingOptimizerPro({
                                                       fontFamily="monospace"
                                                       fontWeight="bold"
                                                     >
-                                                      3. RISER #{sIdx + 1} (یہ رائزر ہے): {stairRiserHeight}&quot; × {stairStepLength}&quot;
+                                                      {tr(
+                                                        `3. RISER #${sIdx + 1}: ${stairRiserHeight}" × ${stairStepLength}"`,
+                                                        `3. رائزر #${sIdx + 1}: ${stairRiserHeight}" × ${stairStepLength}"`
+                                                      )}
                                                     </text>
                                                   </g>
                                                 )}
@@ -12016,7 +11831,7 @@ export function CuttingOptimizerPro({
                                             strokeWidth="2"
                                           />
                                           <text x="795" y="52" textAnchor="middle" fill="#FDE047" fontSize="13" fontFamily="monospace" fontWeight="bold">
-                                            SIDE PROFILE (سائیڈ پروفائل)
+                                            {tr('SIDE PROFILE', 'سائیڈ پروفائل')}
                                           </text>
                                           {/* Cross-section drawing */}
                                           {/* Horizontal Step Tread */}
@@ -12390,7 +12205,10 @@ export function CuttingOptimizerPro({
                                   />
                                   <rect x="330" y="34" width="300" height="26" rx="4" fill="rgba(2,6,23,0.88)" />
                                   <text x="480" y="51" textAnchor="middle" fill="#5EEAD4" fontSize="12.5" fontFamily="monospace" fontWeight="bold">
-                                    WINDOW TOP PATTI (ٹاپ فریم پٹی): 6&quot; × {pLen - 4}&quot;
+                                    {tr(
+                                      `WINDOW TOP PATTI: 6" × ${pLen - 4}"`,
+                                      `ونڈو ٹاپ فریم پٹی: 6" × ${pLen - 4}"`
+                                    )}
                                   </text>
 
                                   {/* Left Window Jamb Patti */}
@@ -12413,7 +12231,7 @@ export function CuttingOptimizerPro({
                                     fontWeight="bold"
                                     transform="rotate(-90 192 156)"
                                   >
-                                    LEFT JAMB (6&quot; سائیڈ پٹی)
+                                    {tr('LEFT JAMB (6" Side Strip)', 'بائیں سائیڈ پٹی (6")')}
                                   </text>
 
                                   {/* Right Window Jamb Patti */}
@@ -12436,7 +12254,7 @@ export function CuttingOptimizerPro({
                                     fontWeight="bold"
                                     transform="rotate(90 768 156)"
                                   >
-                                    RIGHT JAMB (6&quot; سائیڈ پٹی)
+                                    {tr('RIGHT JAMB (6" Side Strip)', 'دائیں سائیڈ پٹی (6")')}
                                   </text>
 
                                   {/* Window Glass Area in Center */}
@@ -12452,7 +12270,7 @@ export function CuttingOptimizerPro({
                                   <line x1="480" y1="66" x2="480" y2="246" stroke="#38BDF8" strokeWidth="2" />
                                   <line x1="214" y1="156" x2="746" y2="156" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="6 4" />
                                   <text x="480" y="145" textAnchor="middle" fill="#94A3B8" fontSize="15" fontFamily="monospace" fontWeight="bold">
-                                    🪟 WINDOW OPENING (کھڑکی کا شیشہ / فریم)
+                                    {tr('🪟 WINDOW OPENING', '🪟 کھڑکی کا شیشہ / فریم')}
                                   </text>
 
                                   {/* Main Bottom Window Sill (ونڈو سل / کھڑکی سل) with Left/Right Wall Ears (کانہ) */}
@@ -12478,10 +12296,16 @@ export function CuttingOptimizerPro({
                                   {/* Center Sill Dimension Callout */}
                                   <rect x="275" y="276" width="410" height="44" rx="6" fill="rgba(2,6,23,0.9)" stroke="#38BDF8" strokeWidth="2" />
                                   <text x="480" y="297" textAnchor="middle" fill="#FFFFFF" fontSize="15" fontFamily="monospace" fontWeight="bold">
-                                    MAIN WINDOW SILL (مین ونڈو سل): 1.W {pWid}&quot; × 2.L {pLen}&quot;
+                                    {tr(
+                                      `MAIN WINDOW SILL: 1.W ${pWid}" × 2.L ${pLen}"`,
+                                      `مین ونڈو سل: 1.چوڑائی ${pWid}" × 2.لمبائی ${pLen}"`
+                                    )}
                                   </text>
                                   <text x="480" y="314" textAnchor="middle" fill="#7DD3FC" fontSize="11.5" fontFamily="monospace">
-                                    Includes Left &amp; Right Wall Ears (بائیں دائیں 2&quot; کانہ)
+                                    {tr(
+                                      'Includes Left & Right Wall Ears (2")',
+                                      'بائیں دائیں 2 انچ کانہ شامل ہے'
+                                    )}
                                   </text>
 
                                   {/* Front Sill Drip Edge / Bookmatch Latak */}
@@ -12496,7 +12320,10 @@ export function CuttingOptimizerPro({
                                   />
                                   <rect x="250" y="364" width="460" height="28" rx="5" fill="rgba(2,6,23,0.9)" stroke="#FBBF24" />
                                   <text x="480" y="383" textAnchor="middle" fill="#FDE047" fontSize="13.5" fontFamily="monospace" fontWeight="bold">
-                                    🦋 WINDOW SILL FRONT LATAK / BULLNOSE (سامنے کی لٹک / گولہ): {pLatakW}&quot; × {pLen}&quot;
+                                    {tr(
+                                      `🦋 WINDOW SILL FRONT LATAK / BULLNOSE: ${pLatakW}" × ${pLen}"`,
+                                      `🦋 ونڈو سل سامنے کی لٹک / گولہ: ${pLatakW}" × ${pLen}"`
+                                    )}
                                   </text>
                                 </svg>
                               )}
@@ -13735,11 +13562,17 @@ export function CuttingOptimizerPro({
                     <h4 className="text-base font-bold text-slate-100 flex items-center gap-2">
                       <Layers className="h-5 w-5 text-sky-400" />
                       <span>
-                        بلاک کی تمام سلیبوں کا الگ الگ ٹیکسچر، سائز اور کریک (ٹوٹ پھوٹ) سسٹم (Block Slabs #1 to #{slabConfig.quantity})
+                        {tr(
+                          `Block Slabs Texture, Size & Crack Manager (Slabs #1 to #${slabConfig.quantity})`,
+                          `بلاک کی تمام سلیبوں کا الگ الگ ٹیکسچر، سائز اور کریک (ٹوٹ پھوٹ) سسٹم (سلیب #1 تا #${slabConfig.quantity})`
+                        )}
                       </span>
                     </h4>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      اگر بلاک میں 10، 20 یا 50 سلیبیں ہیں اور ہر سلیب کا ٹوٹنے کے بعد ٹیکسچر مختلف ہے، تو یہاں ہر سلیب کی الگ تصویر، فریم، بک میچ مرر یا کریک (Crack Zone) سیٹ کریں۔
+                      {tr(
+                        'Configure individual photos, frames, bookmatch mirror settings, or crack/damage zones for each slab in the block.',
+                        'اگر بلاک میں 10، 20 یا 50 سلیبیں ہیں اور ہر سلیب کا ٹوٹنے کے بعد ٹیکسچر مختلف ہے، تو یہاں ہر سلیب کی الگ تصویر، فریم، بک میچ مرر یا کریک سیٹ کریں۔'
+                      )}
                     </p>
                   </div>
 
@@ -13750,7 +13583,7 @@ export function CuttingOptimizerPro({
                       className={cadBtnPrimary}
                     >
                       <Upload className="h-3.5 w-3.5" />
-                      <span>اکٹھی کئی سلیب تصاویر اپ لوڈ کریں (Bulk Upload)</span>
+                      <span>{tr('Bulk Upload Slab Photos', 'اکٹھی کئی سلیب تصاویر اپ لوڈ کریں')}</span>
                     </button>
                   </div>
                 </div>
@@ -13760,12 +13593,17 @@ export function CuttingOptimizerPro({
                   <div className="text-xs font-bold text-slate-200 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-rose-400" />
                     <span>
-                      ٹوٹے ہوئے یا کریک حصے کو کٹنگ سے بچائیں (Mark Crack / Damaged Area on Any Slab)
+                      {tr(
+                        'Mark Crack / Damaged Area on Any Slab',
+                        'ٹوٹے ہوئے یا کریک حصے کو کٹنگ سے بچائیں'
+                      )}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 items-end">
                     <div>
-                      <Label className="text-[11px] text-slate-300">Slab # (سلیب نمبر)</Label>
+                      <Label className="text-[11px] text-slate-300">
+                        {tr('Slab #', 'سلیب نمبر')}
+                      </Label>
                       <Input
                         type="number"
                         min="1"
@@ -13821,7 +13659,7 @@ export function CuttingOptimizerPro({
                         onClick={() => handleAddDefectToSlab(defectSlabTarget)}
                         className="w-full h-9 rounded-md border border-rose-500/60 bg-rose-950/80 hover:bg-rose-900 text-rose-100 text-xs font-semibold transition-colors"
                       >
-                        + کریک شامل کریں
+                        {tr('+ Add Crack Zone', '+ کریک شامل کریں')}
                       </button>
                     </div>
                   </div>
@@ -13911,7 +13749,7 @@ export function CuttingOptimizerPro({
                             className={cadBtnSubtle}
                           >
                             <Upload className="h-3 w-3 text-sky-400" />
-                            <span>تصویر بدلیں</span>
+                            <span>{tr('Change Photo', 'تصویر بدلیں')}</span>
                           </button>
                           <button
                             type="button"
@@ -13919,7 +13757,7 @@ export function CuttingOptimizerPro({
                             className={cadBtnSubtle}
                           >
                             <Crop className="h-3 w-3 text-sky-400" />
-                            <span>فریم سیٹ کریں</span>
+                            <span>{tr('Adjust Frame', 'فریم سیٹ کریں')}</span>
                           </button>
                           {vis.defects.length > 0 && (
                             <button
@@ -13927,7 +13765,7 @@ export function CuttingOptimizerPro({
                               onClick={() => handleClearDefectsOnSlab(slabNum)}
                               className="px-2 py-1 rounded bg-rose-950/80 border border-rose-500/50 text-rose-200 text-[10px]"
                             >
-                              کریک ہٹائیں
+                              {tr('Clear Cracks', 'کریک ہٹائیں')}
                             </button>
                           )}
                         </div>
@@ -15004,13 +14842,13 @@ export function CuttingOptimizerPro({
                                   }}
                                   className="h-6 rounded bg-slate-950 border border-purple-500/50 text-purple-200 text-[11px] px-1.5 font-bold"
                                 >
-                                  <option value="flat_polish">سادہ دھار پالش (Flat Polish)</option>
-                                  <option value="half_bullnose">ہاف گولا (Half Bullnose)</option>
-                                  <option value="full_bullnose">فل گولا (Full Bullnose)</option>
-                                  <option value="miter_45">45° مائٹر بک میچ جوڑ (45° Miter)</option>
-                                  <option value="ogee">ڈبل گولا / اوجی (Ogee)</option>
-                                  <option value="bevel">بیول چیمفر دھار (Bevel)</option>
-                                  <option value="dupont">ڈوپونٹ ڈیزائن ایج (Dupont)</option>
+                                  <option value="flat_polish">{tr('Flat Polish', 'سادہ دھار پالش')}</option>
+                                  <option value="half_bullnose">{tr('Half Bullnose', 'ہاف گولا')}</option>
+                                  <option value="full_bullnose">{tr('Full Bullnose', 'فل گولا')}</option>
+                                  <option value="miter_45">{tr('45° Miter Joint', '45° مائٹر بک میچ جوڑ')}</option>
+                                  <option value="ogee">{tr('Ogee Profile', 'ڈبل گولا / اوجی')}</option>
+                                  <option value="bevel">{tr('Bevel Chamfer', 'بیول چیمفر دھار')}</option>
+                                  <option value="dupont">{tr('Dupont Edge', 'ڈوپونٹ ڈیزائن ایج')}</option>
                                 </select>
                                 <div className="text-[10px] text-slate-400 mt-0.5">
                                   {r.edgeSidesDescription}
@@ -15174,11 +15012,17 @@ export function CuttingOptimizerPro({
               <DialogTitle className="text-white flex items-center gap-2 text-base md:text-lg">
                 <Crop className="h-5 w-5 text-sky-400" />
                 <span>
-                  سلیب سائز فریم ایڈجسٹمنٹ (Calibrate Uploaded Photo to Exact Slab Size)
+                  {tr(
+                    'Calibrate Uploaded Photo to Exact Slab Size',
+                    'سلیب سائز فریم ایڈجسٹمنٹ'
+                  )}
                 </span>
               </DialogTitle>
               <DialogDescription className="text-slate-400 text-xs mt-0.5">
-                اپنی اپ لوڈ کردہ تصویر کو سلیب کے اصل سائز (مثلاً 110 بائی 60 انچ) کے فریم میں فٹ کریں تاکہ کٹنگ آپٹیمائزر بالکل درست حساب اور رگوں کی کٹنگ کرے۔
+                {tr(
+                  'Fit your uploaded photo into the exact slab dimensions (e.g., 60" × 110") for accurate vein alignment and cutting.',
+                  'اپنی اپ لوڈ کردہ تصویر کو سلیب کے اصل سائز (مثلاً 110 بائی 60 انچ) کے فریم میں فٹ کریں تاکہ کٹنگ آپٹیمائزر بالکل درست حساب اور رگوں کی کٹنگ کرے۔'
+                )}
               </DialogDescription>
             </div>
             <button
@@ -15192,7 +15036,9 @@ export function CuttingOptimizerPro({
                 <Maximize2 className="h-3.5 w-3.5 text-sky-400" />
               )}
               <span>
-                {isCalibratorFullscreen ? 'Exit Fullscreen' : 'Fullscreen Frame'}
+                {isCalibratorFullscreen
+                  ? tr('Exit Fullscreen', 'نارمل سکرین')
+                  : tr('Fullscreen Frame', 'فل سکرین فریم')}
               </span>
             </button>
           </DialogHeader>
@@ -15226,7 +15072,7 @@ export function CuttingOptimizerPro({
               </div>
               <div>
                 <Label className="text-[11px] font-semibold text-slate-300">
-                  Target Slab (کون سی سلیب)
+                  {tr('Target Slab', 'کون سی سلیب')}
                 </Label>
                 <select
                   value={calibratingSlabTarget}
@@ -15248,7 +15094,7 @@ export function CuttingOptimizerPro({
               </div>
               <div>
                 <Label className="text-[11px] font-semibold text-slate-300">
-                  Quick Presets (W × L تیار سائز)
+                  {tr('Quick Presets (W × L)', 'فوری تیار سائز (W × L)')}
                 </Label>
                 <div className="flex gap-1">
                   <button
@@ -15839,10 +15685,10 @@ export function CuttingOptimizerPro({
 
                 {/* Top & Left Dimension Callouts on the Frame */}
                 <div className="absolute top-1.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-950/90 border border-slate-700 text-[11px] font-mono font-bold text-sky-300 pointer-events-none">
-                  Length (لمبائی): {tempCalibLength} {unit}
+                  {tr('Length', 'لمبائی')}: {tempCalibLength} {unit}
                 </div>
                 <div className="absolute left-1.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-slate-950/90 border border-slate-700 text-[10px] font-mono font-bold text-amber-300 pointer-events-none">
-                  Width (چوڑائی): {tempCalibWidth} {unit}
+                  {tr('Width', 'چوڑائی')}: {tempCalibWidth} {unit}
                 </div>
               </div>
 
@@ -15964,7 +15810,7 @@ export function CuttingOptimizerPro({
                           className="px-1 rounded bg-rose-700 hover:bg-rose-500 text-white font-bold ml-1"
                           title="Erase this crack"
                         >
-                          ✕ مٹائیں
+                          ✕ {tr('Erase', 'مٹائیں')}
                         </button>
                       </span>
                     ))}
@@ -15977,7 +15823,10 @@ export function CuttingOptimizerPro({
                 <div className="w-full mt-3 p-3 rounded-lg border border-slate-700 bg-slate-900 space-y-2.5 text-xs">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-bold text-slate-200">
-                      4-Corner Perspective Correction (ترچھی کھینچی گئی سلیب تصویر کے چاروں کونے ملائیں):
+                      {tr(
+                        '4-Corner Perspective Correction (Align all 4 corners of the slab photo):',
+                        '4-کارنر پرسپیکٹیو (ترچھی کھینچی گئی سلیب تصویر کے چاروں کونے ملائیں):'
+                      )}
                     </span>
                     <button
                       type="button"
@@ -15988,8 +15837,8 @@ export function CuttingOptimizerPro({
                       <Sparkles className="h-3.5 w-3.5" />
                       <span>
                         {isRectifyingPerspective
-                          ? 'Rectifying...'
-                          : '4-Corner Perspective سیدھا کریں (Apply Homography)'}
+                          ? tr('Rectifying...', 'سیدھا ہو رہا ہے...')
+                          : tr('Apply 4-Corner Perspective', '4-کارنر پرسپیکٹیو سیدھا کریں')}
                       </span>
                     </button>
                   </div>
@@ -16167,10 +16016,15 @@ export function CuttingOptimizerPro({
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
               <Camera className="h-5 w-5 text-sky-400" />
-              <span>ماربل سلیب کی لائیو تصویر لیں (Capture Marble Slab via Camera)</span>
+              <span>
+                {tr('Capture Marble Slab via Camera', 'ماربل سلیب کی لائیو تصویر لیں')}
+              </span>
             </DialogTitle>
             <DialogDescription className="text-slate-300">
-              تصویر لینے کے فوراً بعد آپ کے سامنے سلیب سائز فریم (مثلاً 110×60) کھل جائے گا۔
+              {tr(
+                'Right after capturing the photo, the Slab Size Frame Calibrator will open automatically.',
+                'تصویر لینے کے فوراً بعد آپ کے سامنے سلیب سائز فریم کھل جائے گا۔'
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -16187,7 +16041,9 @@ export function CuttingOptimizerPro({
                   className={cadBtnPrimary}
                 >
                   <Camera className="h-4 w-4" />
-                  <span>موبائل کیمرہ / گیلری سے تصویر منتخب کریں</span>
+                  <span>
+                    {tr('Pick Photo from Camera / Gallery', 'موبائل کیمرہ / گیلری سے تصویر منتخب کریں')}
+                  </span>
                 </button>
               </div>
             ) : (
@@ -16213,7 +16069,7 @@ export function CuttingOptimizerPro({
                 onClick={stopLiveCamera}
                 className={cadBtnSecondary}
               >
-                Cancel
+                {tr('Cancel', 'منسوخ')}
               </button>
               {!cameraError && (
                 <button
@@ -16222,7 +16078,7 @@ export function CuttingOptimizerPro({
                   className={cadBtnPrimary}
                 >
                   <Camera className="h-4 w-4" />
-                  <span>تصویر کھینچیں اور فریم سیٹ کریں</span>
+                  <span>{tr('Capture Photo & Calibrate Frame', 'تصویر کھینچیں اور فریم سیٹ کریں')}</span>
                 </button>
               )}
             </div>
