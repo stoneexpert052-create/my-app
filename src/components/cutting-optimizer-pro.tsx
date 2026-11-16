@@ -36,6 +36,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   HardDrive,
+  Home,
+  ArrowLeft,
+  Sliders,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1688,6 +1693,9 @@ interface CuttingOptimizerProProps {
     variant?: MarbleVariant;
   }) => void;
   onCancel?: () => void;
+  onBackToHome?: () => void;
+  onOpenMaterialPicker?: () => void;
+  resumeSavedSession?: boolean;
   onSendToManualOrder?: (payload: {
     materialName: string;
     lotId: string;
@@ -1714,6 +1722,9 @@ export function CuttingOptimizerPro({
   onFullscreenChange,
   onSaveToCustomerQuote,
   onCancel,
+  onBackToHome,
+  onOpenMaterialPicker,
+  resumeSavedSession = false,
   onSendToManualOrder,
 }: CuttingOptimizerProProps) {
   const { toast } = useToast();
@@ -1823,8 +1834,11 @@ export function CuttingOptimizerPro({
   const [hdContrastBoost, setHdContrastBoost] = useState<boolean>(true);
   const [showCadCrosshairs, setShowCadCrosshairs] = useState<boolean>(true);
 
-  // Interface Language State ('en' = English by default, 'ur' = Urdu on toggle)
+  // Interface Language & Main Screen State ('en' = English by default, 'ur' = Urdu on toggle)
   const [cadLang, setCadLang] = useState<'en' | 'ur'>('en');
+  const [simpleMainScreen, setSimpleMainScreen] = useState<
+    'floor_planner' | 'slab_cutter' | 'stock_slabs' | 'excel_bill'
+  >('floor_planner');
   const tr = (en: string, ur: string) =>
     cadLang === 'ur'
       ? ur
@@ -2137,14 +2151,15 @@ export function CuttingOptimizerPro({
   const [showKerfLines, setShowKerfLines] = useState<boolean>(true);
   const [showOffcutLabels, setShowOffcutLabels] = useState<boolean>(true);
   const [hoveredPiece, setHoveredPiece] = useState<PlacedPiece | null>(null);
+  const [inDiagram1Popup, setInDiagram1Popup] = useState<'slab' | 'piece' | 'add' | 'tools' | null>(null);
   const [activeResultTab, setActiveResultTab] = useState<
     'dual_diagrams' | 'stock_inventory' | 'slab_manager' | 'bookmatch' | 'schedule' | 'bom'
   >('dual_diagrams');
   const [activeCategoryPreset, setActiveCategoryPreset] = useState<
     'flooring' | 'bookmatch_wall' | 'stairs' | 'kitchen' | 'vanity' | 'window_sill'
   >('flooring');
-  const [isTopStockDropdownOpen, setIsTopStockDropdownOpen] = useState<boolean>(false);
-  const [isCutSizesDropdownOpen, setIsCutSizesDropdownOpen] = useState<boolean>(false);
+  const [isSidebarStockExpanded, setIsSidebarStockExpanded] = useState<boolean>(true);
+  const [expandedSidebarPartId, setExpandedSidebarPartId] = useState<string | null>(null);
   const [isPdfPreviewModalOpen, setIsPdfPreviewModalOpen] = useState<boolean>(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
   const bmSlabBoxRef = useRef<HTMLDivElement>(null);
@@ -2484,44 +2499,65 @@ export function CuttingOptimizerPro({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isFullscreen, activeDropdownMenu]);
 
-  // Load saved high-res slab project from IndexedDB on mount (unless customer selected a specific marble)
+  // Mark an active Cutting Optimizer session so returning to Cutting Optimizer directly resumes previous work
   useEffect(() => {
-    if (initialMarble) return;
+    try {
+      window.localStorage.setItem('stonecut_has_active_session', '1');
+    } catch {
+      // ignore localStorage write errors
+    }
+  }, []);
+
+  // Load saved high-res slab project from IndexedDB on mount (skip only when user explicitly uploaded a brand-new custom slab photo or picked a specific marble without resume flag)
+  useEffect(() => {
+    if (initialCustomSlabImageUrl) return;
+    if (initialMarble && !resumeSavedSession) return;
     let mounted = true;
     loadStoneCutProjectFromIDB<{
       slabConfig?: StockSlabConfig;
       slabImageUrl?: string;
       slabImageSourceLabel?: string;
       slabOverrides?: Record<number, IndividualSlabOverride>;
+      simpleMainScreen?: 'floor_planner' | 'slab_cutter' | 'stock_slabs' | 'excel_bill';
+      cadLang?: 'en' | 'ur';
     }>('stonecut_active_workspace').then((saved) => {
       if (!mounted || !saved) return;
       if (saved.slabConfig) setSlabConfig(saved.slabConfig);
       if (saved.slabImageUrl) setSlabImageUrl(saved.slabImageUrl);
       if (saved.slabImageSourceLabel) setSlabImageSourceLabel(saved.slabImageSourceLabel);
       if (saved.slabOverrides) setSlabOverrides(saved.slabOverrides);
+      if (saved.simpleMainScreen) setSimpleMainScreen(saved.simpleMainScreen);
+      if (saved.cadLang) setCadLang(saved.cadLang);
       setIdbSavedAt('Restored from IndexedDB');
     });
     return () => {
       mounted = false;
     };
-  }, [initialMarble]);
+  }, [initialMarble, initialCustomSlabImageUrl, resumeSavedSession]);
 
-  // Automatically persist high-res slab photos & block configuration to IndexedDB
+  // Automatically persist high-res slab photos, active screen tab & block configuration to IndexedDB
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem('stonecut_has_active_session', '1');
+      } catch {
+        // ignore quota errors
+      }
       saveStoneCutProjectToIDB('stonecut_active_workspace', {
         slabConfig,
         slabImageUrl,
         slabImageSourceLabel,
         slabOverrides,
+        simpleMainScreen,
+        cadLang,
       }).then((ok) => {
         if (ok !== undefined) {
           setIdbSavedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
       });
-    }, 800);
+    }, 600);
     return () => clearTimeout(timer);
-  }, [slabConfig, slabImageUrl, slabImageSourceLabel, slabOverrides]);
+  }, [slabConfig, slabImageUrl, slabImageSourceLabel, slabOverrides, simpleMainScreen, cadLang]);
 
   // Load Saved Stock Inventory from IndexedDB / LocalStorage on mount
   useEffect(() => {
@@ -4826,10 +4862,6 @@ export function CuttingOptimizerPro({
     });
   };
 
-  const [simpleMainScreen, setSimpleMainScreen] = useState<
-    'floor_planner' | 'slab_cutter' | 'stock_slabs' | 'excel_bill'
-  >('floor_planner');
-
   const hiContrastInputClass =
     'h-9 text-xs font-medium bg-slate-950 text-slate-100 border-slate-700 placeholder:text-slate-500 focus-visible:ring-sky-500';
   const cadBtnSecondary =
@@ -4844,8 +4876,8 @@ export function CuttingOptimizerPro({
       ref={diagramContainerRef}
       className={`${
         isFullscreen
-          ? 'fixed inset-0 z-[9999] w-screen h-screen overflow-y-auto bg-slate-950 p-4 md:p-6'
-          : 'w-full min-h-[75vh]'
+          ? 'fixed inset-0 z-[9999] w-screen h-screen overflow-y-auto overflow-x-hidden bg-slate-950 p-3 md:p-6'
+          : 'w-full max-w-full overflow-x-hidden min-h-[75vh]'
       } text-slate-100`}
     >
       {/* Hidden File Inputs */}
@@ -4877,6 +4909,21 @@ export function CuttingOptimizerPro({
       {isFullscreen && (
         <div className="sticky top-0 z-50 mb-4 rounded-lg border border-sky-500/40 bg-slate-900/95 backdrop-blur px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-lg print:hidden">
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (onBackToHome) {
+                  onBackToHome();
+                } else if (typeof window !== 'undefined') {
+                  window.location.assign('/');
+                }
+              }}
+              className="h-8 px-3 rounded-md border border-amber-400/70 bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-slate-950 text-xs font-extrabold flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <Home className="h-3.5 w-3.5" />
+              <span>{tr('Home Screen', 'ہوم اسکرین')}</span>
+            </button>
             <span className="px-2.5 py-1 rounded bg-sky-500/15 border border-sky-500/40 text-sky-300 text-xs font-mono font-semibold">
               FULLSCREEN CAD VIEWPORT (100% SCREEN)
             </span>
@@ -4899,14 +4946,49 @@ export function CuttingOptimizerPro({
          ===================================================================== */}
       {fullscreenTarget !== 'slab_diagram' && fullscreenTarget !== 'floor_diagram' && (
         <div
-          className="relative z-40 rounded-xl border border-slate-800 bg-slate-900 text-white mb-4 shadow-lg print:hidden overflow-hidden"
+          className={`relative z-40 rounded-xl border border-slate-800 bg-slate-900 text-white shadow-lg print:hidden overflow-hidden ${
+            simpleMainScreen === 'floor_planner' ? 'mb-1.5' : 'mb-4'
+          }`}
           dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
         >
-          {/* Row 1: Clean Brand Header + Language Switcher + Primary Export Actions */}
-          <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3">
-            {/* Left: Brand Identity */}
+          {/* Row 1: Back to Home + Brand Header + Language Switcher + Primary Export Actions */}
+          <div
+            className={`px-3 sm:px-4 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-2 ${
+              simpleMainScreen === 'floor_planner' ? 'py-1.5' : 'py-2.5'
+            }`}
+          >
+            {/* Left: Back to Home Screen + Brand Identity */}
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-slate-950 font-mono font-extrabold text-xs shadow">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onBackToHome) {
+                    onBackToHome();
+                  } else if (typeof window !== 'undefined') {
+                    window.location.assign('/');
+                  }
+                }}
+                className="h-9 px-3 rounded-lg border border-amber-400/70 bg-amber-500/15 hover:bg-amber-500 text-amber-300 hover:text-slate-950 text-xs font-extrabold flex items-center gap-1.5 shadow-xs cursor-pointer transition-colors shrink-0"
+                title={tr('Back to Home Screen', 'ہوم اسکرین پر واپس جائیں')}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <Home className="h-3.5 w-3.5" />
+                <span>{tr('Home', 'ہوم اسکرین')}</span>
+              </button>
+
+              {onOpenMaterialPicker && (
+                <button
+                  type="button"
+                  onClick={onOpenMaterialPicker}
+                  className="h-9 px-2.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 hover:border-sky-400 text-slate-200 hover:text-sky-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                  title={tr('Choose another catalog material or slab photo', 'دوسرا مٹیریل یا فوٹو منتخب کریں')}
+                >
+                  <Camera className="h-3.5 w-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">{tr('Material / Photo', 'نیا مٹیریل / فوٹو')}</span>
+                </button>
+              )}
+
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-slate-950 font-mono font-extrabold text-xs shadow shrink-0">
                 CAD
               </div>
               <div>
@@ -5037,279 +5119,166 @@ export function CuttingOptimizerPro({
             </div>
           </div>
 
-          {/* Row 1B: ONCE-IN-MAIN-APP GENERAL CUTTING & EDGE TRIM (SAFAI) SETTINGS BAR
-              (مین ایپ میں ایک دفعہ جنرل سیٹنگ: بلیڈ تھکنس اور سلیب کی صفائی / ایج ٹرم — نیچے ڈایاگرامز میں دوبارہ نہیں آئے گی) */}
-          <div className="px-4 py-2 border-b border-slate-800 bg-slate-900/95 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono font-extrabold text-[11px]">
-                {tr(
-                  '⚙️ General Machine & Slab Trim Settings (Set Once):',
-                  '⚙️ جنرل کٹنگ سیٹنگ (مین ایپ میں ایک دفعہ سیٹ کریں):'
-                )}
-              </span>
-
-              {/* 1. Blade Thickness / Saw Kerf (بلیڈ کتنی تھکنس کاٹے گا) */}
-              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                <span className="text-[11px] font-bold text-rose-300">
-                  {tr('🪚 Blade Thickness (Kerf):', '🪚 بلیڈ کی موٹائی (تھکنس):')}
+          {/* Row 1B: GENERAL CUTTING & EDGE TRIM (Shown when Slab Cutter / Stock / Bill is active; Floor Planner has unified AutoCAD Top Material Bar) */}
+          {simpleMainScreen !== 'floor_planner' && (
+            <div className="px-4 py-1.5 border-b border-slate-800 bg-slate-900/95 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono font-extrabold text-[11px]">
+                  {tr('⚙️ Machine & Trim Settings:', '⚙️ جنرل کٹنگ سیٹنگ:')}
                 </span>
-                <select
-                  value={String(slabConfig.kerf)}
-                  onChange={(e) =>
-                    setSlabConfig((prev) => ({
-                      ...prev,
-                      kerf: Math.max(0, Number(e.target.value) || 0),
-                    }))
-                  }
-                  className="h-6 rounded bg-slate-900 border border-rose-500/50 text-white font-mono text-[11px] font-bold px-1.5 cursor-pointer"
-                >
-                  <option value="0">{tr('0" (Zero Kerf)', '0" (بغیر بلیڈ گیپ)')}</option>
-                  <option value="0.125">
-                    {tr('1 Sootar (0.125" / 3mm)', '1 سوتر (0.125" / 3mm)')}
-                  </option>
-                  <option value="0.15">
-                    {tr('1.2 Sootar (0.15" / 3.8mm)', 'سوا سوتر (0.15" اسٹینڈرڈ)')}
-                  </option>
-                  <option value="0.1875">
-                    {tr('1.5 Sootar (0.1875" / 4.5mm)', 'ڈیڑھ سوتر (0.1875" / 4.5mm)')}
-                  </option>
-                  <option value="0.25">
-                    {tr('2 Sootar (0.25" / 6mm)', '2 سوتر (0.25" / 6mm)')}
-                  </option>
-                </select>
-                <Input
-                  type="number"
-                  step="0.025"
-                  min="0"
-                  max="1"
-                  value={slabConfig.kerf}
-                  onChange={(e) =>
-                    setSlabConfig((prev) => ({
-                      ...prev,
-                      kerf: Math.max(0, Number(e.target.value) || 0),
-                    }))
-                  }
-                  className="h-6 w-16 px-1.5 bg-slate-900 border-slate-700 text-white font-mono text-[11px] font-bold"
-                />
+
+                <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                  <span className="text-[11px] font-bold text-rose-300">
+                    {tr('🪚 Kerf:', '🪚 بلیڈ:')}
+                  </span>
+                  <select
+                    value={String(slabConfig.kerf)}
+                    onChange={(e) =>
+                      setSlabConfig((prev) => ({
+                        ...prev,
+                        kerf: Math.max(0, Number(e.target.value) || 0),
+                      }))
+                    }
+                    className="h-6 rounded bg-slate-900 border border-rose-500/50 text-white font-mono text-[11px] font-bold px-1.5 cursor-pointer"
+                  >
+                    <option value="0">{tr('0" (No Kerf)', '0" (بغیر گیپ)')}</option>
+                    <option value="0.125">{tr('0.125" (3mm)', '0.125" (1 سوتر)')}</option>
+                    <option value="0.15">{tr('0.15" (3.8mm)', '0.15" (اسٹینڈرڈ)')}</option>
+                    <option value="0.1875">{tr('0.1875" (4.5mm)', '0.1875" (ڈیڑھ سوتر)')}</option>
+                    <option value="0.25">{tr('0.25" (6mm)', '0.25" (2 سوتر)')}</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                  <span className="text-[11px] font-bold text-sky-300">
+                    {tr('📏 Trim (Safai):', '📏 صفائی (ایج ٹرم):')}
+                  </span>
+                  <select
+                    value={String(slabConfig.edgeTrim)}
+                    onChange={(e) =>
+                      setSlabConfig((prev) => ({
+                        ...prev,
+                        edgeTrim: Math.max(0, Number(e.target.value) || 0),
+                      }))
+                    }
+                    className="h-6 rounded bg-slate-900 border border-sky-500/50 text-white font-mono text-[11px] font-bold px-1.5 cursor-pointer"
+                  >
+                    <option value="0">{tr('0" (Full Slab)', '0" (پوری سلیب)')}</option>
+                    <option value="0.5">{tr('0.5" (Half Inch)', '0.5" (آدھی انچی)')}</option>
+                    <option value="0.75">{tr('0.75" (3/4 Inch)', '0.75" (پونے انچی)')}</option>
+                    <option value="1">{tr('1.0" (1 Inch)', '1.0" (ایک انچی)')}</option>
+                    <option value="1.5">{tr('1.5" (1.5 Inch)', '1.5" (ڈیڑھ انچی)')}</option>
+                  </select>
+                </div>
               </div>
 
-              {/* 2. Slab Edge Trim / Safai (سلیب کو چاروں طرف سے کتنی صفائی / ایج ٹرم لگانی ہے: انچی، پونے انچی، آدھی انچی) */}
-              <div className="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                <span className="text-[11px] font-bold text-sky-300">
-                  {tr('📏 Slab Edge Trim (Safai):', '📏 سلیب کی صفائی (ایج ٹرم):')}
-                </span>
-                <select
-                  value={String(slabConfig.edgeTrim)}
-                  onChange={(e) =>
-                    setSlabConfig((prev) => ({
-                      ...prev,
-                      edgeTrim: Math.max(0, Number(e.target.value) || 0),
-                    }))
-                  }
-                  className="h-6 rounded bg-slate-900 border border-sky-500/50 text-white font-mono text-[11px] font-bold px-1.5 cursor-pointer"
-                >
-                  <option value="0">{tr('0" (No Edge Trim / Full Slab)', '0" (بغیر صفائی / پوری سلیب)')}</option>
-                  <option value="0.5">
-                    {tr('0.5" (Half Inch / آدھی انچی)', '0.5" (آدھی انچی صفائی)')}
-                  </option>
-                  <option value="0.75">
-                    {tr('0.75" (3/4 Inch / پونے انچی)', '0.75" (پونے انچی صفائی — 3/4")')}
-                  </option>
-                  <option value="1">
-                    {tr('1.0" (1 Inch / ایک انچی)', '1.0" (ایک انچی صفائی — 1")')}
-                  </option>
-                  <option value="1.5">
-                    {tr('1.5" (1.5 Inch / ڈیڑھ انچی)', '1.5" (ڈیڑھ انچی صفائی)')}
-                  </option>
-                </select>
-                <Input
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  max="4"
-                  value={slabConfig.edgeTrim}
-                  onChange={(e) =>
-                    setSlabConfig((prev) => ({
-                      ...prev,
-                      edgeTrim: Math.max(0, Number(e.target.value) || 0),
-                    }))
-                  }
-                  className="h-6 w-14 px-1.5 bg-slate-900 border-slate-700 text-white font-mono text-[11px] font-bold"
-                />
+              <div className="text-[11px] font-mono text-emerald-300">
+                {tr(
+                  `✓ Net Slab: ${Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}" × ${Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}" (Kerf: ${slabConfig.kerf}")`,
+                  `✓ صافی سلیب: ${Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}" × ${Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}" (بلیڈ: ${slabConfig.kerf}")`
+                )}
               </div>
             </div>
+          )}
 
-            <div className="text-[11px] font-mono text-emerald-300">
+          {/* Row 2: SLIM AUTOCAD WORKSPACE MODE STRIP */}
+          <div
+            className={`px-3 bg-slate-900 flex flex-wrap items-center justify-between gap-2 ${
+              simpleMainScreen === 'floor_planner' ? 'py-1' : 'py-1.5'
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSimpleMainScreen('floor_planner');
+                  setActiveResultTab('dual_diagrams');
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  simpleMainScreen === 'floor_planner'
+                    ? 'bg-amber-500 border-amber-300 text-slate-950 shadow'
+                    : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-amber-500/60'
+                }`}
+              >
+                <span>🏛️</span>
+                <span>
+                  {tr(
+                    '1. AutoCAD Floor Planner & Material Stock Studio',
+                    '1. آٹو کیڈ فلور پلانر اور اسٹاک سلیب اسٹوڈیو (ایک اسکرین)'
+                  )}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSimpleMainScreen('slab_cutter');
+                  setActiveResultTab('dual_diagrams');
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  simpleMainScreen === 'slab_cutter'
+                    ? 'bg-sky-600 border-sky-300 text-white shadow'
+                    : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-sky-500/60'
+                }`}
+              >
+                <span>✂️</span>
+                <span>
+                  {tr(
+                    `2. Slab Cutter (${parts.length} Pcs)`,
+                    `2. سلیب کٹنگ ڈایاگرام (سیڑھی/کچن/وینٹی · ${parts.length})`
+                  )}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSimpleMainScreen('stock_slabs');
+                  setActiveResultTab('stock_inventory');
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  simpleMainScreen === 'stock_slabs'
+                    ? 'bg-purple-600 border-purple-300 text-white shadow'
+                    : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-purple-500/60'
+                }`}
+              >
+                <span>📦</span>
+                <span>
+                  {tr(
+                    `3. Stock Ledger (${savedStockList.length} Lots)`,
+                    `3. مکمل اسٹاک ریکارڈ اور کریک مینیجر (${savedStockList.length})`
+                  )}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSimpleMainScreen('excel_bill');
+                  setActiveResultTab('bom');
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  simpleMainScreen === 'excel_bill'
+                    ? 'bg-emerald-600 border-emerald-300 text-white shadow'
+                    : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-emerald-500/60'
+                }`}
+              >
+                <span>📊</span>
+                <span>
+                  {tr(
+                    `4. Excel Bill (PKR ${cuttingStats.grandTotalInvoicePKR.toLocaleString()})`,
+                    `4. ایکسل بل اور ریٹ (PKR ${cuttingStats.grandTotalInvoicePKR.toLocaleString()})`
+                  )}
+                </span>
+              </button>
+            </div>
+
+            <div className="text-[11px] font-mono text-slate-400 hidden xl:block">
               {tr(
-                `✓ Net Usable Slab after Trim: ${Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}" × ${Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}" (Kerf: ${slabConfig.kerf}")`,
-                `✓ صفائی کے بعد صافی سلیب سائز: ${Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}" × ${Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}" (بلیڈ: ${slabConfig.kerf}")`
+                'Material + Stock Slabs + Floor & Cut Diagrams unified on 1 Screen',
+                'مٹیریل، اسٹاک سلیب تصویریں اور فلور ڈایاگرام سب ایک ہی اسکرین پر موجود ہیں'
               )}
             </div>
-          </div>
-
-          {/* Row 2: 4 BIG, SIMPLE, SINGLE-PURPOSE MAIN BUTTONS (بڑے بڑے سادہ بٹن — ہر کام کے لیے صرف ایک بٹن!) */}
-          <div className="p-3 bg-slate-900 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* BIG BUTTON 1: FLOOR PLANNER & ROOM BOOKMATCH */}
-            <button
-              type="button"
-              onClick={() => {
-                setSimpleMainScreen('floor_planner');
-                setActiveResultTab('dual_diagrams');
-              }}
-              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
-                simpleMainScreen === 'floor_planner'
-                  ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-lg scale-[1.01]'
-                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-amber-500/60 hover:bg-slate-900'
-              }`}
-            >
-              <div
-                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  simpleMainScreen === 'floor_planner'
-                    ? 'bg-slate-950 text-amber-400'
-                    : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                }`}
-              >
-                🏛️
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm sm:text-base font-extrabold truncate">
-                  {tr('1. Floor Planner & Bookmatch', '1. فلور پلانر اور روم بک میچ')}
-                </div>
-                <div
-                  className={`text-[11px] truncate ${
-                    simpleMainScreen === 'floor_planner'
-                      ? 'text-slate-900 font-bold'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  {tr(
-                    'Room Size + 4-Piece BM + Brass Patti + Border + Slab Crop',
-                    'کمرے کا سائز، سینٹر بک میچ، براس پٹی، بارڈر اور سلیب سلیکشن'
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {/* BIG BUTTON 2: SLAB CUTTING DIAGRAM (Stairs, Kitchen, Vanity, Window Sill) */}
-            <button
-              type="button"
-              onClick={() => {
-                setSimpleMainScreen('slab_cutter');
-                setActiveResultTab('dual_diagrams');
-              }}
-              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
-                simpleMainScreen === 'slab_cutter'
-                  ? 'bg-sky-600 border-sky-300 text-white shadow-lg scale-[1.01]'
-                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-sky-500/60 hover:bg-slate-900'
-              }`}
-            >
-              <div
-                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  simpleMainScreen === 'slab_cutter'
-                    ? 'bg-slate-950 text-sky-400'
-                    : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
-                }`}
-              >
-                ✂️
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm sm:text-base font-extrabold truncate">
-                  {tr('2. Slab Cutting Optimizer', '2. سلیب کٹنگ ڈایاگرام (سیڑھی/کچن/وینٹی)')}
-                </div>
-                <div
-                  className={`text-[11px] truncate ${
-                    simpleMainScreen === 'slab_cutter' ? 'text-sky-100 font-bold' : 'text-slate-400'
-                  }`}
-                >
-                  {tr(
-                    `Cut ${parts.length} Sizes on ${slabConfig.quantity} Slabs (Stairs, Kitchen, Vanity)`,
-                    `سلیب پر کٹنگ کا نقشہ، سیڑھی ٹپے، کچن، وینٹی اور ونڈو سل`
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {/* BIG BUTTON 3: STOCK SLABS & PHOTO UPLOAD */}
-            <button
-              type="button"
-              onClick={() => {
-                setSimpleMainScreen('stock_slabs');
-                setActiveResultTab('slab_manager');
-              }}
-              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
-                simpleMainScreen === 'stock_slabs'
-                  ? 'bg-purple-600 border-purple-300 text-white shadow-lg scale-[1.01]'
-                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-purple-500/60 hover:bg-slate-900'
-              }`}
-            >
-              <div
-                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  simpleMainScreen === 'stock_slabs'
-                    ? 'bg-slate-950 text-purple-300'
-                    : 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                }`}
-              >
-                📦
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm sm:text-base font-extrabold truncate">
-                  {tr('3. Stock Slabs & Photo Upload', '3. اسٹاک سلیب اور تصویر اپ لوڈ')}
-                </div>
-                <div
-                  className={`text-[11px] truncate ${
-                    simpleMainScreen === 'stock_slabs'
-                      ? 'text-purple-100 font-bold'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  {tr(
-                    `Stock: ${slabConfig.quantity} Slabs (${slabConfig.width}"×${slabConfig.length}")`,
-                    `سلیب سائز: ${slabConfig.width}"×${slabConfig.length}" (${slabConfig.quantity} سلیب) · فوٹو اپ لوڈ`
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {/* BIG BUTTON 4: EXCEL BILL & RATES */}
-            <button
-              type="button"
-              onClick={() => {
-                setSimpleMainScreen('excel_bill');
-                setActiveResultTab('bom');
-              }}
-              className={`p-3.5 rounded-xl border-2 text-right transition-all flex items-center gap-3 ${
-                simpleMainScreen === 'excel_bill'
-                  ? 'bg-emerald-600 border-emerald-300 text-white shadow-lg scale-[1.01]'
-                  : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-emerald-500/60 hover:bg-slate-900'
-              }`}
-            >
-              <div
-                className={`h-11 w-11 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                  simpleMainScreen === 'excel_bill'
-                    ? 'bg-slate-950 text-emerald-400'
-                    : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                }`}
-              >
-                📊
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm sm:text-base font-extrabold truncate">
-                  {tr('4. Excel Bill & Rates (.xls)', '4. ایکسل بل، ریٹ اور کمپیوٹر ریکارڈ')}
-                </div>
-                <div
-                  className={`text-[11px] truncate ${
-                    simpleMainScreen === 'excel_bill'
-                      ? 'text-emerald-100 font-bold'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  {tr(
-                    `Total: PKR ${cuttingStats.grandTotalInvoicePKR.toLocaleString()} (Cutting + Polish + Edge)`,
-                    `کل بل: PKR ${cuttingStats.grandTotalInvoicePKR.toLocaleString()} (کٹنگ + پالش + ایج پروفائل)`
-                  )}
-                </div>
-              </div>
-            </button>
           </div>
         </div>
       )}
@@ -5327,7 +5296,7 @@ export function CuttingOptimizerPro({
           simpleMainScreen === 'floor_planner' &&
           fullscreenTarget !== 'slab_diagram' &&
           fullscreenTarget !== 'floor_diagram'
-            ? 'mb-4 block'
+            ? 'mb-1 block'
             : 'hidden'
         }
       >
@@ -5335,12 +5304,28 @@ export function CuttingOptimizerPro({
           cadLang={cadLang}
           slabImageUrl={slabImageUrl}
           slabMaterialName={slabConfig.materialName}
+          slabLotId={slabConfig.lotId}
           slabWidthIn={slabConfig.width}
           slabLengthIn={slabConfig.length}
           slabQuantity={slabConfig.quantity}
           slabRatePerSqFt={slabConfig.ratePerSqFt}
           bladeKerfIn={slabConfig.kerf}
           edgeTrimIn={slabConfig.edgeTrim}
+          onUpdateKerfAndEdgeTrim={(kerf, edgeTrim) =>
+            setSlabConfig((prev) => ({
+              ...prev,
+              kerf,
+              edgeTrim,
+            }))
+          }
+          onSaveCurrentSlabToStock={() => handleSaveCurrentSlabToStock(false)}
+          onLoadSavedStockLot={(stockId) => {
+            const target = savedStockList.find((s) => s.id === stockId);
+            if (target) handleLoadStockItemIntoOptimizer(target);
+          }}
+          onAdjustSavedStockQty={handleAdjustSavedStockQty}
+          onDeleteSavedStockLot={handleDeleteSavedStockItem}
+          onBulkUploadSlabPhotos={() => bulkSlabsInputRef.current?.click()}
           savedStockLots={savedStockList.map((st) => ({
             id: st.id,
             category: st.category,
@@ -5488,680 +5473,1053 @@ export function CuttingOptimizerPro({
       </div>
 
       {/* Main Full-Width Workstation Layout (Shown when Slab Cutter, Stock Slabs, or Excel Bill is active) */}
-      <div className={`${simpleMainScreen === 'floor_planner' ? 'hidden' : 'flex flex-col gap-3 w-full'}`}>
-        {fullscreenTarget !== 'slab_diagram' && fullscreenTarget !== 'floor_diagram' && (
-          <div className="w-full space-y-2.5 print:hidden" dir={cadLang === 'ur' ? 'rtl' : 'ltr'}>
-            {/* =====================================================================
-                CUT SIZES & CATEGORY BAR DIRECTLY ABOVE THE SLAB DIAGRAM
-                (صرف سلیب کٹنگ موڈ میں نظر آئے گا — کوئی ڈبل بٹن نہیں!)
-               ===================================================================== */}
-            {simpleMainScreen === 'slab_cutter' && (
-            <div className="rounded-xl border-2 border-emerald-500/60 bg-slate-900 text-white shadow-md overflow-hidden">
-              {/* Row 1: Category Buttons + Quick Cut Size Input Right Above the Diagram */}
-              <div className="p-2.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
-                {/* Category Selector Buttons */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-mono text-[10px] font-extrabold uppercase">
-                    {tr('1. CATEGORY:', '1. کیٹگری:')}
+      <div
+        style={
+          {
+            '--cad-sidebar-w': `${Math.max(24, Math.min(44, cadWorkspace.sidebarWidthPercent || 30))}%`,
+          } as React.CSSProperties
+        }
+        className={
+          simpleMainScreen === 'floor_planner'
+            ? 'hidden'
+            : simpleMainScreen === 'slab_cutter'
+            ? `flex flex-col ${
+                cadWorkspace.sidebarPosition === 'right' ? 'lg:flex-row-reverse' : 'lg:flex-row'
+              } items-start gap-2.5 w-full`
+            : 'flex flex-col gap-3 w-full'
+        }
+      >
+        {/* =====================================================================
+            CLASSIC SIDEBAR TOOL FOR CUTTING OPTIMIZER:
+            SECTION 1: STOCK SLAB (اسٹاک سلیب) + SECTION 2: CUT PIECES (کٹ پیسز)
+           ===================================================================== */}
+        {simpleMainScreen === 'slab_cutter' &&
+          !isLeftDockCollapsed &&
+          fullscreenTarget !== 'slab_diagram' &&
+          fullscreenTarget !== 'floor_diagram' && (
+            <aside
+              dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
+              className="w-full lg:w-[var(--cad-sidebar-w)] shrink-0 rounded-xl border-2 border-slate-700/90 bg-slate-900 text-white shadow-xl overflow-hidden lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] flex flex-col print:hidden"
+            >
+              {/* Sticky Sidebar Header with Dock Left/Right & Collapse */}
+              <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-6 w-6 rounded-md bg-amber-500 text-slate-950 flex items-center justify-center shrink-0">
+                    <Scissors className="h-3.5 w-3.5" />
                   </span>
-                  {(
-                    [
-                      { id: 'flooring', icon: '🏠', en: 'Flooring', ur: 'فرش فلورنگ' },
-                      { id: 'bookmatch_wall', icon: '🦋', en: 'Bookmatch', ur: 'بک میچ اسٹوڈیو' },
-                      { id: 'stairs', icon: '🪜', en: 'Stairs / Tappe', ur: 'سیڑھی ٹپے' },
-                      { id: 'kitchen', icon: '🍳', en: 'Kitchen Slab', ur: 'کچن سلیب' },
-                      { id: 'vanity', icon: '🚰', en: 'Vanity Top', ur: 'وینٹی ٹاپ' },
-                      { id: 'window_sill', icon: '🪟', en: 'Window Sill', ur: 'ونڈو سل' },
-                    ] as const
-                  ).map((cat) => {
-                    const isSelected =
-                      activeCategoryPreset === cat.id && activeResultTab === 'dual_diagrams';
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => applyPreset(cat.id)}
-                        className={`px-2.5 py-1 rounded-lg border text-xs font-extrabold flex items-center gap-1 transition-all ${
-                          isSelected
-                            ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-sm'
-                            : 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800'
-                        }`}
-                      >
-                        <span>{cat.icon}</span>
-                        <span>{tr(cat.en, cat.ur)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Inline Quick Add Cut Size Bar (Right Above the Diagram!) */}
-                <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-emerald-500/40">
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] font-extrabold">
-                    {tr('2. ADD CUT SIZE:', '2. کٹ سائز لکھیں:')}
-                  </span>
-                  <Input
-                    type="text"
-                    placeholder={tr('Label', 'نام')}
-                    value={quickPartLabel}
-                    onChange={(e) => setQuickPartLabel(e.target.value)}
-                    className="h-7 w-28 px-2 text-xs bg-slate-950 border-slate-700 text-white"
-                  />
-                  <span className="text-[10px] font-bold text-amber-300">
-                    {tr(`1.W (${unit}):`, `1.چوڑائی:`)}
-                  </span>
-                  <Input
-                    type="number"
-                    step="any"
-                    min="1"
-                    value={quickPartWid}
-                    onChange={(e) => setQuickPartWid(Number(e.target.value) || 1)}
-                    className="h-7 w-16 px-1.5 text-xs bg-slate-950 border-amber-500/60 text-white font-mono font-bold"
-                  />
-                  <span className="text-slate-500 font-bold">×</span>
-                  <span className="text-[10px] font-bold text-sky-300">
-                    {tr(`2.L (${unit}):`, `2.لمبائی:`)}
-                  </span>
-                  <Input
-                    type="number"
-                    step="any"
-                    min="1"
-                    value={quickPartLen}
-                    onChange={(e) => setQuickPartLen(Number(e.target.value) || 1)}
-                    className="h-7 w-16 px-1.5 text-xs bg-slate-950 border-sky-500/60 text-white font-mono font-bold"
-                  />
-                  <span className="text-[10px] font-bold text-slate-300">
-                    {tr('Qty:', 'تعداد:')}
-                  </span>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={quickPartQty}
-                    onChange={(e) =>
-                      setQuickPartQty(Math.max(1, parseInt(e.target.value, 10) || 1))
-                    }
-                    className="h-7 w-14 px-1.5 text-xs bg-slate-950 border-slate-700 text-white font-mono font-bold"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setParts((prev) => [
-                        ...prev,
-                        {
-                          id: `part-${Date.now()}`,
-                          label: quickPartLabel || `Piece #${prev.length + 1}`,
-                          length: Math.max(1, quickPartLen),
-                          width: Math.max(1, quickPartWid),
-                          quantity: Math.max(1, quickPartQty),
-                          allowRotation: true,
-                          isBookmatchedPair: false,
-                          installZone: 'floor',
-                          priority: 'normal',
-                          color: PART_PALETTE[prev.length % PART_PALETTE.length],
-                        },
-                      ]);
-                    }}
-                    className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center gap-1 shadow-sm"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>{tr('+ Add Piece', '+ پیس ایڈ کریں')}</span>
-                  </button>
-
-                  {/* Dropdown Button to Open/Close Full Cut Sizes & Latak/Splash Settings */}
-                  <button
-                    type="button"
-                    onClick={() => setIsCutSizesDropdownOpen((v) => !v)}
-                    className={`px-3 py-1 rounded-lg border text-xs font-extrabold flex items-center gap-1.5 transition-all ${
-                      isCutSizesDropdownOpen
-                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-md'
-                        : 'bg-slate-950 border-emerald-500/70 text-emerald-300 hover:bg-slate-800'
-                    }`}
-                  >
-                    <span>
-                      {isCutSizesDropdownOpen
-                        ? tr(
-                            `✓ Close Sizes Dropdown (${parts.length}) ▴`,
-                            `✓ سلیکٹ کر کے ڈراپ ڈاؤن بند کریں (${parts.length} پیس) ▴`
-                          )
-                        : tr(
-                            `✂️ Open Cut Sizes & Latak List (${parts.length} Pcs) ▾`,
-                            `✂️ کٹ سائزز اور لٹک/سلیش ڈراپ ڈاؤن کھولیں (${parts.length} پیس) ▾`
-                          )}
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Row 2: Compact Horizontal Strip of Added Cut Pieces (Always visible above diagram, click any chip to open dropdown) */}
-              <div className="px-3 py-1.5 bg-slate-900/95 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[10px] font-mono font-bold text-slate-400">
-                    {tr('Cut Pieces on Diagram:', 'ڈایاگرام پر کٹنے والے پیس:')}
-                  </span>
-                  {parts.map((pt, pIdx) => {
-                    const firstMatch = summary.slabs
-                      .flatMap((sl) =>
-                        sl.placedPieces
-                          .filter((pp) => pp.partId === pt.id)
-                          .map((pp) => ({ slabIndex: sl.slabIndex, piece: pp }))
-                      )[0];
-                    const isHover = hoveredPiece && hoveredPiece.partId === pt.id;
-                    return (
-                      <div
-                        key={pt.id}
-                        onMouseEnter={() => {
-                          if (firstMatch) {
-                            setHoveredPiece(firstMatch.piece);
-                            if (!viewAllSlabs && activeSlabIndex !== firstMatch.slabIndex - 1) {
-                              setActiveSlabIndex(Math.max(0, firstMatch.slabIndex - 1));
-                            }
-                          }
-                        }}
-                        onMouseLeave={() => setHoveredPiece(null)}
-                        onClick={() => setIsCutSizesDropdownOpen(true)}
-                        className={`px-2 py-0.5 rounded-md border text-[11px] font-mono cursor-pointer flex items-center gap-1.5 transition-all ${
-                          isHover
-                            ? 'bg-amber-500/20 border-amber-400 text-white'
-                            : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-emerald-500/60'
-                        }`}
-                        title={tr(
-                          'Click to open dropdown and edit Latak / Splash / Size',
-                          'کلک کر کے ڈراپ ڈاؤن کھولیں اور سائز یا لٹک/سلیش سیٹ کریں'
-                        )}
-                      >
-                        <span
-                          className="h-2.5 w-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: pt.color }}
-                        />
-                        <span className="font-bold text-amber-300">#{pIdx + 1}</span>
-                        <span className="truncate max-w-[110px] font-sans">{pt.label}:</span>
-                        <span className="font-extrabold text-white">
-                          {pt.width}×{pt.length}
-                        </span>
-                        <span className="text-sky-300">({pt.quantity})</span>
-                        {firstMatch && (
-                          <span className="px-1 rounded bg-emerald-950 text-emerald-300 text-[9px] font-bold">
-                            S#{firstMatch.slabIndex}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsCutSizesDropdownOpen((v) => !v)}
-                  className="text-[11px] font-bold text-amber-300 hover:text-amber-200 underline shrink-0"
-                >
-                  {isCutSizesDropdownOpen
-                    ? tr('Hide List ▴', 'لسٹ بند کریں ▴')
-                    : tr('Edit All / Latak & Splash ▾', 'مکمل لسٹ اور لٹک/سلیش کھولیں ▾')}
-                </button>
-              </div>
-
-              {/* DROPDOWN PANEL: Full Cut Pieces & Latak/Splash Settings (Opens when clicked, closes when done so main screen stays huge!) */}
-              {isCutSizesDropdownOpen && (
-                <div className="p-3.5 bg-slate-900 border-t-2 border-amber-500/60 space-y-2.5 max-h-[540px] overflow-y-auto">
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
-                    <div>
-                      <h3 className="text-xs font-extrabold text-amber-300">
-                        {tr(
-                          '✂️ All Cut Pieces, Latak (Front/Left/Right/Back) & Splash Settings Dropdown',
-                          '✂️ تمام کٹ سائزز، لٹک (فرنٹ/لیفٹ/رائٹ/بیک) اور سلیش سیٹنگز ڈراپ ڈاؤن'
-                        )}
-                      </h3>
-                      <p className="text-[11px] text-slate-300">
-                        {tr(
-                          'Select your sizes and Latak/Splash options below, then close this dropdown to view the large Cutting Optimizer screen.',
-                          'اپنے سائزز اور لٹک/سلیش سلیکٹ کریں اور پھر "ڈراپ ڈاؤن بند کریں" پر کلک کریں تاکہ نیچے کٹنگ آپٹیمائزر کی بڑی سکرین نظر آئے۔'
-                        )}
-                      </p>
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-white truncate">
+                      {tr('Stock & Cut Pieces', 'اسٹاک سلیب اور کٹ پیسز')}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="text-[10px] font-mono text-slate-400 truncate">
+                      {slabConfig.width}&quot;×{slabConfig.length}&quot; ({slabConfig.quantity}) ·{' '}
+                      {parts.length} {tr('cut rows', 'کٹ پیس')}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCadWorkspace((prev) => ({
+                        ...prev,
+                        sidebarPosition: prev.sidebarPosition === 'right' ? 'left' : 'right',
+                      }))
+                    }
+                    className="px-1.5 py-1 rounded bg-slate-900 border border-slate-700 text-[10px] font-bold text-slate-300 hover:text-white hover:border-amber-500/60"
+                    title={tr('Move sidebar to Left or Right side', 'سائیڈ بار کو بائیں یا دائیں طرف منتقل کریں')}
+                  >
+                    {cadWorkspace.sidebarPosition === 'right'
+                      ? tr('◀ Left', '◀ بائیں')
+                      : tr('Right ▶', 'دائیں ▶')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLeftDockCollapsed(true)}
+                    className="p-1 rounded bg-slate-900 border border-slate-700 text-slate-300 hover:text-amber-300 hover:border-amber-500/60"
+                    title={tr('Hide Sidebar (Enlarge Diagram)', 'سائیڈ بار چھپائیں (ڈایاگرام بڑا کریں)')}
+                  >
+                    <PanelLeftClose className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Dual-Section Sidebar Body */}
+              <div className="flex-1 overflow-y-auto p-2.5 space-y-3">
+                {/* -------------------------------------------------------------
+                    SECTION 1: STOCK SLAB (اسٹاک سلیب)
+                   ------------------------------------------------------------- */}
+                <section className="rounded-lg border border-amber-500/50 bg-slate-950/90 overflow-hidden">
+                  <div className="px-2.5 py-1.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSidebarStockExpanded((v) => !v)}
+                      className="flex items-center gap-1.5 text-left min-w-0 flex-1"
+                    >
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-mono text-[10px] font-extrabold shrink-0">
+                        1
+                      </span>
+                      <span className="text-xs font-extrabold text-amber-300 truncate">
+                        {tr('STOCK SLAB (Material & Size)', 'اسٹاک سلیب (مٹیریل اور سائز)')}
+                      </span>
+                      <span className="text-[10px] text-slate-400 shrink-0">
+                        {isSidebarStockExpanded ? '▾' : '▸'}
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        onClick={handleAddPart}
-                        className={cadBtnPrimary}
+                        onClick={() => handleSaveCurrentSlabToStock(false)}
+                        className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold flex items-center gap-1"
+                        title={tr('Save current slab to Stock Ledger', 'موجودہ سلیب اسٹاک ریکارڈ میں محفوظ کریں')}
                       >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>{tr('+ Add New Row', '+ نیا پیس شامل کریں')}</span>
+                        <HardDrive className="h-3 w-3" />
+                        <span>{tr('Save', 'سیو')}</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => setShowStep2QuickPresets((v) => !v)}
-                        className="px-2.5 py-1.5 rounded bg-slate-950 border border-slate-700 text-amber-300 hover:text-white text-xs font-bold"
+                        onClick={() => {
+                          setSimpleMainScreen('stock_slabs');
+                          setActiveResultTab('stock_inventory');
+                        }}
+                        className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-purple-300 text-[10px] font-bold"
+                        title={tr('Open Stock Ledger', 'اسٹاک ریکارڈ کھولیں')}
                       >
-                        {showStep2QuickPresets
-                          ? tr('Hide Templates ▴', 'ٹیمپلیٹس چھپائیں ▴')
-                          : tr('Templates ▾', 'فوری ٹیمپلیٹس ▾')}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsCutSizesDropdownOpen(false)}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md"
-                      >
-                        {tr('✓ Done / Close Dropdown ▴', '✓ سلیکٹ کر کے ڈراپ ڈاؤن بند کریں ▴')}
+                        {tr('Stock', 'اسٹاک')} ({savedStockList.length})
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {/* Collapsible Quick Templates Bar */}
-                    {showStep2QuickPresets && (
-                    <div className="rounded-md border border-amber-500/40 bg-slate-950/90 p-2.5 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-1.5">
-                        <span className="text-[11px] font-bold text-amber-300">
-                          {tr(
-                            '⚡ Quick Templates (Stair Latik, Vanity, Kitchen, Round Table):',
-                            '⚡ فوری ڈیزائن ٹیمپلیٹس (سیڑھی لٹک، وینٹی، کچن، گول ٹیبل):'
-                          )}
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1">
+                  {isSidebarStockExpanded && (
+                    <div className="p-2.5 space-y-2">
+                      {/* Saved Stock Selector */}
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-300">
+                          {tr('Load Saved Stock Lot / Offcut:', 'محفوظ شدہ اسٹاک لاٹ منتخب کریں:')}
+                        </Label>
+                        <select
+                          value={
+                            savedStockList.find(
+                              (st) =>
+                                st.materialName === slabConfig.materialName &&
+                                st.width === slabConfig.width &&
+                                st.length === slabConfig.length
+                            )?.id || ''
+                          }
+                          onChange={(e) => {
+                            const found = savedStockList.find((st) => st.id === e.target.value);
+                            if (found) handleLoadStockItemIntoOptimizer(found);
+                          }}
+                          className="w-full h-7 rounded bg-slate-900 border border-amber-500/40 text-white text-[11px] font-semibold px-2 cursor-pointer"
+                        >
+                          <option value="">
+                            {tr('-- Select Stock Lot from Inventory --', '-- اسٹاک لاٹ منتخب کریں --')}
+                          </option>
+                          {savedStockList.map((st) => (
+                            <option key={st.id} value={st.id}>
+                              {st.category === 'usable_offcut' ? '♻ ' : '🪨 '}
+                              {st.materialName} ({st.width}×{st.length} · {st.quantity} pcs)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Slab Photo Preview & Upload / Frame Actions */}
+                      <div className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-900/90 p-1.5">
+                        <div className="h-12 w-16 rounded overflow-hidden border border-slate-700 bg-slate-950 shrink-0 relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={slabImageUrl}
+                            alt={slabConfig.materialName}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="text-[10px] font-semibold text-slate-200 truncate">
+                            {slabImageSourceLabel || slabConfig.materialName}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => triggerSlabUpload(0, false)}
+                              className="px-1.5 py-0.5 rounded bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold flex items-center gap-1"
+                            >
+                              <Upload className="h-2.5 w-2.5" />
+                              <span>{tr('Photo', 'فوٹو')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => bulkSlabsInputRef.current?.click()}
+                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-[10px] font-bold flex items-center gap-1"
+                            >
+                              <Camera className="h-2.5 w-2.5" />
+                              <span>{tr('Bulk', 'بلک')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openFrameCalibrator(1)}
+                              className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-[10px] font-bold flex items-center gap-1"
+                            >
+                              <Crop className="h-2.5 w-2.5" />
+                              <span>{tr('Frame', 'فریم')}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Material Name & Rate */}
+                      <div className="grid grid-cols-12 gap-1.5">
+                        <div className="col-span-8 space-y-0.5">
+                          <Label className="text-[10px] text-slate-400">
+                            {tr('Material / Stone Name', 'پتھر / مٹیریل کا نام')}
+                          </Label>
+                          <Input
+                            value={slabConfig.materialName}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({ ...prev, materialName: e.target.value }))
+                            }
+                            className="h-7 text-xs bg-slate-900 border-slate-700 text-white px-2"
+                          />
+                        </div>
+                        <div className="col-span-4 space-y-0.5">
+                          <Label className="text-[10px] text-emerald-300 font-bold">
+                            {tr('Rate / ft²', 'ریٹ / فٹ')}
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={slabConfig.ratePerSqFt}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                ratePerSqFt: Math.max(0, Number(e.target.value) || 0),
+                              }))
+                            }
+                            className="h-7 text-xs font-mono font-bold bg-slate-900 border-emerald-500/50 text-white px-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Slab 1. Width x 2. Length x Qty + Rotate */}
+                      <div className="grid grid-cols-12 gap-1.5 items-end">
+                        <div className="col-span-4 space-y-0.5">
+                          <Label className="text-[10px] font-bold text-amber-300">
+                            {tr(`1. Width (${unit})`, `1. چوڑائی`)}
+                          </Label>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="1"
+                            value={slabConfig.width}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                width: Math.max(1, Number(e.target.value) || 1),
+                              }))
+                            }
+                            className="h-7 text-xs font-mono font-bold bg-slate-900 border-amber-500/60 text-white px-2"
+                          />
+                        </div>
+                        <div className="col-span-4 space-y-0.5">
+                          <Label className="text-[10px] font-bold text-sky-300">
+                            {tr(`2. Length (${unit})`, `2. لمبائی`)}
+                          </Label>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="1"
+                            value={slabConfig.length}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                length: Math.max(1, Number(e.target.value) || 1),
+                              }))
+                            }
+                            className="h-7 text-xs font-mono font-bold bg-slate-900 border-sky-500/60 text-white px-2"
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-0.5">
+                          <Label className="text-[10px] text-slate-300">
+                            {tr('Qty', 'تعداد')}
+                          </Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={slabConfig.quantity}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
+                              }))
+                            }
+                            className="h-7 text-xs font-mono font-bold bg-slate-900 border-slate-700 text-white px-1.5"
+                          />
+                        </div>
+                        <div className="col-span-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              setParts((prev) =>
-                                prev.map((p) => ({
-                                  ...p,
-                                  latakSides:
-                                    !p.latakSides || p.latakSides === 'none'
-                                      ? 'front_only'
-                                      : p.latakSides,
-                                  latakSize: p.latakSize || 3,
-                                  latakCutMode: 'bookmatch_attached',
-                                  allowRotation: false,
-                                }))
-                              );
-                            }}
-                            className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold"
+                            onClick={() =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                width: prev.length,
+                                length: prev.width,
+                              }))
+                            }
+                            className="w-full h-7 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 flex items-center justify-center"
+                            title={tr('Swap Width & Length (Rotate 90°)', 'چوڑائی اور لمبائی تبدیل کریں')}
                           >
-                            {tr('🔗 All Bookmatch/Latik', '🔗 سب بک میچ لٹک')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setParts((prev) =>
-                                prev.map((p) => ({
-                                  ...p,
-                                  latakCutMode: 'random_separate',
-                                  allowRotation: true,
-                                }))
-                              );
-                            }}
-                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold"
-                          >
-                            {tr('🎲 All Random Cut', '🎲 سب رینڈم کٹ')}
+                            <RotateCw className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setParts((prev) => [
-                              ...prev,
-                              {
-                                id: `step-latak-${Date.now()}`,
-                                label: tr('Stair Step 12"', 'سیڑھی ٹپہ 12 انچ'),
-                                width: 12,
-                                length: 42,
-                                quantity: 1,
-                                allowRotation: false,
-                                installZone: 'stairs',
-                                priority: 'high',
-                                color: '#0284C7',
-                                latakSides: 'front_only',
-                                latakFront: true,
-                                latakSize: 3,
-                                latakCutMode: 'bookmatch_attached',
-                              },
-                            ])
-                          }
-                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-semibold"
-                        >
-                          {tr('+ 12"×42" Step + 3" Latak', '+ 12" سٹیپ + 3" فرنٹ لٹک')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setParts((prev) => [
-                              ...prev,
-                              {
-                                id: `vanity-latak-${Date.now()}`,
-                                label: tr('Vanity Top 22"×36"', 'وینٹی ٹاپ 22×36'),
-                                width: 22,
-                                length: 36,
-                                quantity: 1,
-                                allowRotation: false,
-                                installZone: 'counter',
-                                priority: 'high',
-                                color: '#059669',
-                                latakSides: 'front_and_both_sides',
-                                latakFront: true,
-                                latakLeft: true,
-                                latakRight: true,
-                                latakSize: 3,
-                                latakCutMode: 'bookmatch_attached',
-                              },
-                            ])
-                          }
-                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-semibold"
-                        >
-                          {tr('+ Vanity + 3" Latak', '+ وینٹی + 3" لٹک')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setParts((prev) => [
-                              ...prev,
-                              {
-                                id: `round-table-${Date.now()}`,
-                                label: tr('Round Table Ø 48"', 'گول ٹیبل Ø 48 انچ'),
-                                width: 48,
-                                length: 48,
-                                quantity: 1,
-                                allowRotation: false,
-                                installZone: 'counter',
-                                priority: 'high',
-                                color: '#0EA5E9',
-                                shapeCutType: 'round_table',
-                                lazySusanDiameter: 20,
-                              },
-                            ])
-                          }
-                          className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-700 text-sky-300 text-[10px] font-semibold"
-                        >
-                          {tr('⭕ + 48" Round Table', '⭕ + 48" گول ٹیبل')}
-                        </button>
+                      {/* Quick Slab Size Chips */}
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="text-[10px] text-slate-400 mr-0.5">
+                          {tr('Presets:', 'سائز:')}
+                        </span>
+                        {[
+                          { w: 60, l: 110 },
+                          { w: 58, l: 106 },
+                          { w: 48, l: 96 },
+                          { w: 28, l: 56 },
+                        ].map((sp) => {
+                          const activeSp = slabConfig.width === sp.w && slabConfig.length === sp.l;
+                          return (
+                            <button
+                              key={`${sp.w}x${sp.l}`}
+                              type="button"
+                              onClick={() =>
+                                setSlabConfig((prev) => ({ ...prev, width: sp.w, length: sp.l }))
+                              }
+                              className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold ${
+                                activeSp
+                                  ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                  : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                              }`}
+                            >
+                              {sp.w}×{sp.l}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Kerf & Edge Trim */}
+                      <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-800/80">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] font-bold text-rose-300">
+                            {tr('🪚 Blade Kerf', '🪚 بلیڈ کرف')}
+                          </Label>
+                          <select
+                            value={String(slabConfig.kerf)}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                kerf: Math.max(0, Number(e.target.value) || 0),
+                              }))
+                            }
+                            className="w-full h-7 rounded bg-slate-900 border border-rose-500/50 text-white font-mono text-[10px] font-bold px-1.5 cursor-pointer"
+                          >
+                            <option value="0">{tr('0" (None)', '0" (بغیر گیپ)')}</option>
+                            <option value="0.125">{tr('0.125" (3mm)', '0.125" (1 سوتر)')}</option>
+                            <option value="0.15">{tr('0.15" (Std)', '0.15" (اسٹینڈرڈ)')}</option>
+                            <option value="0.1875">{tr('0.1875" (4.5mm)', '0.1875" (ڈیڑھ سوتر)')}</option>
+                            <option value="0.25">{tr('0.25" (6mm)', '0.25" (2 سوتر)')}</option>
+                          </select>
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] font-bold text-sky-300">
+                            {tr('📏 Edge Trim (Safai)', '📏 ایج ٹرم (صفائی)')}
+                          </Label>
+                          <select
+                            value={String(slabConfig.edgeTrim)}
+                            onChange={(e) =>
+                              setSlabConfig((prev) => ({
+                                ...prev,
+                                edgeTrim: Math.max(0, Number(e.target.value) || 0),
+                              }))
+                            }
+                            className="w-full h-7 rounded bg-slate-900 border border-sky-500/50 text-white font-mono text-[10px] font-bold px-1.5 cursor-pointer"
+                          >
+                            <option value="0">{tr('0" (Full)', '0" (پوری سلیب)')}</option>
+                            <option value="0.5">{tr('0.5" (1/2 in)', '0.5" (آدھی انچی)')}</option>
+                            <option value="0.75">{tr('0.75" (3/4 in)', '0.75" (پونے انچی)')}</option>
+                            <option value="1">{tr('1.0" (1 in)', '1.0" (ایک انچی)')}</option>
+                            <option value="1.5">{tr('1.5" (1.5 in)', '1.5" (ڈیڑھ انچی)')}</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="px-2 py-1 rounded bg-emerald-950/50 border border-emerald-500/30 text-[10px] font-mono text-emerald-300 flex items-center justify-between">
+                        <span>
+                          {tr('Net Cuttable:', 'صافی سلیب:')}
+                        </span>
+                        <span className="font-bold">
+                          {Math.max(1, slabConfig.width - slabConfig.edgeTrim * 2)}&quot; ×{' '}
+                          {Math.max(1, slabConfig.length - slabConfig.edgeTrim * 2)}&quot;
+                        </span>
                       </div>
                     </div>
-                    )}
+                  )}
+                </section>
 
-                  {parts.map((part, idx) => {
-                    const partSqFt = toSqFt(part.length * part.width * part.quantity, unit);
-                    const curLatakSides: LatakSideOption = part.latakSides || 'none';
-                    const curLatakSize = part.latakSize !== undefined ? part.latakSize : 3;
-                    const curLatakMode: LatakCutModeOption =
-                      part.latakCutMode || 'bookmatch_attached';
-                    const curShape: ShapeCutTypeOption = part.shapeCutType || 'rect_90';
-                    const curDegree = part.cutDegree !== undefined ? part.cutDegree : 45;
-                    const curLazySusan = part.lazySusanDiameter || 0;
-
-                    // Find where this piece is cut across the slabs so we can show a live badge & highlight on diagram!
-                    const placedMatches: { slabIndex: number; piece: PlacedPiece }[] = [];
-                    summary.slabs.forEach((sl) => {
-                      sl.placedPieces.forEach((pp) => {
-                        if (pp.partId === part.id) {
-                          placedMatches.push({ slabIndex: sl.slabIndex, piece: pp });
-                        }
-                      });
-                    });
-                    const firstPlaced = placedMatches[0];
-                    const isHighlightedOnDiagram =
-                      hoveredPiece && hoveredPiece.partId === part.id;
-
-                    const highlightPieceOnCenterDiagram = () => {
-                      if (firstPlaced) {
-                        setHoveredPiece(firstPlaced.piece);
-                        if (!viewAllSlabs && activeSlabIndex !== firstPlaced.slabIndex - 1) {
-                          setActiveSlabIndex(Math.max(0, firstPlaced.slabIndex - 1));
-                        }
-                      }
-                    };
-
-                    return (
-                      <div
-                        key={part.id}
-                        onMouseEnter={highlightPieceOnCenterDiagram}
-                        onFocusCapture={highlightPieceOnCenterDiagram}
-                        onMouseLeave={() => setHoveredPiece(null)}
-                        className={`rounded-md border p-2.5 space-y-2 transition-all ${
-                          isHighlightedOnDiagram
-                            ? 'border-amber-400 bg-slate-900/95 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
-                            : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                        }`}
+                {/* -------------------------------------------------------------
+                    SECTION 2: CUT PIECES (کٹ پیسز)
+                   ------------------------------------------------------------- */}
+                <section className="rounded-lg border border-emerald-500/50 bg-slate-950/90 overflow-hidden">
+                  <div className="px-2.5 py-1.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] font-extrabold shrink-0">
+                        2
+                      </span>
+                      <span className="text-xs font-extrabold text-emerald-300 truncate">
+                        {tr(`CUT PIECES (${parts.length})`, `کٹ پیسز (${parts.length})`)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setShowStep2QuickPresets((v) => !v)}
+                        className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 text-[10px] font-bold"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                            <input
-                              type="color"
-                              value={part.color}
-                              onChange={(e) =>
-                                handleUpdatePart(part.id, 'color', e.target.value)
-                              }
-                              className="h-5 w-5 rounded cursor-pointer border border-slate-700 bg-slate-900 shrink-0"
-                            />
-                            <span className="text-xs font-mono font-semibold text-slate-400 shrink-0">
-                              #{idx + 1}
-                            </span>
-                            <Input
-                              value={part.label}
-                              onChange={(e) =>
-                                handleUpdatePart(part.id, 'label', e.target.value)
-                              }
-                              className="h-7 text-xs font-medium bg-slate-900 text-white border-slate-700"
-                            />
-                          </div>
+                        {showStep2QuickPresets ? tr('Templates ▴', 'ٹیمپلیٹس ▴') : tr('Templates ▾', 'ٹیمپلیٹس ▾')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddPart}
+                        className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-extrabold flex items-center gap-0.5"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>{tr('New Row', 'نیا پیس')}</span>
+                      </button>
+                    </div>
+                  </div>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {firstPlaced && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveResultTab('dual_diagrams');
-                                  setActiveSlabIndex(Math.max(0, firstPlaced.slabIndex - 1));
-                                  setHoveredPiece(firstPlaced.piece);
-                                }}
-                                className="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-mono text-[10px] font-bold hover:bg-emerald-900"
-                                title="Click to highlight this cut piece on the Slab Diagram"
-                              >
-                                ✂️ S#{firstPlaced.slabIndex} ({placedMatches.length} pcs)
-                              </button>
-                            )}
-                            <span className="text-[11px] font-mono tabular-nums text-amber-300 font-bold">
-                              W:{part.width}×L:{part.length} ({partSqFt.toFixed(1)} ft²)
-                            </span>
+                  <div className="p-2.5 space-y-2.5">
+                    {/* Category Presets */}
+                    <div className="grid grid-cols-3 gap-1">
+                      {(
+                        [
+                          { id: 'flooring', icon: '🏠', en: 'Flooring', ur: 'فلورنگ' },
+                          { id: 'bookmatch_wall', icon: '🦋', en: 'Bookmatch', ur: 'بک میچ' },
+                          { id: 'stairs', icon: '🪜', en: 'Stairs', ur: 'سیڑھی' },
+                          { id: 'kitchen', icon: '🍳', en: 'Kitchen', ur: 'کچن' },
+                          { id: 'vanity', icon: '🚰', en: 'Vanity', ur: 'وینٹی' },
+                          { id: 'window_sill', icon: '🪟', en: 'Sill', ur: 'ونڈو سل' },
+                        ] as const
+                      ).map((cat) => {
+                        const isSelected =
+                          activeCategoryPreset === cat.id && activeResultTab === 'dual_diagrams';
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => applyPreset(cat.id)}
+                            className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
+                              isSelected
+                                ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-sm'
+                                : 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800'
+                            }`}
+                          >
+                            <span>{cat.icon}</span>
+                            <span className="truncate">{tr(cat.en, cat.ur)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Add Cut Size Box */}
+                    <div className="rounded-md border border-emerald-500/40 bg-slate-900/90 p-2 space-y-1.5">
+                      <div className="text-[10px] font-extrabold text-emerald-300">
+                        {tr('+ Quick Add Cut Piece:', '+ نیا کٹ سائز شامل کریں:')}
+                      </div>
+                      <div className="grid grid-cols-12 gap-1 items-center">
+                        <Input
+                          type="text"
+                          placeholder={tr('Piece Label', 'پیس کا نام')}
+                          value={quickPartLabel}
+                          onChange={(e) => setQuickPartLabel(e.target.value)}
+                          className="col-span-12 h-7 px-2 text-xs bg-slate-950 border-slate-700 text-white"
+                        />
+                        <div className="col-span-4 space-y-0.5">
+                          <span className="text-[9px] font-bold text-amber-300 block">
+                            {tr(`1.W (${unit})`, `1.چوڑائی`)}
+                          </span>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="1"
+                            value={quickPartWid}
+                            onChange={(e) => setQuickPartWid(Number(e.target.value) || 1)}
+                            className="h-7 px-1.5 text-xs bg-slate-950 border-amber-500/60 text-white font-mono font-bold"
+                          />
+                        </div>
+                        <div className="col-span-4 space-y-0.5">
+                          <span className="text-[9px] font-bold text-sky-300 block">
+                            {tr(`2.L (${unit})`, `2.لمبائی`)}
+                          </span>
+                          <Input
+                            type="number"
+                            step="any"
+                            min="1"
+                            value={quickPartLen}
+                            onChange={(e) => setQuickPartLen(Number(e.target.value) || 1)}
+                            className="h-7 px-1.5 text-xs bg-slate-950 border-sky-500/60 text-white font-mono font-bold"
+                          />
+                        </div>
+                        <div className="col-span-4 space-y-0.5">
+                          <span className="text-[9px] font-bold text-slate-300 block">
+                            {tr('Qty', 'تعداد')}
+                          </span>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={quickPartQty}
+                            onChange={(e) =>
+                              setQuickPartQty(Math.max(1, parseInt(e.target.value, 10) || 1))
+                            }
+                            className="h-7 px-1.5 text-xs bg-slate-950 border-slate-700 text-white font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextId = `part-${Date.now()}`;
+                          setParts((prev) => [
+                            ...prev,
+                            {
+                              id: nextId,
+                              label: quickPartLabel || `Piece #${prev.length + 1}`,
+                              length: Math.max(1, quickPartLen),
+                              width: Math.max(1, quickPartWid),
+                              quantity: Math.max(1, quickPartQty),
+                              allowRotation: true,
+                              isBookmatchedPair: false,
+                              installZone: 'floor',
+                              priority: 'normal',
+                              color: PART_PALETTE[prev.length % PART_PALETTE.length],
+                            },
+                          ]);
+                        }}
+                        className="w-full h-7 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold flex items-center justify-center gap-1 shadow-sm"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>{tr('+ Add Piece to Slab', '+ سلیب میں پیس شامل کریں')}</span>
+                      </button>
+                    </div>
+
+                    {/* Collapsible Quick Templates Bar */}
+                    {showStep2QuickPresets && (
+                      <div className="rounded-md border border-amber-500/40 bg-slate-900/95 p-2 space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold text-amber-300">
+                            {tr('⚡ Quick Templates:', '⚡ فوری ٹیمپلیٹس:')}
+                          </span>
+                          <div className="flex items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => handleRemovePart(part.id)}
-                              className="p-1 text-slate-400 hover:text-red-400 rounded"
+                              onClick={() => {
+                                setParts((prev) =>
+                                  prev.map((p) => ({
+                                    ...p,
+                                    latakSides:
+                                      !p.latakSides || p.latakSides === 'none'
+                                        ? 'front_only'
+                                        : p.latakSides,
+                                    latakSize: p.latakSize || 3,
+                                    latakCutMode: 'bookmatch_attached',
+                                    allowRotation: false,
+                                  }))
+                                );
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[9px] font-bold"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              {tr('🔗 Bookmatch Latak', '🔗 بک میچ لٹک')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParts((prev) =>
+                                  prev.map((p) => ({
+                                    ...p,
+                                    latakCutMode: 'random_separate',
+                                    allowRotation: true,
+                                  }))
+                                );
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-white text-[9px] font-bold"
+                            >
+                              {tr('🎲 Random Cut', '🎲 رینڈم کٹ')}
                             </button>
                           </div>
                         </div>
 
-                        {/* PAKISTANI MARBLE STANDARD: 1. WIDTH FIRST, 2. LENGTH SECOND, QTY & TARGET SLAB SELECTOR */}
-                        <div className="grid grid-cols-12 gap-1.5 items-end">
-                          <div className="col-span-3 space-y-0.5">
-                            <Label className="text-[10px] font-bold text-amber-300">
-                              {tr(`1. Width (${unit})`, `1. چوڑائی (${unit})`)}
-                            </Label>
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0.5"
-                              value={part.width}
-                              onChange={(e) =>
-                                handleUpdatePart(part.id, 'width', Number(e.target.value) || 0)
-                              }
-                              className="h-7 text-xs font-mono font-bold tabular-nums bg-slate-900 text-white border-amber-500/60 px-2"
-                            />
-                          </div>
-
-                          <div className="col-span-3 space-y-0.5">
-                            <Label className="text-[10px] font-bold text-sky-300">
-                              {tr(`2. Length (${unit})`, `2. لمبائی (${unit})`)}
-                            </Label>
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0.5"
-                              value={part.length}
-                              onChange={(e) =>
-                                handleUpdatePart(part.id, 'length', Number(e.target.value) || 0)
-                              }
-                              className="h-7 text-xs font-mono font-bold tabular-nums bg-slate-900 text-white border-sky-500/60 px-2"
-                            />
-                          </div>
-
-                          <div className="col-span-2 space-y-0.5">
-                            <Label className="text-[10px] text-slate-400">
-                              {tr('Qty', 'تعداد')}
-                            </Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="500"
-                              value={part.quantity}
-                              onChange={(e) =>
-                                handleUpdatePart(
-                                  part.id,
-                                  'quantity',
-                                  Math.max(1, parseInt(e.target.value, 10) || 1)
-                                )
-                              }
-                              className="h-7 text-xs font-mono tabular-nums bg-slate-900 text-white border-slate-700 px-1.5"
-                            />
-                          </div>
-
-                          {/* EASY SLAB CHANGER FOR THIS PIECE (کس سلیب سے کاٹنا ہے) */}
-                          <div className="col-span-4 space-y-0.5">
-                            <Label className="text-[10px] font-bold text-emerald-300">
-                              {tr('Cut From Slab #:', 'کس سلیب سے کاٹیں:')}
-                            </Label>
-                            <select
-                              value={String(part.targetSlabNumber || 0)}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10) || 0;
-                                setParts((prev) =>
-                                  prev.map((x) =>
-                                    x.id === part.id
-                                      ? { ...x, targetSlabNumber: val > 0 ? val : undefined }
-                                      : x
-                                  )
-                                );
-                              }}
-                              className="w-full h-7 rounded bg-slate-900 border border-emerald-500/50 text-white font-mono text-[10px] px-1.5 cursor-pointer"
-                              title="Select which specific Slab # this piece should be cut from"
-                            >
-                              <option value="0">
-                                {tr('Auto (Best Fit)', 'آٹو (جہاں جگہ ملے)')}
-                              </option>
-                              {Array.from({ length: Math.max(4, slabConfig.quantity) }).map(
-                                (_, sIdx) => {
-                                  const sNum = sIdx + 1;
-                                  const ov = slabOverrides[sNum];
-                                  return (
-                                    <option key={sNum} value={String(sNum)}>
-                                      {`Slab #${sNum}${ov?.sourceLabel ? ` (${ov.sourceLabel.slice(0, 16)})` : ''}`}
-                                    </option>
-                                  );
-                                }
-                              )}
-                            </select>
-                          </div>
+                        <div className="flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setParts((prev) => [
+                                ...prev,
+                                {
+                                  id: `step-latak-${Date.now()}`,
+                                  label: tr('Stair Step 12"', 'سیڑھی ٹپہ 12 انچ'),
+                                  width: 12,
+                                  length: 42,
+                                  quantity: 1,
+                                  allowRotation: false,
+                                  installZone: 'stairs',
+                                  priority: 'high',
+                                  color: '#0284C7',
+                                  latakSides: 'front_only',
+                                  latakFront: true,
+                                  latakSize: 3,
+                                  latakCutMode: 'bookmatch_attached',
+                                },
+                              ])
+                            }
+                            className="px-2 py-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-semibold"
+                          >
+                            {tr('+ 12"×42" Step + 3" Latak', '+ 12" سٹیپ + 3" لٹک')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setParts((prev) => [
+                                ...prev,
+                                {
+                                  id: `vanity-latak-${Date.now()}`,
+                                  label: tr('Vanity Top 22"×36"', 'وینٹی ٹاپ 22×36'),
+                                  width: 22,
+                                  length: 36,
+                                  quantity: 1,
+                                  allowRotation: false,
+                                  installZone: 'counter',
+                                  priority: 'high',
+                                  color: '#059669',
+                                  latakSides: 'front_and_both_sides',
+                                  latakFront: true,
+                                  latakLeft: true,
+                                  latakRight: true,
+                                  latakSize: 3,
+                                  latakCutMode: 'bookmatch_attached',
+                                },
+                              ])
+                            }
+                            className="px-2 py-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-semibold"
+                          >
+                            {tr('+ Vanity + 3" Latak', '+ وینٹی + 3" لٹک')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setParts((prev) => [
+                                ...prev,
+                                {
+                                  id: `round-table-${Date.now()}`,
+                                  label: tr('Round Table Ø 48"', 'گول ٹیبل Ø 48 انچ'),
+                                  width: 48,
+                                  length: 48,
+                                  quantity: 1,
+                                  allowRotation: false,
+                                  installZone: 'counter',
+                                  priority: 'high',
+                                  color: '#0EA5E9',
+                                  shapeCutType: 'round_table',
+                                  lazySusanDiameter: 20,
+                                },
+                              ])
+                            }
+                            className="px-2 py-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-sky-300 text-[10px] font-semibold"
+                          >
+                            {tr('⭕ + 48" Round Table', '⭕ + 48" گول ٹیبل')}
+                          </button>
                         </div>
+                      </div>
+                    )}
 
-                        {/* LATAK (1. FRONT -> 2. LEFT -> 3. RIGHT -> 4. BACK) & SPLASH (1. BACK -> 2. LEFT -> 3. RIGHT, NO FRONT) SYSTEM */}
-                        {(() => {
-                          const resolvedLS = resolvePartLatakAndSplash(part);
-                          const hasF = resolvedLS.hasFront;
-                          const hasL = resolvedLS.hasLeft;
-                          const hasR = resolvedLS.hasRight;
-                          const hasB = resolvedLS.hasBack;
-                          const hasAnyL = resolvedLS.hasAnyLatak;
-                          const spH = part.splashSize !== undefined ? part.splashSize : 4;
-                          const spB = resolvedLS.hasSplashBack;
-                          const spL = resolvedLS.hasSplashLeft;
-                          const spR = resolvedLS.hasSplashRight;
-                          const hasAnySp = resolvedLS.hasAnySplash;
+                    {/* Cut Pieces List */}
+                    <div className="space-y-2">
+                      {parts.map((part, idx) => {
+                        const partSqFt = toSqFt(part.length * part.width * part.quantity, unit);
+                        const curLatakSize = part.latakSize !== undefined ? part.latakSize : 3;
+                        const curLatakMode: LatakCutModeOption =
+                          part.latakCutMode || 'bookmatch_attached';
+                        const curShape: ShapeCutTypeOption = part.shapeCutType || 'rect_90';
+                        const curDegree = part.cutDegree !== undefined ? part.cutDegree : 45;
+                        const curLazySusan = part.lazySusanDiameter || 0;
+                        const isPartExpanded = expandedSidebarPartId === part.id;
 
-                          const updateLatakBool = (
-                            field: 'latakFront' | 'latakLeft' | 'latakRight' | 'latakBack',
-                            nextVal: boolean
-                          ) => {
-                            setParts((prev) =>
-                              prev.map((x) => {
-                                if (x.id !== part.id) return x;
-                                const cur = resolvePartLatakAndSplash(x);
-                                const nf = field === 'latakFront' ? nextVal : cur.hasFront;
-                                const nl = field === 'latakLeft' ? nextVal : cur.hasLeft;
-                                const nr = field === 'latakRight' ? nextVal : cur.hasRight;
-                                const nb = field === 'latakBack' ? nextVal : cur.hasBack;
-                                const anyOn = nf || nl || nr || nb;
-                                return {
-                                  ...x,
-                                  latakFront: nf,
-                                  latakLeft: nl,
-                                  latakRight: nr,
-                                  latakBack: nb,
-                                  latakSize: anyOn ? x.latakSize || x.latakWidth || 3 : x.latakSize,
-                                  latakWidth: anyOn ? x.latakWidth || x.latakSize || 3 : x.latakWidth,
-                                  latakSides: anyOn ? 'front_only' : 'none',
-                                  latakCutMode: x.latakCutMode || 'bookmatch_attached',
-                                };
-                              })
-                            );
-                          };
+                        const placedMatches: { slabIndex: number; piece: PlacedPiece }[] = [];
+                        summary.slabs.forEach((sl) => {
+                          sl.placedPieces.forEach((pp) => {
+                            if (pp.partId === part.id) {
+                              placedMatches.push({ slabIndex: sl.slabIndex, piece: pp });
+                            }
+                          });
+                        });
+                        const firstPlaced = placedMatches[0];
+                        const isHighlightedOnDiagram =
+                          hoveredPiece && hoveredPiece.partId === part.id;
 
-                          const updateSplashBool = (
-                            field: 'splashBack' | 'splashLeft' | 'splashRight',
-                            nextVal: boolean
-                          ) => {
-                            setParts((prev) =>
-                              prev.map((x) => {
-                                if (x.id !== part.id) return x;
-                                const nb = field === 'splashBack' ? nextVal : !!x.splashBack;
-                                const nl = field === 'splashLeft' ? nextVal : !!x.splashLeft;
-                                const nr = field === 'splashRight' ? nextVal : !!x.splashRight;
-                                const anySp = nb || nl || nr;
-                                return {
-                                  ...x,
-                                  splashBack: nb,
-                                  splashLeft: nl,
-                                  splashRight: nr,
-                                  splashSize: anySp ? x.splashSize || 4 : x.splashSize,
-                                };
-                              })
-                            );
-                          };
+                        const highlightPieceOnCenterDiagram = () => {
+                          if (firstPlaced) {
+                            setHoveredPiece(firstPlaced.piece);
+                            if (!viewAllSlabs && activeSlabIndex !== firstPlaced.slabIndex - 1) {
+                              setActiveSlabIndex(Math.max(0, firstPlaced.slabIndex - 1));
+                            }
+                          }
+                        };
 
-                          return (
-                            <div className="pt-2 border-t border-slate-900 space-y-2">
-                              {/* ROW 1: LATAK (لیٹر / لٹک) IN EXACT ORDER: 1. FRONT -> 2. LEFT -> 3. RIGHT -> 4. BACK */}
-                              <div className="rounded-lg bg-slate-900/90 border border-amber-500/40 p-2 space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                  <span className="text-[10px] font-extrabold text-amber-300">
-                                    {tr(
-                                      '1️⃣ Latak / Apron Edges (Order: Front → Left → Right → Back):',
-                                      '1️⃣ لٹک / لیٹر کی سائیڈیں (درست ترتیب: 1.فرنٹ ← 2.لیفٹ ← 3.رائٹ ← 4.بیک):'
+                        const resolvedLS = resolvePartLatakAndSplash(part);
+                        const hasF = resolvedLS.hasFront;
+                        const hasL = resolvedLS.hasLeft;
+                        const hasR = resolvedLS.hasRight;
+                        const hasB = resolvedLS.hasBack;
+                        const hasAnyL = resolvedLS.hasAnyLatak;
+                        const spH = part.splashSize !== undefined ? part.splashSize : 4;
+                        const spB = resolvedLS.hasSplashBack;
+                        const spL = resolvedLS.hasSplashLeft;
+                        const spR = resolvedLS.hasSplashRight;
+                        const hasAnySp = resolvedLS.hasAnySplash;
+
+                        const updateLatakBool = (
+                          field: 'latakFront' | 'latakLeft' | 'latakRight' | 'latakBack',
+                          nextVal: boolean
+                        ) => {
+                          setParts((prev) =>
+                            prev.map((x) => {
+                              if (x.id !== part.id) return x;
+                              const cur = resolvePartLatakAndSplash(x);
+                              const nf = field === 'latakFront' ? nextVal : cur.hasFront;
+                              const nl = field === 'latakLeft' ? nextVal : cur.hasLeft;
+                              const nr = field === 'latakRight' ? nextVal : cur.hasRight;
+                              const nb = field === 'latakBack' ? nextVal : cur.hasBack;
+                              const anyOn = nf || nl || nr || nb;
+                              return {
+                                ...x,
+                                latakFront: nf,
+                                latakLeft: nl,
+                                latakRight: nr,
+                                latakBack: nb,
+                                latakSize: anyOn ? x.latakSize || x.latakWidth || 3 : x.latakSize,
+                                latakWidth: anyOn ? x.latakWidth || x.latakSize || 3 : x.latakWidth,
+                                latakSides: anyOn ? 'front_only' : 'none',
+                                latakCutMode: x.latakCutMode || 'bookmatch_attached',
+                              };
+                            })
+                          );
+                        };
+
+                        const updateSplashBool = (
+                          field: 'splashBack' | 'splashLeft' | 'splashRight',
+                          nextVal: boolean
+                        ) => {
+                          setParts((prev) =>
+                            prev.map((x) => {
+                              if (x.id !== part.id) return x;
+                              const nb = field === 'splashBack' ? nextVal : !!x.splashBack;
+                              const nl = field === 'splashLeft' ? nextVal : !!x.splashLeft;
+                              const nr = field === 'splashRight' ? nextVal : !!x.splashRight;
+                              const anySp = nb || nl || nr;
+                              return {
+                                ...x,
+                                splashBack: nb,
+                                splashLeft: nl,
+                                splashRight: nr,
+                                splashSize: anySp ? x.splashSize || 4 : x.splashSize,
+                              };
+                            })
+                          );
+                        };
+
+                        return (
+                          <div
+                            key={part.id}
+                            onMouseEnter={highlightPieceOnCenterDiagram}
+                            onFocusCapture={highlightPieceOnCenterDiagram}
+                            onMouseLeave={() => setHoveredPiece(null)}
+                            className={`rounded-md border p-2 space-y-1.5 transition-all ${
+                              isHighlightedOnDiagram
+                                ? 'border-amber-400 bg-slate-900 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                                : 'border-slate-800 bg-slate-900/70 hover:border-slate-700'
+                            }`}
+                          >
+                            {/* Top Row: Color, #Index, Label, S# Badge, Delete */}
+                            <div className="flex items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                <input
+                                  type="color"
+                                  value={part.color}
+                                  onChange={(e) =>
+                                    handleUpdatePart(part.id, 'color', e.target.value)
+                                  }
+                                  className="h-4 w-4 rounded cursor-pointer border border-slate-700 bg-slate-950 shrink-0"
+                                />
+                                <span className="text-[10px] font-mono font-bold text-slate-400 shrink-0">
+                                  #{idx + 1}
+                                </span>
+                                <Input
+                                  value={part.label}
+                                  onChange={(e) =>
+                                    handleUpdatePart(part.id, 'label', e.target.value)
+                                  }
+                                  className="h-6 text-[11px] font-medium bg-slate-950 text-white border-slate-700 px-1.5"
+                                />
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                {firstPlaced && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveResultTab('dual_diagrams');
+                                      setActiveSlabIndex(Math.max(0, firstPlaced.slabIndex - 1));
+                                      setHoveredPiece(firstPlaced.piece);
+                                    }}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-500/60 text-emerald-300 font-mono text-[9px] font-bold hover:bg-emerald-900"
+                                    title={tr(
+                                      'Click to locate on Slab Diagram',
+                                      'ڈایاگرام پر اس پیس کی جگہ دیکھیں'
                                     )}
-                                  </span>
-                                  <div className="inline-flex items-center rounded bg-slate-950 p-0.5 border border-slate-700">
+                                  >
+                                    S#{firstPlaced.slabIndex}
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePart(part.id)}
+                                  className="p-0.5 text-slate-400 hover:text-red-400 rounded"
+                                  title={tr('Delete Piece', 'پیس ختم کریں')}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Compact Dimensions Grid: 1.Width, 2.Length, Qty, Target Slab */}
+                            <div className="grid grid-cols-12 gap-1 items-end">
+                              <div className="col-span-3 space-y-0.5">
+                                <Label className="text-[9px] font-bold text-amber-300">
+                                  {tr(`1.W (${unit})`, `1.چوڑائی`)}
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  min="0.5"
+                                  value={part.width}
+                                  onChange={(e) =>
+                                    handleUpdatePart(part.id, 'width', Number(e.target.value) || 0)
+                                  }
+                                  className="h-6 text-[11px] font-mono font-bold bg-slate-950 text-white border-amber-500/60 px-1.5"
+                                />
+                              </div>
+                              <div className="col-span-3 space-y-0.5">
+                                <Label className="text-[9px] font-bold text-sky-300">
+                                  {tr(`2.L (${unit})`, `2.لمبائی`)}
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="any"
+                                  min="0.5"
+                                  value={part.length}
+                                  onChange={(e) =>
+                                    handleUpdatePart(part.id, 'length', Number(e.target.value) || 0)
+                                  }
+                                  className="h-6 text-[11px] font-mono font-bold bg-slate-950 text-white border-sky-500/60 px-1.5"
+                                />
+                              </div>
+                              <div className="col-span-2 space-y-0.5">
+                                <Label className="text-[9px] text-slate-400">
+                                  {tr('Qty', 'تعداد')}
+                                </Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="500"
+                                  value={part.quantity}
+                                  onChange={(e) =>
+                                    handleUpdatePart(
+                                      part.id,
+                                      'quantity',
+                                      Math.max(1, parseInt(e.target.value, 10) || 1)
+                                    )
+                                  }
+                                  className="h-6 text-[11px] font-mono bg-slate-950 text-white border-slate-700 px-1"
+                                />
+                              </div>
+                              <div className="col-span-4 space-y-0.5">
+                                <Label className="text-[9px] font-bold text-emerald-300">
+                                  {tr('Slab #', 'سلیب نمبر')}
+                                </Label>
+                                <select
+                                  value={String(part.targetSlabNumber || 0)}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10) || 0;
+                                    setParts((prev) =>
+                                      prev.map((x) =>
+                                        x.id === part.id
+                                          ? { ...x, targetSlabNumber: val > 0 ? val : undefined }
+                                          : x
+                                      )
+                                    );
+                                  }}
+                                  className="w-full h-6 rounded bg-slate-950 border border-emerald-500/50 text-white font-mono text-[10px] px-1 cursor-pointer"
+                                >
+                                  <option value="0">{tr('Auto', 'آٹو')}</option>
+                                  {Array.from({ length: Math.max(4, slabConfig.quantity) }).map(
+                                    (_, sIdx) => {
+                                      const sNum = sIdx + 1;
+                                      return (
+                                        <option key={sNum} value={String(sNum)}>
+                                          {`S#${sNum}`}
+                                        </option>
+                                      );
+                                    }
+                                  )}
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Footer Strip + Expand Details Toggle */}
+                            <div className="flex items-center justify-between gap-1 pt-0.5 text-[10px]">
+                              <div className="font-mono text-slate-400 truncate">
+                                <span className="text-amber-300 font-bold">
+                                  {partSqFt.toFixed(1)} ft²
+                                </span>
+                                {hasAnyL ? ` · ${tr('Latak', 'لٹک')} ${curLatakSize}"` : ''}
+                                {hasAnySp ? ` · ${tr('Splash', 'سلیش')} ${spH}"` : ''}
+                                {curShape !== 'rect_90' ? ` · ${curShape}` : ''}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedSidebarPartId((prev) =>
+                                    prev === part.id ? null : part.id
+                                  )
+                                }
+                                className={`px-1.5 py-0.5 rounded border text-[10px] font-bold shrink-0 ${
+                                  isPartExpanded
+                                    ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                    : 'bg-slate-950 border-slate-700 text-amber-300 hover:border-amber-500/60'
+                                }`}
+                              >
+                                {isPartExpanded
+                                  ? tr('Close ▴', 'بند کریں ▴')
+                                  : tr('⚙ Latak / Splash / Shape ▾', '⚙ لٹک / سلیش / شکل ▾')}
+                              </button>
+                            </div>
+
+                            {/* Expanded Per-Piece Drawer: Latak, Splash, Edge Profile, Round Table & Degree Cut */}
+                            {isPartExpanded && (
+                              <div className="pt-2 border-t border-slate-800 space-y-2">
+                                {/* 1. LATAK */}
+                                <div className="rounded bg-slate-950/90 border border-amber-500/40 p-2 space-y-1.5">
+                                  <div className="flex flex-wrap items-center justify-between gap-1">
+                                    <span className="text-[10px] font-extrabold text-amber-300">
+                                      {tr('1️⃣ Latak Edges:', '1️⃣ لٹک سائیڈیں:')}
+                                    </span>
+                                    <div className="inline-flex items-center rounded bg-slate-900 p-0.5 border border-slate-700">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setParts((prev) =>
+                                            prev.map((x) =>
+                                              x.id === part.id
+                                                ? {
+                                                    ...x,
+                                                    latakCutMode: 'bookmatch_attached',
+                                                    allowRotation: false,
+                                                  }
+                                                : x
+                                            )
+                                          )
+                                        }
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                          curLatakMode === 'bookmatch_attached'
+                                            ? 'bg-amber-500 text-slate-950'
+                                            : 'text-slate-400'
+                                        }`}
+                                      >
+                                        🔗 {tr('Bookmatch', 'بک میچ')}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setParts((prev) =>
+                                            prev.map((x) =>
+                                              x.id === part.id
+                                                ? {
+                                                    ...x,
+                                                    latakCutMode: 'random_separate',
+                                                    allowRotation: true,
+                                                  }
+                                                : x
+                                            )
+                                          )
+                                        }
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                          curLatakMode === 'random_separate'
+                                            ? 'bg-purple-600 text-white'
+                                            : 'text-slate-400'
+                                        }`}
+                                      >
+                                        🎲 {tr('Random', 'رینڈم')}
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-1">
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        setParts((prev) =>
-                                          prev.map((x) =>
-                                            x.id === part.id
-                                              ? {
-                                                  ...x,
-                                                  latakCutMode: 'bookmatch_attached',
-                                                  allowRotation: false,
-                                                }
-                                              : x
-                                          )
-                                        )
-                                      }
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                        curLatakMode === 'bookmatch_attached'
-                                          ? 'bg-amber-500 text-slate-950'
-                                          : 'text-slate-400 hover:text-white'
+                                      onClick={() => updateLatakBool('latakFront', !hasF)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        hasF
+                                          ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
                                       }`}
                                     >
-                                      🔗 {tr('Bookmatch Latak', 'بک میچ لٹک (ساتھ کٹے)')}
+                                      <span>{tr('1. Front', '1. فرنٹ')}</span>
+                                      <span>{hasF ? '✓' : '○'}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateLatakBool('latakLeft', !hasL)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        hasL
+                                          ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                                      }`}
+                                    >
+                                      <span>{tr('2. Left', '2. لیفٹ')}</span>
+                                      <span>{hasL ? '✓' : '○'}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateLatakBool('latakRight', !hasR)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        hasR
+                                          ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                                      }`}
+                                    >
+                                      <span>{tr('3. Right', '3. رائٹ')}</span>
+                                      <span>{hasR ? '✓' : '○'}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateLatakBool('latakBack', !hasB)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        hasB
+                                          ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                                      }`}
+                                    >
+                                      <span>{tr('4. Back', '4. بیک')}</span>
+                                      <span>{hasB ? '✓' : '○'}</span>
                                     </button>
                                     <button
                                       type="button"
@@ -6171,140 +6529,49 @@ export function CuttingOptimizerPro({
                                             x.id === part.id
                                               ? {
                                                   ...x,
-                                                  latakCutMode: 'random_separate',
-                                                  allowRotation: true,
+                                                  latakFront: true,
+                                                  latakLeft: true,
+                                                  latakRight: true,
+                                                  latakBack: true,
+                                                  latakSides: 'all_4_sides',
+                                                  latakSize: x.latakSize || 3,
+                                                  latakWidth: x.latakWidth || 3,
                                                 }
                                               : x
                                           )
                                         )
                                       }
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                        curLatakMode === 'random_separate'
-                                          ? 'bg-purple-600 text-white'
-                                          : 'text-slate-400 hover:text-white'
-                                      }`}
+                                      className="px-1.5 py-1 rounded border border-slate-700 bg-slate-900 text-emerald-300 text-[10px] font-bold"
                                     >
-                                      🎲 {tr('Random Latak', 'رینڈم لٹک (الگ کٹے)')}
+                                      {tr('All 4 Sides', 'چاروں سائیڈ')}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setParts((prev) =>
+                                          prev.map((x) =>
+                                            x.id === part.id
+                                              ? {
+                                                  ...x,
+                                                  latakFront: false,
+                                                  latakLeft: false,
+                                                  latakRight: false,
+                                                  latakBack: false,
+                                                  latakSides: 'none',
+                                                }
+                                              : x
+                                          )
+                                        )
+                                      }
+                                      className="px-1.5 py-1 rounded border border-slate-700 bg-slate-900 text-slate-400 text-[10px] font-bold"
+                                    >
+                                      {tr('No Latak', 'بغیر لٹک')}
                                     </button>
                                   </div>
-                                </div>
 
-                                {/* 4 Individual Latak Side Toggle Buttons in Exact Order: Front -> Left -> Right -> Back */}
-                                <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLatakBool('latakFront', !hasF)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      hasF
-                                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('1. Front Side', '1. فرنٹ سائیڈ')}</span>
-                                    <span>{hasF ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLatakBool('latakLeft', !hasL)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      hasL
-                                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('2. Left Side', '2. لیفٹ سائیڈ')}</span>
-                                    <span>{hasL ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLatakBool('latakRight', !hasR)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      hasR
-                                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('3. Right Side', '3. رائٹ سائیڈ')}</span>
-                                    <span>{hasR ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => updateLatakBool('latakBack', !hasB)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      hasB
-                                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('4. Back Side', '4. بیک سائیڈ')}</span>
-                                    <span>{hasB ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setParts((prev) =>
-                                        prev.map((x) =>
-                                          x.id === part.id
-                                            ? {
-                                                ...x,
-                                                latakFront: true,
-                                                latakLeft: true,
-                                                latakRight: true,
-                                                latakBack: true,
-                                                latakSides: 'all_4_sides',
-                                                latakSize: x.latakSize || 3,
-                                                latakWidth: x.latakWidth || 3,
-                                              }
-                                            : x
-                                        )
-                                      )
-                                    }
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-bold ${
-                                      hasF && hasL && hasR && hasB
-                                        ? 'bg-emerald-600 border-emerald-400 text-white'
-                                        : 'bg-slate-950 border-slate-700 text-emerald-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    {tr('All 4 Sides', 'چاروں سائیڈ آن')}
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setParts((prev) =>
-                                        prev.map((x) =>
-                                          x.id === part.id
-                                            ? {
-                                                ...x,
-                                                latakFront: false,
-                                                latakLeft: false,
-                                                latakRight: false,
-                                                latakBack: false,
-                                                latakSides: 'none',
-                                              }
-                                            : x
-                                        )
-                                      )
-                                    }
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-bold ${
-                                      !hasAnyL
-                                        ? 'bg-slate-800 border-slate-500 text-white'
-                                        : 'bg-slate-950 border-slate-700 text-slate-400 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    {tr('No Latak', 'بغیر لٹک')}
-                                  </button>
-                                </div>
-
-                                {/* Latak Size Input + Presets */}
-                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex flex-wrap items-center gap-1 pt-1">
                                     <span className="text-[10px] font-bold text-emerald-300">
-                                      {tr(`Latak Size (${unit}):`, `لٹک کا سائز (${unit}):`)}
+                                      {tr('Size:', 'سائز:')}
                                     </span>
                                     <Input
                                       type="number"
@@ -6330,7 +6597,7 @@ export function CuttingOptimizerPro({
                                           )
                                         );
                                       }}
-                                      className="h-6 w-14 text-xs font-mono font-bold bg-slate-950 text-white border-emerald-500/60 px-1.5"
+                                      className="h-6 w-12 text-[11px] font-mono font-bold bg-slate-900 text-white border-emerald-500/60 px-1"
                                     />
                                     {[1.5, 2, 3, 4].map((presetIn) => (
                                       <button
@@ -6353,49 +6620,55 @@ export function CuttingOptimizerPro({
                                             )
                                           )
                                         }
-                                        className={`h-6 px-2 rounded border text-[10px] font-mono font-bold ${
+                                        className={`h-6 px-1.5 rounded border text-[10px] font-mono font-bold ${
                                           Number(curLatakSize) === presetIn && hasAnyL
                                             ? 'bg-emerald-600 border-emerald-400 text-white'
-                                            : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
+                                            : 'bg-slate-900 border-slate-700 text-slate-300'
                                         }`}
                                       >
                                         {presetIn}&quot;
                                       </button>
                                     ))}
                                   </div>
-
-                                  {hasAnyL && (
-                                    <span className="text-[10px] font-mono text-amber-200">
-                                      {tr('Active Latak:', 'منتخب لٹک:')}{' '}
-                                      {[
-                                        hasF ? `1.Front (${curLatakSize}"×${part.length}")` : null,
-                                        hasL ? `2.Left (${curLatakSize}"×${part.width}")` : null,
-                                        hasR ? `3.Right (${curLatakSize}"×${part.width}")` : null,
-                                        hasB ? `4.Back (${curLatakSize}"×${part.length}")` : null,
-                                      ]
-                                        .filter(Boolean)
-                                        .join(' + ')}
-                                    </span>
-                                  )}
                                 </div>
-                              </div>
 
-                              {/* ROW 2: SPLASH / BACKSPLASH (سلیش / بیک سپلیش) IN EXACT ORDER: 1. BACK -> 2. LEFT -> 3. RIGHT (NO FRONT SPLASH) */}
-                              <div className="rounded-lg bg-slate-900/90 border border-sky-500/40 p-2 space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                  <span className="text-[10px] font-extrabold text-sky-300">
-                                    {tr(
-                                      '2️⃣ Kitchen / Vanity Splash (Order: 1.Back → 2.Left → 3.Right — No Front Splash):',
-                                      '2️⃣ کچن / وینٹی سلیش (ترتیب: 1.بیک سائیڈ ← 2.لیفٹ سائیڈ ← 3.رائٹ سائیڈ — فرنٹ کی سلیش نہیں ہوتی):'
-                                    )}
-                                  </span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-bold text-sky-200">
-                                      {tr('Splash Height:', 'سلیش اونچائی:')}
+                                {/* 2. SPLASH */}
+                                <div className="rounded bg-slate-950/90 border border-sky-500/40 p-2 space-y-1.5">
+                                  <div className="flex flex-wrap items-center justify-between gap-1">
+                                    <span className="text-[10px] font-extrabold text-sky-300">
+                                      {tr('2️⃣ Splash (No Front):', '2️⃣ سلیش (بیک/سائیڈ):')}
                                     </span>
-                                    {[4, 6, 8].map((sh) => (
+                                    <div className="flex items-center gap-1">
+                                      {[4, 6, 8].map((sh) => (
+                                        <button
+                                          key={sh}
+                                          type="button"
+                                          onClick={() =>
+                                            setParts((prev) =>
+                                              prev.map((x) =>
+                                                x.id === part.id
+                                                  ? {
+                                                      ...x,
+                                                      splashSize: sh,
+                                                      splashBack:
+                                                        !x.splashBack && !x.splashLeft && !x.splashRight
+                                                          ? true
+                                                          : x.splashBack,
+                                                    }
+                                                  : x
+                                              )
+                                            )
+                                          }
+                                          className={`h-5 px-1.5 rounded border text-[9px] font-mono font-bold ${
+                                            spH === sh && hasAnySp
+                                              ? 'bg-sky-600 border-sky-400 text-white'
+                                              : 'bg-slate-900 border-slate-700 text-slate-300'
+                                          }`}
+                                        >
+                                          {sh}&quot;
+                                        </button>
+                                      ))}
                                       <button
-                                        key={sh}
                                         type="button"
                                         onClick={() =>
                                           setParts((prev) =>
@@ -6403,110 +6676,65 @@ export function CuttingOptimizerPro({
                                               x.id === part.id
                                                 ? {
                                                     ...x,
-                                                    splashSize: sh,
-                                                    splashBack:
-                                                      !x.splashBack && !x.splashLeft && !x.splashRight
-                                                        ? true
-                                                        : x.splashBack,
+                                                    splashBack: false,
+                                                    splashLeft: false,
+                                                    splashRight: false,
                                                   }
                                                 : x
                                             )
                                           )
                                         }
-                                        className={`h-6 px-2 rounded border text-[10px] font-mono font-bold ${
-                                          spH === sh && hasAnySp
-                                            ? 'bg-sky-600 border-sky-400 text-white'
-                                            : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                        }`}
+                                        className="h-5 px-1.5 rounded border border-slate-700 bg-slate-900 text-slate-400 text-[9px] font-bold"
                                       >
-                                        {sh}&quot;
+                                        {tr('Off', 'بند')}
                                       </button>
-                                    ))}
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-1">
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        setParts((prev) =>
-                                          prev.map((x) =>
-                                            x.id === part.id
-                                              ? {
-                                                  ...x,
-                                                  splashBack: false,
-                                                  splashLeft: false,
-                                                  splashRight: false,
-                                                }
-                                              : x
-                                          )
-                                        )
-                                      }
-                                      className={`h-6 px-2 rounded border text-[10px] font-bold ${
-                                        !hasAnySp
-                                          ? 'bg-slate-800 border-slate-500 text-white'
-                                          : 'bg-slate-950 border-slate-700 text-slate-400'
+                                      onClick={() => updateSplashBool('splashBack', !spB)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        spB
+                                          ? 'bg-sky-500 border-sky-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
                                       }`}
                                     >
-                                      {tr('No Splash', 'بغیر سلیش')}
+                                      <span>{tr('Back', 'بیک')}</span>
+                                      <span>{spB ? '✓' : '○'}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateSplashBool('splashLeft', !spL)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        spL
+                                          ? 'bg-sky-500 border-sky-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                                      }`}
+                                    >
+                                      <span>{tr('Left', 'لیفٹ')}</span>
+                                      <span>{spL ? '✓' : '○'}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateSplashBool('splashRight', !spR)}
+                                      className={`px-1.5 py-1 rounded border text-[10px] font-bold flex items-center justify-between ${
+                                        spR
+                                          ? 'bg-sky-500 border-sky-300 text-slate-950'
+                                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                                      }`}
+                                    >
+                                      <span>{tr('Right', 'رائٹ')}</span>
+                                      <span>{spR ? '✓' : '○'}</span>
                                     </button>
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => updateSplashBool('splashBack', !spB)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      spB
-                                        ? 'bg-sky-500 border-sky-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('1. Back Side Splash', '1. بیک سائیڈ سلیش')}</span>
-                                    <span>{spB ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => updateSplashBool('splashLeft', !spL)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      spL
-                                        ? 'bg-sky-500 border-sky-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('2. Left Side Splash', '2. لیفٹ سائیڈ سلیش')}</span>
-                                    <span>{spL ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => updateSplashBool('splashRight', !spR)}
-                                    className={`px-2 py-1.5 rounded border text-[10px] font-extrabold flex items-center justify-between transition-all ${
-                                      spR
-                                        ? 'bg-sky-500 border-sky-300 text-slate-950 shadow'
-                                        : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                    }`}
-                                  >
-                                    <span>{tr('3. Right Side Splash', '3. رائٹ سائیڈ سلیش')}</span>
-                                    <span>{spR ? '✓' : '○'}</span>
-                                  </button>
-
-                                  <div className="px-2 py-1.5 rounded border border-slate-800 bg-slate-950/60 text-slate-500 text-[10px] font-bold flex items-center justify-center">
-                                    {tr(
-                                      '🚫 Front Side (No Splash Line)',
-                                      '🚫 فرنٹ سائیڈ کی سلیش نہیں ہوتی'
-                                    )}
+                                {/* 3. EDGE PROFILE & LIVE ROW BILL */}
+                                <div className="rounded bg-slate-950/90 border border-purple-500/40 p-2 space-y-1.5">
+                                  <div className="text-[10px] font-extrabold text-purple-300">
+                                    {tr('3️⃣ Edge Profile & Bill:', '3️⃣ ایج پروفائل اور بل:')}
                                   </div>
-                                </div>
-                              </div>
-
-                              {/* ROW 3: EDGE PROFILE SELECTOR & LIVE CUTTING + POLISH + EDGE BILL FOR THIS PIECE */}
-                              <div className="rounded-lg bg-slate-900/90 border border-purple-500/40 p-2 space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                                  <span className="text-[10px] font-extrabold text-purple-300">
-                                    {tr(
-                                      '3️⃣ Edge Profile, Polish & Cutting Bill for This Piece (Excel Bill Row):',
-                                      '3️⃣ اس کٹنگ پیس کا ایج پروفائل، پالش اور کٹنگ بل (ایکسل فائل میں ہر پیس کے ساتھ نظر آئے گا):'
-                                    )}
-                                  </span>
                                   {(() => {
                                     const unitToIn = UNIT_TO_INCHES[unit] || 1;
                                     const cutRftOne = ((part.width + part.length) * 2 * unitToIn) / 12;
@@ -6532,359 +6760,363 @@ export function CuttingOptimizerPro({
                                       partSqFt * (Number(slabConfig.ratePerSqFt) || 0)
                                     );
                                     return (
-                                      <span className="text-[10px] font-mono font-bold text-emerald-300">
+                                      <div className="text-[9px] font-mono text-emerald-300 bg-slate-900 rounded px-1.5 py-1 border border-slate-800">
                                         {tr(
-                                          `Cut: PKR ${cutBill.toLocaleString()} | Polish: PKR ${polBill.toLocaleString()} | Edge: PKR ${edgeBill.toLocaleString()} | Total: PKR ${(stoneBill + cutBill + polBill + edgeBill).toLocaleString()}`,
-                                          `کٹنگ: ${cutBill.toLocaleString()} | پالش: ${polBill.toLocaleString()} | ایج پروفائل: ${edgeBill.toLocaleString()} | کل: PKR ${(stoneBill + cutBill + polBill + edgeBill).toLocaleString()}`
+                                          `Cut: ${cutBill.toLocaleString()} | Pol: ${polBill.toLocaleString()} | Edge: ${edgeBill.toLocaleString()} | Total: PKR ${(stoneBill + cutBill + polBill + edgeBill).toLocaleString()}`,
+                                          `کٹنگ: ${cutBill.toLocaleString()} | پالش: ${polBill.toLocaleString()} | ایج: ${edgeBill.toLocaleString()} | کل: PKR ${(stoneBill + cutBill + polBill + edgeBill).toLocaleString()}`
                                         )}
-                                      </span>
+                                      </div>
                                     );
                                   })()}
+                                  <div className="grid grid-cols-2 gap-1">
+                                    {(
+                                      [
+                                        { id: 'flat_polish' as EdgeProfileType, en: '▭ Flat Polish', ur: '▭ سادہ پالش' },
+                                        { id: 'half_bullnose' as EdgeProfileType, en: '◗ Half Bullnose', ur: '◗ ہاف گولا' },
+                                        { id: 'full_bullnose' as EdgeProfileType, en: '● Full Bullnose', ur: '● فل گولا' },
+                                        { id: 'miter_45' as EdgeProfileType, en: '📐 45° Miter', ur: '📐 45° مائٹر' },
+                                        { id: 'ogee' as EdgeProfileType, en: '〰 Double Ogee', ur: '〰 ڈبل اوجی' },
+                                        { id: 'bevel' as EdgeProfileType, en: '◿ Bevel', ur: '◿ بیول دھار' },
+                                      ] as const
+                                    ).map((ep) => {
+                                      const activeEp = (part.edgeProfile || 'flat_polish') === ep.id;
+                                      return (
+                                        <button
+                                          key={ep.id}
+                                          type="button"
+                                          onClick={() =>
+                                            handleUpdatePart(part.id, 'edgeProfile', ep.id)
+                                          }
+                                          className={`px-1.5 py-1 rounded border text-[9px] font-bold ${
+                                            activeEp
+                                              ? 'bg-purple-600 border-purple-300 text-white'
+                                              : 'bg-slate-900 border-slate-700 text-slate-300'
+                                          }`}
+                                        >
+                                          {tr(ep.en, ep.ur)}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5">
-                                  {(
-                                    [
-                                      {
-                                        id: 'flat_polish' as EdgeProfileType,
-                                        en: '▭ Flat Polish',
-                                        ur: '▭ سادہ دھار پالش',
-                                      },
-                                      {
-                                        id: 'half_bullnose' as EdgeProfileType,
-                                        en: '◗ Half Bullnose',
-                                        ur: '◗ ہاف گولا',
-                                      },
-                                      {
-                                        id: 'full_bullnose' as EdgeProfileType,
-                                        en: '● Full Bullnose',
-                                        ur: '● فل گولا',
-                                      },
-                                      {
-                                        id: 'miter_45' as EdgeProfileType,
-                                        en: '📐 45° Miter Joint',
-                                        ur: '📐 45° مائٹر جوڑ',
-                                      },
-                                      {
-                                        id: 'ogee' as EdgeProfileType,
-                                        en: '〰 Double Ogee',
-                                        ur: '〰 ڈبل گولا / اوجی',
-                                      },
-                                      {
-                                        id: 'bevel' as EdgeProfileType,
-                                        en: '◿ Bevel Chamfer',
-                                        ur: '◿ بیول چیمفر دھار',
-                                      },
-                                    ] as const
-                                  ).map((ep) => {
-                                    const activeEp = (part.edgeProfile || 'flat_polish') === ep.id;
-                                    return (
-                                      <button
-                                        key={ep.id}
-                                        type="button"
-                                        onClick={() =>
-                                          handleUpdatePart(part.id, 'edgeProfile', ep.id)
-                                        }
-                                        className={`px-2 py-1.5 rounded border text-[10px] font-extrabold transition-all ${
-                                          activeEp
-                                            ? 'bg-purple-600 border-purple-300 text-white shadow'
-                                            : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                        }`}
-                                      >
-                                        {tr(ep.en, ep.ur)}
-                                      </button>
-                                    );
-                                  })}
+                                {/* 4. ROUND TABLE & DEGREE CUT */}
+                                <div className="rounded bg-slate-950/90 border border-sky-500/40 p-2 space-y-1.5">
+                                  <div className="text-[10px] font-extrabold text-sky-300">
+                                    {tr('4️⃣ Round Table / Degree Shape:', '4️⃣ گول ٹیبل / ڈگری کٹ:')}
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-1">
+                                    {(
+                                      [
+                                        { id: 'rect_90' as ShapeCutTypeOption, en: '▭ 90° Straight', ur: '▭ 90° سیدھا' },
+                                        { id: 'round_table' as ShapeCutTypeOption, en: '⭕ Round Table', ur: '⭕ گول ٹیبل' },
+                                        { id: 'oval_table' as ShapeCutTypeOption, en: '🥚 Oval Table', ur: '🥚 اوول ٹیبل' },
+                                        { id: 'half_round' as ShapeCutTypeOption, en: '🌓 Half-Round', ur: '🌓 آدھا گول' },
+                                        { id: 'round_pie_4' as ShapeCutTypeOption, en: '🍕 90° Sector', ur: '🍕 90° سیکٹر' },
+                                        { id: 'octagon_45' as ShapeCutTypeOption, en: '🛑 Octagon', ur: '🛑 آٹھ کونے' },
+                                        { id: 'degree_1_side' as ShapeCutTypeOption, en: '📐 1-Side °', ur: '📐 1-سائیڈ ڈگری' },
+                                        { id: 'degree_2_sides' as ShapeCutTypeOption, en: '📐 2-Side °', ur: '📐 2-سائیڈ ڈگری' },
+                                        { id: 'triangle_winder' as ShapeCutTypeOption, en: '🔺 Triangle', ur: '🔺 تکون کٹ' },
+                                        { id: 'diamond_rhombus' as ShapeCutTypeOption, en: '💠 Diamond', ur: '💠 ڈائمنڈ کٹ' },
+                                      ] as const
+                                    ).map((sh) => {
+                                      const active = curShape === sh.id;
+                                      return (
+                                        <button
+                                          key={sh.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setParts((prev) =>
+                                              prev.map((x) => {
+                                                if (x.id !== part.id) return x;
+                                                const nextDiam =
+                                                  sh.id === 'round_table'
+                                                    ? Math.max(x.width, x.length)
+                                                    : x.width;
+                                                return {
+                                                  ...x,
+                                                  shapeCutType: sh.id,
+                                                  width: sh.id === 'round_table' ? nextDiam : x.width,
+                                                  length: sh.id === 'round_table' ? nextDiam : x.length,
+                                                  cutDegree:
+                                                    x.cutDegree !== undefined
+                                                      ? x.cutDegree
+                                                      : sh.id === 'round_pie_4'
+                                                      ? 90
+                                                      : 45,
+                                                };
+                                              })
+                                            );
+                                          }}
+                                          className={`px-1.5 py-1 rounded border text-[9px] font-bold ${
+                                            active
+                                              ? sh.id === 'rect_90'
+                                                ? 'border-slate-500 bg-slate-800 text-white'
+                                                : 'border-sky-400 bg-sky-600 text-white'
+                                              : 'border-slate-800 bg-slate-900 text-slate-300'
+                                          }`}
+                                        >
+                                          {tr(sh.en, sh.ur)}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {(curShape === 'round_table' ||
+                                    curShape === 'oval_table' ||
+                                    curShape === 'half_round') && (
+                                    <div className="space-y-1.5 pt-1 border-t border-slate-800">
+                                      <div className="flex flex-wrap items-center gap-1">
+                                        <span className="text-[9px] font-bold text-sky-300">
+                                          {tr('Diameter Ø:', 'قطر Ø:')}
+                                        </span>
+                                        {curShape === 'round_table' && (
+                                          <Input
+                                            type="number"
+                                            min="6"
+                                            max="120"
+                                            value={part.width}
+                                            onChange={(e) => {
+                                              const d = Math.max(0, Number(e.target.value));
+                                              setParts((prev) =>
+                                                prev.map((x) =>
+                                                  x.id === part.id ? { ...x, width: d, length: d } : x
+                                                )
+                                              );
+                                            }}
+                                            className="h-6 w-12 text-[10px] font-mono bg-slate-900 text-white border-sky-500/60 px-1"
+                                          />
+                                        )}
+                                        {[36, 42, 48, 54, 60].map((dPreset) => (
+                                          <button
+                                            key={dPreset}
+                                            type="button"
+                                            onClick={() =>
+                                              setParts((prev) =>
+                                                prev.map((x) =>
+                                                  x.id === part.id
+                                                    ? {
+                                                        ...x,
+                                                        width: dPreset,
+                                                        length:
+                                                          curShape === 'round_table'
+                                                            ? dPreset
+                                                            : Math.round(dPreset * 1.5),
+                                                      }
+                                                    : x
+                                                )
+                                              )
+                                            }
+                                            className={`h-6 px-1.5 rounded border text-[9px] font-mono font-bold ${
+                                              part.width === dPreset
+                                                ? 'bg-sky-600 border-sky-400 text-white'
+                                                : 'bg-slate-900 border-slate-700 text-slate-300'
+                                            }`}
+                                          >
+                                            Ø{dPreset}&quot;
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-1">
+                                        <span className="text-[9px] font-bold text-amber-300">
+                                          {tr('Lazy Susan:', 'سینٹر ٹرے:')}
+                                        </span>
+                                        {[0, 18, 22, 24].map((lsDiam) => (
+                                          <button
+                                            key={lsDiam}
+                                            type="button"
+                                            onClick={() =>
+                                              setParts((prev) =>
+                                                prev.map((x) =>
+                                                  x.id === part.id
+                                                    ? { ...x, lazySusanDiameter: lsDiam }
+                                                    : x
+                                                )
+                                              )
+                                            }
+                                            className={`h-6 px-1.5 rounded border text-[9px] font-mono font-bold ${
+                                              curLazySusan === lsDiam
+                                                ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                                : 'bg-slate-900 border-slate-700 text-slate-300'
+                                            }`}
+                                          >
+                                            {lsDiam === 0 ? tr('None', 'نہیں') : `Ø${lsDiam}"`}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {(curShape === 'degree_1_side' ||
+                                    curShape === 'degree_2_sides' ||
+                                    curShape === 'triangle_winder' ||
+                                    curShape === 'diamond_rhombus' ||
+                                    curShape === 'octagon_45' ||
+                                    curShape === 'round_pie_4') && (
+                                    <div className="space-y-1 pt-1 border-t border-slate-800">
+                                      <div className="flex flex-wrap items-center gap-1">
+                                        <span className="text-[9px] font-bold text-rose-300">
+                                          {tr('Angle °:', 'ڈگری زاویہ:')}
+                                        </span>
+                                        <Input
+                                          type="number"
+                                          step="any"
+                                          min="1"
+                                          max="89"
+                                          value={curDegree}
+                                          onChange={(e) => {
+                                            const degVal = Math.max(
+                                              1,
+                                              Math.min(89, Number(e.target.value) || 45)
+                                            );
+                                            setParts((prev) =>
+                                              prev.map((x) =>
+                                                x.id === part.id ? { ...x, cutDegree: degVal } : x
+                                              )
+                                            );
+                                          }}
+                                          className="h-6 w-12 text-[10px] font-mono bg-slate-900 text-white border-rose-500/60 px-1"
+                                        />
+                                        {[15, 30, 45, 60].map((degPreset) => (
+                                          <button
+                                            key={degPreset}
+                                            type="button"
+                                            onClick={() =>
+                                              setParts((prev) =>
+                                                prev.map((x) =>
+                                                  x.id === part.id
+                                                    ? { ...x, cutDegree: degPreset }
+                                                    : x
+                                                )
+                                              )
+                                            }
+                                            className={`h-6 px-1.5 rounded border text-[9px] font-mono font-bold ${
+                                              Number(curDegree) === degPreset
+                                                ? 'bg-rose-600 border-rose-400 text-white'
+                                                : 'bg-slate-900 border-slate-700 text-slate-300'
+                                            }`}
+                                          >
+                                            {degPreset}°
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* ROUND TABLE & DEGREE / ANGLE CUTTING SYSTEM (پراپر راؤنڈ ٹیبل اور ڈگری میں کٹنگ کا سسٹم) */}
-                        <div className="pt-2 border-t border-slate-900 space-y-2">
-                          <div className="flex flex-wrap items-center justify-between gap-1.5">
-                            <Label className="text-[10px] font-bold text-sky-300">
-                              {tr(
-                                '⭕ Round Table & 📐 Degree Cutting Shape (گول ٹیبل یا ڈگری کٹنگ منتخب کریں):',
-                                '⭕ گول ٹیبل (Round Table) یا 📐 ڈگری کٹنگ شکل منتخب کریں:'
-                              )}
-                            </Label>
-                            {curShape !== 'rect_90' && (
-                              <span className="px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-400/50 text-sky-200 text-[9px] font-mono font-bold">
-                                {curShape === 'round_table'
-                                  ? `⭕ Round Ø ${part.width}" (${(Math.PI * Math.pow(part.width / 2, 2) / 144).toFixed(2)} ft² Net)`
-                                  : curShape === 'oval_table'
-                                  ? `🥚 Oval ${part.width}"×${part.length}"`
-                                  : `📐 Angle Cut ∠ ${curDegree}°`}
-                              </span>
                             )}
                           </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1">
-                            {(
-                              [
-                                { id: 'rect_90' as ShapeCutTypeOption, en: '▭ 90° Straight', ur: '▭ 90° سیدھا' },
-                                { id: 'round_table' as ShapeCutTypeOption, en: '⭕ Round Table', ur: '⭕ مکمل گول ٹیبل' },
-                                { id: 'oval_table' as ShapeCutTypeOption, en: '🥚 Oval Table', ur: '🥚 اوول بیضوی ٹیبل' },
-                                { id: 'half_round' as ShapeCutTypeOption, en: '🌓 Half-Round (D)', ur: '🌓 آدھا گول (D)' },
-                                { id: 'round_pie_4' as ShapeCutTypeOption, en: '🍕 90° BM Sector', ur: '🍕 90° گول سیکٹر' },
-                                { id: 'octagon_45' as ShapeCutTypeOption, en: '🛑 Octagon (8-Side)', ur: '🛑 آٹھ کونے (45°)' },
-                                { id: 'degree_1_side' as ShapeCutTypeOption, en: '📐 1-Side Degree', ur: '📐 1-سائیڈ ڈگری کٹ' },
-                                { id: 'degree_2_sides' as ShapeCutTypeOption, en: '📐 2-Side Degree', ur: '📐 دونوں سائیڈ ڈگری' },
-                                { id: 'triangle_winder' as ShapeCutTypeOption, en: '🔺 Triangle Winder', ur: '🔺 تکون / وائنڈر' },
-                                { id: 'diamond_rhombus' as ShapeCutTypeOption, en: '💠 Diamond Cut', ur: '💠 ڈائمنڈ ترچھا کٹ' },
-                              ] as const
-                            ).map((sh) => {
-                              const active = curShape === sh.id;
-                              return (
-                                <button
-                                  key={sh.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setParts((prev) =>
-                                      prev.map((x) => {
-                                        if (x.id !== part.id) return x;
-                                        const nextDiam =
-                                          sh.id === 'round_table'
-                                            ? Math.max(x.width, x.length)
-                                            : x.width;
-                                        return {
-                                          ...x,
-                                          shapeCutType: sh.id,
-                                          width: sh.id === 'round_table' ? nextDiam : x.width,
-                                          length: sh.id === 'round_table' ? nextDiam : x.length,
-                                          cutDegree:
-                                            x.cutDegree !== undefined
-                                              ? x.cutDegree
-                                              : sh.id === 'round_pie_4'
-                                              ? 90
-                                              : 45,
-                                        };
-                                      })
-                                    );
-                                  }}
-                                  className={`px-1.5 py-1 rounded border text-[10px] font-bold transition-colors ${
-                                    active
-                                      ? sh.id === 'rect_90'
-                                        ? 'border-slate-500 bg-slate-800 text-white'
-                                        : 'border-sky-400 bg-sky-600 text-white shadow'
-                                      : 'border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800'
-                                  }`}
-                                >
-                                  {tr(sh.en, sh.ur)}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Round Table Diameter & Center Lazy Susan Controls */}
-                          {(curShape === 'round_table' ||
-                            curShape === 'oval_table' ||
-                            curShape === 'half_round') && (
-                            <div className="rounded bg-slate-900/95 border border-sky-500/40 p-2 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                              <div className="sm:col-span-7 space-y-1">
-                                <Label className="text-[10px] font-bold text-sky-300 block">
-                                  {curShape === 'round_table'
-                                    ? tr(
-                                        `Round Table Diameter Ø (${unit}) — گول ٹیبل کا قطر:`,
-                                        `گول ٹیبل کا قطر / گولائی سائز Ø (${unit}):`
-                                      )
-                                    : tr(
-                                        `Table Size W×L (${unit}):`,
-                                        `ٹیبل سائز چوڑائی × لمبائی (${unit}):`
-                                      )}
-                                </Label>
-                                <div className="flex flex-wrap items-center gap-1">
-                                  {curShape === 'round_table' && (
-                                    <Input
-                                      type="number"
-                                      min="6"
-                                      max="120"
-                                      value={part.width}
-                                      onChange={(e) => {
-                                        const d = Math.max(0, Number(e.target.value));
-                                        setParts((prev) =>
-                                          prev.map((x) =>
-                                            x.id === part.id ? { ...x, width: d, length: d } : x
-                                          )
-                                        );
-                                      }}
-                                      className="h-7 w-16 text-xs font-mono font-bold bg-slate-950 text-white border-sky-500/60 px-1.5"
-                                    />
-                                  )}
-                                  {[30, 36, 42, 48, 54, 60].map((dPreset) => (
-                                    <button
-                                      key={dPreset}
-                                      type="button"
-                                      onClick={() => {
-                                        setParts((prev) =>
-                                          prev.map((x) =>
-                                            x.id === part.id
-                                              ? {
-                                                  ...x,
-                                                  width: dPreset,
-                                                  length:
-                                                    curShape === 'round_table'
-                                                      ? dPreset
-                                                      : Math.round(dPreset * 1.5),
-                                                }
-                                              : x
-                                          )
-                                        );
-                                      }}
-                                      className={`h-7 px-1.5 rounded border text-[10px] font-mono font-bold ${
-                                        part.width === dPreset
-                                          ? 'bg-sky-600 border-sky-400 text-white'
-                                          : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                      }`}
-                                    >
-                                      Ø{dPreset}&quot;
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="sm:col-span-5 space-y-1">
-                                <Label className="text-[10px] font-bold text-amber-300 block">
-                                  {tr(
-                                    'Center Lazy Susan Disc (سینٹر گھومنے والا ٹرے):',
-                                    'سینٹر گھومنے والا گول ٹرے (Lazy Susan):'
-                                  )}
-                                </Label>
-                                <div className="flex items-center gap-1">
-                                  {[0, 18, 22, 24].map((lsDiam) => (
-                                    <button
-                                      key={lsDiam}
-                                      type="button"
-                                      onClick={() =>
-                                        setParts((prev) =>
-                                          prev.map((x) =>
-                                            x.id === part.id
-                                              ? { ...x, lazySusanDiameter: lsDiam }
-                                              : x
-                                          )
-                                        )
-                                      }
-                                      className={`h-7 px-2 rounded border text-[10px] font-mono font-bold ${
-                                        curLazySusan === lsDiam
-                                          ? 'bg-amber-500 border-amber-300 text-slate-950'
-                                          : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                      }`}
-                                    >
-                                      {lsDiam === 0 ? tr('None', 'نہیں') : `Ø${lsDiam}"`}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Degree / Angle Cut Input + Presets (15°, 22.5°, 30°, 45°, 60°, 75°) */}
-                          {(curShape === 'degree_1_side' ||
-                            curShape === 'degree_2_sides' ||
-                            curShape === 'triangle_winder' ||
-                            curShape === 'diamond_rhombus' ||
-                            curShape === 'octagon_45' ||
-                            curShape === 'round_pie_4') && (
-                            <div className="rounded bg-slate-900/95 border border-rose-500/40 p-2 grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
-                              <div className="sm:col-span-7 space-y-1">
-                                <Label className="text-[10px] font-bold text-rose-300 block">
-                                  {tr(
-                                    'Cut Angle in Degrees (کٹنگ کتنے ڈگری زاویے پر کرنی ہے):',
-                                    'کٹنگ ڈگری زاویہ درج کریں (15°، 22.5°، 30°، 45°، 60°):'
-                                  )}
-                                </Label>
-                                <div className="flex flex-wrap items-center gap-1">
-                                  <Input
-                                    type="number"
-                                    step="any"
-                                    min="1"
-                                    max="89"
-                                    value={curDegree}
-                                    onChange={(e) => {
-                                      const degVal = Math.max(
-                                        1,
-                                        Math.min(89, Number(e.target.value) || 45)
-                                      );
-                                      setParts((prev) =>
-                                        prev.map((x) =>
-                                          x.id === part.id ? { ...x, cutDegree: degVal } : x
-                                        )
-                                      );
-                                    }}
-                                    className="h-7 w-16 text-xs font-mono font-bold bg-slate-950 text-white border-rose-500/60 px-1.5"
-                                  />
-                                  {[15, 22.5, 30, 45, 60, 75].map((degPreset) => (
-                                    <button
-                                      key={degPreset}
-                                      type="button"
-                                      onClick={() =>
-                                        setParts((prev) =>
-                                          prev.map((x) =>
-                                            x.id === part.id ? { ...x, cutDegree: degPreset } : x
-                                          )
-                                        )
-                                      }
-                                      className={`h-7 px-1.5 rounded border text-[10px] font-mono font-bold ${
-                                        Number(curDegree) === degPreset
-                                          ? 'bg-rose-600 border-rose-400 text-white'
-                                          : 'bg-slate-950 border-slate-700 text-slate-300 hover:bg-slate-800'
-                                      }`}
-                                    >
-                                      {degPreset}°
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div className="sm:col-span-5 text-[10px] font-mono bg-slate-950 rounded border border-slate-800 p-1.5 text-slate-200">
-                                <div className="text-amber-300 font-bold">
-                                  {tr('Tape Measure Offset:', 'ڈگری ترچھا فرق (فیتے کا نشان):')}
-                                </div>
-                                <div>
-                                  {(() => {
-                                    const rad = ((90 - Math.min(85, Math.max(5, curDegree))) * Math.PI) / 180;
-                                    const offsetIn = Math.min(
-                                      part.length * 0.48,
-                                      Number((part.width * Math.tan(rad)).toFixed(2))
-                                    );
-                                    return tr(
-                                      `Cut ${offsetIn} ${unit} inward at ∠ ${curDegree}°`,
-                                      `کنارے سے ${offsetIn} ${unit} اندر نشان لگا کر ∠ ${curDegree}° کاٹیں`
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
                   </div>
+                </section>
+              </div>
+            </aside>
+          )}
 
-                  <div className="pt-2 border-t border-slate-800 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setIsCutSizesDropdownOpen(false)}
-                      className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md"
-                    >
-                      {tr(
-                        '✓ Done — Close Dropdown & Enlarge Cutting Optimizer ▴',
-                        '✓ سلیکٹ ہو گیا — ڈراپ ڈاؤن بند کریں تاکہ بڑی سکرین نظر آئے ▴'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
+        {/* DRAGGABLE DESKTOP SPLITTER BETWEEN SIDEBAR & DIAGRAM */}
+        {simpleMainScreen === 'slab_cutter' &&
+          !isLeftDockCollapsed &&
+          fullscreenTarget !== 'slab_diagram' &&
+          fullscreenTarget !== 'floor_diagram' && (
+            <div
+              onMouseDown={() => setIsDraggingSidebarSplitter(true)}
+              title={tr('Drag to resize sidebar width', 'سائیڈ بار کا سائز کم یا زیادہ کرنے کے لیے کھینچیں')}
+              className="hidden lg:flex w-1.5 self-stretch min-h-[420px] rounded-full bg-slate-800 hover:bg-amber-500 cursor-col-resize items-center justify-center transition-colors shrink-0 print:hidden"
+            >
+              <div className="w-0.5 h-12 rounded-full bg-slate-500" />
             </div>
-            )}
-          </div>
-        )}
+          )}
 
         {/* MAIN FULL-WIDTH CUTTING OPTIMIZER SCREEN (مین کٹنگ آپٹیمائزر کی بڑی سکرین) */}
-        <div className="flex-1 min-w-0 w-full space-y-4">
+        <div className="flex-1 min-w-0 w-full space-y-3">
+          {/* Slim Sidebar Toggle & Cut Piece Quick Chips Bar */}
+          {simpleMainScreen === 'slab_cutter' &&
+            fullscreenTarget !== 'slab_diagram' &&
+            fullscreenTarget !== 'floor_diagram' && (
+              <div
+                dir={cadLang === 'ur' ? 'rtl' : 'ltr'}
+                className="rounded-lg border border-slate-800 bg-slate-900/95 px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2 print:hidden"
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsLeftDockCollapsed((v) => !v)}
+                    className={`px-2.5 py-1 rounded-md border text-xs font-extrabold flex items-center gap-1.5 transition-all ${
+                      isLeftDockCollapsed
+                        ? 'bg-amber-500 border-amber-300 text-slate-950 shadow'
+                        : 'bg-slate-950 border-slate-700 text-amber-300 hover:border-amber-500/60'
+                    }`}
+                  >
+                    {isLeftDockCollapsed ? (
+                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                    ) : (
+                      <PanelLeftClose className="h-3.5 w-3.5" />
+                    )}
+                    <span>
+                      {isLeftDockCollapsed
+                        ? tr('Show Stock & Cut Tools', 'اسٹاک اور کٹ پیس ٹول دکھائیں')
+                        : tr('Hide Side Tools', 'سائیڈ ٹول چھپائیں')}
+                    </span>
+                  </button>
+
+                  {parts.map((pt, pIdx) => {
+                    const firstMatch = summary.slabs
+                      .flatMap((sl) =>
+                        sl.placedPieces
+                          .filter((pp) => pp.partId === pt.id)
+                          .map((pp) => ({ slabIndex: sl.slabIndex, piece: pp }))
+                      )[0];
+                    const isHover = hoveredPiece && hoveredPiece.partId === pt.id;
+                    return (
+                      <button
+                        key={pt.id}
+                        type="button"
+                        onMouseEnter={() => {
+                          if (firstMatch) {
+                            setHoveredPiece(firstMatch.piece);
+                            if (!viewAllSlabs && activeSlabIndex !== firstMatch.slabIndex - 1) {
+                              setActiveSlabIndex(Math.max(0, firstMatch.slabIndex - 1));
+                            }
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredPiece(null)}
+                        onClick={() => {
+                          setIsLeftDockCollapsed(false);
+                          setExpandedSidebarPartId(pt.id);
+                          if (firstMatch) {
+                            setActiveSlabIndex(Math.max(0, firstMatch.slabIndex - 1));
+                            setHoveredPiece(firstMatch.piece);
+                          }
+                        }}
+                        className={`px-2 py-0.5 rounded-md border text-[11px] font-mono flex items-center gap-1 transition-all ${
+                          isHover
+                            ? 'bg-amber-500/20 border-amber-400 text-white'
+                            : 'bg-slate-950 border-slate-800 text-slate-200 hover:border-emerald-500/60'
+                        }`}
+                      >
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: pt.color }}
+                        />
+                        <span className="font-bold text-amber-300">#{pIdx + 1}</span>
+                        <span className="font-bold text-white">
+                          {pt.width}×{pt.length}
+                        </span>
+                        <span className="text-sky-300">({pt.quantity})</span>
+                        {firstMatch && (
+                          <span className="px-1 rounded bg-emerald-950 text-emerald-300 text-[9px] font-bold">
+                            S#{firstMatch.slabIndex}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           {/* Top KPI Summary Strip (Movable, Dockable, Resizable) */}
           {fullscreenTarget !== 'slab_diagram' && fullscreenTarget !== 'floor_diagram' && (
             <AutoCadMovableBar
@@ -7631,7 +7863,7 @@ export function CuttingOptimizerPro({
                           ? '75%'
                           : '100%',
                     }}
-                    className="min-w-[320px] flex-grow rounded-xl border-2 border-slate-800 bg-slate-950/90 overflow-hidden shadow-xl"
+                    className="min-w-0 w-full flex-grow rounded-xl border-2 border-slate-800 bg-slate-950/90 overflow-hidden shadow-xl"
                   >
                     <CadWindowHeaderBar
                       screenId="diagram_1"
@@ -7859,6 +8091,470 @@ export function CuttingOptimizerPro({
                           </span>
                         </button>
                       </div>
+                    </div>
+
+                    {/* SIMPLE IN-DIAGRAM QUICK BUTTONS + LIVE POPUP (ABOVE SLAB CANVAS — NO HORIZONTAL SCROLL NEEDED!) */}
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/90 p-2 space-y-2 print:hidden">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setInDiagram1Popup((p) => (p === 'slab' ? null : 'slab'))
+                            }
+                            className={`px-2 py-1 rounded text-[11px] font-bold border flex items-center gap-1 cursor-pointer ${
+                              inDiagram1Popup === 'slab'
+                                ? 'bg-cyan-500 border-cyan-300 text-slate-950'
+                                : 'bg-slate-950 border-slate-700 text-cyan-200 hover:border-cyan-500/60'
+                            }`}
+                          >
+                            <Sliders className="h-3 w-3" />
+                            <span>
+                              {tr(
+                                `Slab ${slabConfig.width}×${slabConfig.length}`,
+                                `سلیب ${slabConfig.width}×${slabConfig.length}`
+                              )}
+                            </span>
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setInDiagram1Popup((p) => (p === 'add' ? null : 'add'))
+                            }
+                            className={`px-2 py-1 rounded text-[11px] font-bold border flex items-center gap-1 cursor-pointer ${
+                              inDiagram1Popup === 'add'
+                                ? 'bg-emerald-500 border-emerald-300 text-slate-950'
+                                : 'bg-slate-950 border-slate-700 text-emerald-300 hover:border-emerald-500/60'
+                            }`}
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>{tr('Add Piece', 'نیا پیس')}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setInDiagram1Popup((p) => (p === 'tools' ? null : 'tools'))
+                            }
+                            className={`px-2 py-1 rounded text-[11px] font-bold border flex items-center gap-1 cursor-pointer ${
+                              inDiagram1Popup === 'tools'
+                                ? 'bg-amber-400 border-amber-200 text-slate-950'
+                                : 'bg-slate-950 border-slate-700 text-amber-300 hover:border-amber-500/60'
+                            }`}
+                          >
+                            <Scissors className="h-3 w-3" />
+                            <span>{tr('Tools', 'ٹولز')}</span>
+                          </button>
+                        </div>
+
+                        {activeHighlightedPiece && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setInDiagram1Popup((p) => (p === 'piece' ? null : 'piece'))
+                            }
+                            className={`px-2 py-1 rounded text-[11px] font-mono font-bold border flex items-center gap-1 cursor-pointer ${
+                              inDiagram1Popup === 'piece'
+                                ? 'bg-sky-500 border-sky-300 text-slate-950'
+                                : 'bg-sky-950/70 border-sky-500/60 text-sky-300'
+                            }`}
+                          >
+                            <span>{`★ ${activeHighlightedPiece.pieceCode}`}</span>
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+
+                      {inDiagram1Popup === 'slab' && (
+                        <div className="rounded-lg border border-cyan-500/70 bg-slate-950 p-2.5 space-y-2 text-[11px]">
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                            <span className="font-black text-cyan-300">
+                              {tr('Slab Size, Safai & Blade Kerf', 'سلیب سائز، صفائی اور بلیڈ کٹ')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setInDiagram1Popup(null)}
+                              className="p-0.5 rounded hover:bg-slate-800 text-slate-400 cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 font-mono">
+                            <div>
+                              <Label className="text-[10px] text-amber-300 block">{tr('W (In)', 'چوڑائی')}</Label>
+                              <Input
+                                type="number"
+                                min="6"
+                                value={slabConfig.width}
+                                onChange={(e) =>
+                                  setSlabConfig((s) => ({
+                                    ...s,
+                                    width: Math.max(6, Number(e.target.value) || 60),
+                                  }))
+                                }
+                                className="h-7 bg-slate-900 border-slate-700 text-white text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-sky-300 block">{tr('L (In)', 'لمبائی')}</Label>
+                              <Input
+                                type="number"
+                                min="12"
+                                value={slabConfig.length}
+                                onChange={(e) =>
+                                  setSlabConfig((s) => ({
+                                    ...s,
+                                    length: Math.max(12, Number(e.target.value) || 110),
+                                  }))
+                                }
+                                className="h-7 bg-slate-900 border-slate-700 text-white text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-slate-300 block">{tr('Qty', 'تعداد')}</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={slabConfig.quantity}
+                                onChange={(e) =>
+                                  setSlabConfig((s) => ({
+                                    ...s,
+                                    quantity: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                  }))
+                                }
+                                className="h-7 bg-slate-900 border-slate-700 text-white text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-emerald-300 block">{tr('Safai (In)', 'صفائی')}</Label>
+                              <Input
+                                type="number"
+                                step="0.25"
+                                min="0"
+                                value={slabConfig.edgeTrim}
+                                onChange={(e) =>
+                                  setSlabConfig((s) => ({
+                                    ...s,
+                                    edgeTrim: Math.max(0, Number(e.target.value) || 0),
+                                  }))
+                                }
+                                className="h-7 bg-slate-900 border-slate-700 text-white text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-cyan-300 block">{tr('Kerf (In)', 'کرف')}</Label>
+                              <Input
+                                type="number"
+                                step="0.05"
+                                min="0"
+                                value={slabConfig.kerf}
+                                onChange={(e) =>
+                                  setSlabConfig((s) => ({
+                                    ...s,
+                                    kerf: Math.max(0, Number(e.target.value) || 0),
+                                  }))
+                                }
+                                className="h-7 bg-slate-900 border-slate-700 text-white text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {inDiagram1Popup === 'add' && (
+                        <div className="rounded-lg border border-emerald-500/70 bg-slate-950 p-2.5 space-y-2 text-[11px]">
+                          <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                            <span className="font-black text-emerald-300">
+                              {tr('Quick Add Cut Piece', 'نیا کٹ پیس شامل کریں')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setInDiagram1Popup(null)}
+                              className="p-0.5 rounded hover:bg-slate-800 text-slate-400 cursor-pointer"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 items-end">
+                            <div className="col-span-2 sm:col-span-1">
+                              <Label className="text-[10px] text-slate-300 block">{tr('Label', 'نام')}</Label>
+                              <Input
+                                type="text"
+                                value={quickPartLabel}
+                                onChange={(e) => setQuickPartLabel(e.target.value)}
+                                className="h-7 bg-slate-900 border-slate-700 text-white text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-amber-300 block">{tr('1.W', '1.چوڑائی')}</Label>
+                              <Input
+                                type="number"
+                                value={quickPartWid}
+                                onChange={(e) => setQuickPartWid(Number(e.target.value) || 1)}
+                                className="h-7 bg-slate-900 border-slate-700 text-white font-mono text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-sky-300 block">{tr('2.L', '2.لمبائی')}</Label>
+                              <Input
+                                type="number"
+                                value={quickPartLen}
+                                onChange={(e) => setQuickPartLen(Number(e.target.value) || 1)}
+                                className="h-7 bg-slate-900 border-slate-700 text-white font-mono text-xs"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-slate-300 block">{tr('Qty', 'تعداد')}</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={quickPartQty}
+                                onChange={(e) =>
+                                  setQuickPartQty(Math.max(1, parseInt(e.target.value, 10) || 1))
+                                }
+                                className="h-7 bg-slate-900 border-slate-700 text-white font-mono text-xs"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setParts((prev) => [
+                                  ...prev,
+                                  {
+                                    id: `part-${Date.now()}`,
+                                    label: quickPartLabel || `Piece #${prev.length + 1}`,
+                                    length: Math.max(1, quickPartLen),
+                                    width: Math.max(1, quickPartWid),
+                                    quantity: Math.max(1, quickPartQty),
+                                    allowRotation: true,
+                                    isBookmatchedPair: false,
+                                    installZone: 'floor',
+                                    priority: 'normal',
+                                    color: PART_PALETTE[prev.length % PART_PALETTE.length],
+                                  },
+                                ]);
+                              }}
+                              className="h-7 col-span-2 sm:col-span-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs cursor-pointer"
+                            >
+                              {tr('+ Add', '+ شامل')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {inDiagram1Popup === 'tools' && (
+                        <div className="rounded-lg border border-amber-500/70 bg-slate-950 p-2 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+                          <div className="flex flex-wrap items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setShowKerfLines((v) => !v)}
+                              className={`px-2 py-0.5 rounded border font-mono font-bold cursor-pointer ${
+                                showKerfLines
+                                  ? 'bg-sky-600 border-sky-400 text-white'
+                                  : 'bg-slate-900 border-slate-700 text-slate-300'
+                              }`}
+                            >
+                              {`SAW: ${showKerfLines ? 'ON' : 'OFF'}`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowCadCrosshairs((v) => !v)}
+                              className={`px-2 py-0.5 rounded border font-mono font-bold cursor-pointer ${
+                                showCadCrosshairs
+                                  ? 'bg-amber-500 border-amber-300 text-slate-950'
+                                  : 'bg-slate-900 border-slate-700 text-slate-300'
+                              }`}
+                            >
+                              {`DIM: ${showCadCrosshairs ? 'ON' : 'OFF'}`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowOffcutLabels((v) => !v)}
+                              className={`px-2 py-0.5 rounded border font-mono font-bold cursor-pointer ${
+                                showOffcutLabels
+                                  ? 'bg-emerald-500 border-emerald-300 text-slate-950'
+                                  : 'bg-slate-900 border-slate-700 text-slate-300'
+                              }`}
+                            >
+                              {`OFFCUT: ${showOffcutLabels ? 'ON' : 'OFF'}`}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCanvasToolMode((m) =>
+                                  m === 'mark_crack' ? 'select_move' : 'mark_crack'
+                                )
+                              }
+                              className={`px-2 py-0.5 rounded border font-bold cursor-pointer ${
+                                canvasToolMode === 'mark_crack'
+                                  ? 'bg-rose-600 border-rose-300 text-white'
+                                  : 'bg-slate-900 border-slate-700 text-rose-300'
+                              }`}
+                            >
+                              {tr('Mark Crack', 'کریک نشان')}
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInDiagram1Popup(null)}
+                            className="p-0.5 rounded hover:bg-slate-800 text-slate-400 cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {inDiagram1Popup === 'piece' && activeHighlightedPiece && (() => {
+                        const sourcePart = parts.find(
+                          (pt) => pt.id === activeHighlightedPiece.partId
+                        );
+                        if (!sourcePart) return null;
+                        return (
+                          <div className="rounded-lg border border-sky-400/80 bg-slate-950 p-2 space-y-1.5 text-[11px]">
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5 font-mono">
+                                <span className="px-1.5 py-0.5 rounded bg-sky-500 text-slate-950 font-black">
+                                  {activeHighlightedPiece.pieceCode}
+                                </span>
+                                <span className="text-white font-bold">
+                                  {sourcePart.label}
+                                </span>
+                                <span className="text-emerald-300 text-[10px]">
+                                  {`S#${activeHighlightedPiece.slabIndex}`}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setInDiagram1Popup(null)}
+                                className="p-0.5 rounded hover:bg-slate-800 text-slate-400 cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 font-mono">
+                              <span className="text-[10px] text-amber-300">W:</span>
+                              <input
+                                type="number"
+                                value={Number(sourcePart.width.toFixed(1))}
+                                onChange={(e) =>
+                                  handleUpdatePart(
+                                    sourcePart.id,
+                                    'width',
+                                    Math.max(1, Number(e.target.value) || 1)
+                                  )
+                                }
+                                className="w-14 h-6 rounded bg-slate-900 border border-slate-700 text-white text-center font-bold"
+                              />
+                              <span className="text-slate-500">×</span>
+                              <span className="text-[10px] text-sky-300">L:</span>
+                              <input
+                                type="number"
+                                value={Number(sourcePart.length.toFixed(1))}
+                                onChange={(e) =>
+                                  handleUpdatePart(
+                                    sourcePart.id,
+                                    'length',
+                                    Math.max(1, Number(e.target.value) || 1)
+                                  )
+                                }
+                                className="w-14 h-6 rounded bg-slate-900 border border-slate-700 text-white text-center font-bold"
+                              />
+                              <span className="text-[10px] text-slate-400">Qty:</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={sourcePart.quantity}
+                                onChange={(e) =>
+                                  handleUpdatePart(
+                                    sourcePart.id,
+                                    'quantity',
+                                    Math.max(1, parseInt(e.target.value, 10) || 1)
+                                  )
+                                }
+                                className="w-12 h-6 rounded bg-slate-900 border border-slate-700 text-white text-center font-bold"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const oldL = sourcePart.length;
+                                  const oldW = sourcePart.width;
+                                  handleUpdatePart(sourcePart.id, 'length', oldW);
+                                  handleUpdatePart(sourcePart.id, 'width', oldL);
+                                }}
+                                className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-amber-300 font-bold cursor-pointer"
+                              >
+                                ↻ 90°
+                              </button>
+                              <select
+                                value={String(sourcePart.targetSlabNumber || 0)}
+                                onChange={(e) => {
+                                  const nextSlab = parseInt(e.target.value, 10) || 0;
+                                  setParts((prev) =>
+                                    prev.map((x) =>
+                                      x.id === sourcePart.id
+                                        ? {
+                                            ...x,
+                                            targetSlabNumber: nextSlab > 0 ? nextSlab : undefined,
+                                          }
+                                        : x
+                                    )
+                                  );
+                                }}
+                                className="h-6 rounded bg-slate-900 border border-emerald-500/60 text-emerald-300 font-bold px-1.5 cursor-pointer"
+                              >
+                                <option value="0">{tr('Auto Slab', 'آٹو سلیب')}</option>
+                                {Array.from({ length: Math.max(4, slabConfig.quantity) }).map(
+                                  (_, sIdx) => (
+                                    <option key={sIdx + 1} value={String(sIdx + 1)}>
+                                      {`S#${sIdx + 1}`}
+                                    </option>
+                                  )
+                                )}
+                              </select>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-slate-800 font-mono">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleNudgePieceOnSlab(activeHighlightedPiece.instanceId, -1, 0)
+                                }
+                                className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer"
+                              >
+                                ◀ -1&quot;
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleNudgePieceOnSlab(activeHighlightedPiece.instanceId, 1, 0)
+                                }
+                                className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer"
+                              >
+                                +1&quot; ▶
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleNudgePieceOnSlab(activeHighlightedPiece.instanceId, 0, -1)
+                                }
+                                className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer"
+                              >
+                                ▲ -1&quot;
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleNudgePieceOnSlab(activeHighlightedPiece.instanceId, 0, 1)
+                                }
+                                className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-200 cursor-pointer"
+                              >
+                                ▼ +1&quot;
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* ONLY OPEN 4-SLAB BOOKMATCH BUILDER WHEN BOOKMATCH CATEGORY IS SELECTED */}
@@ -9058,6 +9754,23 @@ export function CuttingOptimizerPro({
                                         strokeOpacity="0.28"
                                       />
                                     </pattern>
+                                    <pattern
+                                      id={`trim-hatch-${slab.slabIndex}`}
+                                      width="10"
+                                      height="10"
+                                      patternTransform="rotate(-45 0 0)"
+                                      patternUnits="userSpaceOnUse"
+                                    >
+                                      <line
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="10"
+                                        stroke="#F43F5E"
+                                        strokeWidth="1.8"
+                                        strokeOpacity="0.48"
+                                      />
+                                    </pattern>
                                   </defs>
 
                                   {/* Top CAD Ruler */}
@@ -9066,11 +9779,11 @@ export function CuttingOptimizerPro({
                                     y={padTop - 12}
                                     textAnchor="middle"
                                     fill="#E2E8F0"
-                                    fontSize="12"
+                                    fontSize="11.5"
                                     fontFamily="monospace"
                                     fontWeight="bold"
                                   >
-                                    Slab #{slab.slabIndex} Length: {formatNum(slab.slabLength)} {unit} (Usable: {formatNum(slab.usableLength)} {unit})
+                                    Slab #{slab.slabIndex} Gross: {formatNum(slab.slabLength)}&quot;×{formatNum(slab.slabWidth)}&quot; → Net: {formatNum(slab.usableLength)}&quot;×{formatNum(slab.usableWidth)}&quot; | Trim: {formatNum(slab.edgeTrim)}&quot; | Kerf: {formatNum(slab.kerf)}&quot;
                                   </text>
 
                                   {/* Left CAD Ruler */}
@@ -9128,6 +9841,65 @@ export function CuttingOptimizerPro({
                                     </g>
                                   )}
 
+                                  {/* 4-Sided Edge Trim (Safai Margin) Hatched Perimeter Zone */}
+                                  {slab.edgeTrim > 0 && (
+                                    <g pointerEvents="none">
+                                      {/* Top Trim Strip */}
+                                      <rect
+                                        x={padLeft}
+                                        y={padTop}
+                                        width={drawW}
+                                        height={Math.max(3, slab.usableY * scale)}
+                                        fill={`url(#trim-hatch-${slab.slabIndex})`}
+                                      />
+                                      {/* Bottom Trim Strip */}
+                                      <rect
+                                        x={padLeft}
+                                        y={padTop + (slab.usableY + slab.usableWidth) * scale}
+                                        width={drawW}
+                                        height={Math.max(3, (slab.slabWidth - slab.usableY - slab.usableWidth) * scale)}
+                                        fill={`url(#trim-hatch-${slab.slabIndex})`}
+                                      />
+                                      {/* Left Trim Strip */}
+                                      <rect
+                                        x={padLeft}
+                                        y={padTop + slab.usableY * scale}
+                                        width={Math.max(3, slab.usableX * scale)}
+                                        height={slab.usableWidth * scale}
+                                        fill={`url(#trim-hatch-${slab.slabIndex})`}
+                                      />
+                                      {/* Right Trim Strip */}
+                                      <rect
+                                        x={padLeft + (slab.usableX + slab.usableLength) * scale}
+                                        y={padTop + slab.usableY * scale}
+                                        width={Math.max(3, (slab.slabLength - slab.usableX - slab.usableLength) * scale)}
+                                        height={slab.usableWidth * scale}
+                                        fill={`url(#trim-hatch-${slab.slabIndex})`}
+                                      />
+                                      <rect
+                                        x={padLeft + drawW / 2 - 72}
+                                        y={padTop + 2}
+                                        width="144"
+                                        height="13"
+                                        rx="3"
+                                        fill="rgba(136, 19, 55, 0.92)"
+                                        stroke="#FDA4AF"
+                                        strokeWidth="0.8"
+                                      />
+                                      <text
+                                        x={padLeft + drawW / 2}
+                                        y={padTop + 11.5}
+                                        textAnchor="middle"
+                                        fill="#FFE4E6"
+                                        fontSize="8"
+                                        fontFamily="monospace"
+                                        fontWeight="bold"
+                                      >
+                                        EDGE TRIM: {formatNum(slab.edgeTrim)} {unit}/side
+                                      </text>
+                                    </g>
+                                  )}
+
                                   {/* Usable Area Inside Edge Trim */}
                                   <rect
                                     x={padLeft + slab.usableX * scale}
@@ -9136,7 +9908,7 @@ export function CuttingOptimizerPro({
                                     height={slab.usableWidth * scale}
                                     fill="none"
                                     stroke="#38BDF8"
-                                    strokeWidth="1.2"
+                                    strokeWidth="1.4"
                                     strokeDasharray="6 3"
                                   />
 
@@ -9293,6 +10065,7 @@ export function CuttingOptimizerPro({
                                           if (canvasToolMode === 'mark_crack') return;
                                           e.stopPropagation();
                                           setSelectedPieceId(piece.instanceId);
+                                          setInDiagram1Popup('piece');
                                           const curOffset = manualPieceOffsets[piece.instanceId] || {
                                             dx: 0,
                                             dy: 0,
@@ -9712,7 +10485,7 @@ export function CuttingOptimizerPro({
                                     );
                                   })}
 
-                                  {/* Saw Kerf Cut Lines + Exact Running Inches Cut Callout */}
+                                  {/* Saw Kerf Cut Lines + Exact Running Inches & Blade Kerf Callout */}
                                   {showKerfLines &&
                                     slab.cuts
                                       .filter((c) => c.type !== 'edge_trim')
@@ -9725,37 +10498,48 @@ export function CuttingOptimizerPro({
                                         const midY = (cy1 + cy2) / 2;
                                         return (
                                           <g key={`cut-${cut.step}`}>
+                                            {/* Blade Kerf Width Glow Ribbon */}
                                             <line
                                               x1={cx1}
                                               y1={cy1}
                                               x2={cx2}
                                               y2={cy2}
                                               stroke="#F43F5E"
-                                              strokeWidth={Math.max(2, slab.kerf * scale)}
+                                              strokeOpacity="0.34"
+                                              strokeWidth={Math.max(4, slab.kerf * scale * 3.5)}
+                                            />
+                                            {/* Sharp Saw Cut Centerline */}
+                                            <line
+                                              x1={cx1}
+                                              y1={cy1}
+                                              x2={cx2}
+                                              y2={cy2}
+                                              stroke="#FDA4AF"
+                                              strokeWidth={Math.max(1.8, slab.kerf * scale)}
                                               strokeDasharray="6 3"
                                             />
                                             {cut.length * scale >= 45 && (
                                               <g pointerEvents="none">
                                                 <rect
-                                                  x={midX - 42}
+                                                  x={midX - 58}
                                                   y={midY - 8}
-                                                  width="84"
+                                                  width="116"
                                                   height="16"
                                                   rx="3"
-                                                  fill="rgba(136, 19, 55, 0.92)"
+                                                  fill="rgba(136, 19, 55, 0.94)"
                                                   stroke="#FDA4AF"
-                                                  strokeWidth="0.8"
+                                                  strokeWidth="0.9"
                                                 />
                                                 <text
                                                   x={midX}
                                                   y={midY + 3}
                                                   textAnchor="middle"
                                                   fill="#FFE4E6"
-                                                  fontSize="8.5"
+                                                  fontSize="8"
                                                   fontFamily="monospace"
                                                   fontWeight="bold"
                                                 >
-                                                  ✂️ Cut: {formatNum(cut.length, 1)}&quot; R.In
+                                                  ✂ #{cut.step} · {formatNum(cut.length, 1)}&quot; · K:{formatNum(slab.kerf)}&quot;
                                                 </text>
                                               </g>
                                             )}
@@ -10191,7 +10975,7 @@ export function CuttingOptimizerPro({
                           ? '75%'
                           : '100%',
                     }}
-                    className="min-w-[320px] flex-grow rounded-xl border-2 border-sky-500/50 bg-slate-900 overflow-hidden shadow-xl"
+                    className="min-w-0 w-full flex-grow rounded-xl border-2 border-sky-500/50 bg-slate-900 overflow-hidden shadow-xl"
                   >
                     <CadWindowHeaderBar
                       screenId="diagram_2"

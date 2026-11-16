@@ -106,6 +106,8 @@ export default function OrderPage() {
   // Direct Slab Photo Upload & Live Camera Popup states for Cutting Optimizer
   const [isDirectSlabPopupOpen, setIsDirectSlabPopupOpen] = useState(false);
   const [isStandaloneOptimizerOpen, setIsStandaloneOptimizerOpen] = useState(false);
+  const [isResumedOptimizerSession, setIsResumedOptimizerSession] = useState(false);
+  const [hasSavedOptimizerSession, setHasSavedOptimizerSession] = useState(false);
   const [directSlabPhotoUrl, setDirectSlabPhotoUrl] = useState<string>('');
   const [directSlabLabel, setDirectSlabLabel] = useState<string>('Custom Uploaded Marble Slab');
   const [directSlabLength, setDirectSlabLength] = useState<number>(110);
@@ -476,6 +478,31 @@ export default function OrderPage() {
       }
     }
   }, [searchParams, selectedMarble, currentVariant]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-open Cutting Optimizer directly (resuming previous saved work without forcing Material Selector popup)
+  useEffect(() => {
+    const calcType = searchParams.get('calc');
+    const pickMaterial = searchParams.get('pickMaterial') === '1';
+    if (!isGeneralSuppliesOrder || calcType !== 'cutting-optimizer') return;
+
+    let hasSaved = false;
+    try {
+      hasSaved = Boolean(
+        window.localStorage.getItem('stonecut_has_active_session') === '1' ||
+          window.localStorage.getItem('stonecut_room_floor_planner_backup_v2') ||
+          window.localStorage.getItem('stonecut_saved_stock_inventory_backup_v1') ||
+          window.localStorage.getItem('stonecut_computer_billing_v1')
+      );
+    } catch {
+      hasSaved = false;
+    }
+    setHasSavedOptimizerSession(hasSaved);
+
+    if (!pickMaterial) {
+      setIsResumedOptimizerSession(true);
+      setIsStandaloneOptimizerOpen(true);
+    }
+  }, [isGeneralSuppliesOrder, searchParams]);
 
 
   const handleShareLocation = () => {
@@ -854,10 +881,27 @@ export default function OrderPage() {
               </p>
               {calcType === 'cutting-optimizer' && (
                 <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                  {hasSavedOptimizerSession && (
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => {
+                        setIsResumedOptimizerSession(true);
+                        setIsStandaloneOptimizerOpen(true);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md gap-2"
+                    >
+                      <Scissors className="h-4 w-4" />
+                      {language === 'ur'
+                        ? 'پچھلا محفوظ کام ڈائریکٹ کھولیں (Cutting Optimizer)'
+                        : 'Resume Previous Work Directly (Cutting Optimizer)'}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     size="lg"
                     onClick={() => {
+                      setIsResumedOptimizerSession(false);
                       setIsDirectSlabPopupOpen(true);
                     }}
                     className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-md gap-2"
@@ -1382,6 +1426,7 @@ export default function OrderPage() {
                 type="button"
                 onClick={() => {
                   stopDirectCamera();
+                  setIsResumedOptimizerSession(false);
                   setIsDirectSlabPopupOpen(false);
                   setIsStandaloneOptimizerOpen(true);
                 }}
@@ -1394,11 +1439,16 @@ export default function OrderPage() {
           </DialogContent>
         </Dialog>
 
-        {/* POPUP 2: Full-Screen Cutting Optimizer Launched Directly from Custom Slab Popup */}
+        {/* POPUP 2: Full-Screen Cutting Optimizer Launched Directly or from Custom Slab Popup */}
         <Dialog
           open={isStandaloneOptimizerOpen}
           onOpenChange={(open) => {
-            if (!open) setIsStandaloneOptimizerOpen(false);
+            if (!open) {
+              setIsStandaloneOptimizerOpen(false);
+              if (searchParams.get('pickMaterial') !== '1') {
+                router.push('/');
+              }
+            }
           }}
         >
           <DialogContent
@@ -1425,6 +1475,7 @@ export default function OrderPage() {
                   initialMarble={selectorFilteredMarbles[0] || numberedMarbles[0]}
                   initialVariant={(selectorFilteredMarbles[0] || numberedMarbles[0])?.variants?.[0]}
                   isCustomerMode={true}
+                  resumeSavedSession={isResumedOptimizerSession}
                   initialCustomSlabImageUrl={directSlabPhotoUrl || undefined}
                   initialCustomSlabLabel={directSlabLabel || undefined}
                   initialCustomSlabLength={directSlabLength}
@@ -1433,6 +1484,16 @@ export default function OrderPage() {
                   initialCustomFrameOffsetX={directSlabOffsetX}
                   initialCustomFrameOffsetY={directSlabOffsetY}
                   initialCustomFrameRotation={directSlabRotation}
+                  onBackToHome={() => {
+                    setIsStandaloneOptimizerOpen(false);
+                    setIsCalculatorFullScreen(false);
+                    router.push('/');
+                  }}
+                  onOpenMaterialPicker={() => {
+                    setIsResumedOptimizerSession(false);
+                    setIsStandaloneOptimizerOpen(false);
+                    router.replace('/order/general-supplies-order?calc=cutting-optimizer&pickMaterial=1');
+                  }}
                   onSaveToCustomerQuote={(data) => {
                     const baseMarble = selectorFilteredMarbles[0] || numberedMarbles[0];
                     const baseVariant = baseMarble?.variants?.[0] || {
@@ -1454,6 +1515,9 @@ export default function OrderPage() {
                   }}
                   onCancel={() => {
                     setIsStandaloneOptimizerOpen(false);
+                    if (searchParams.get('pickMaterial') !== '1') {
+                      router.push('/');
+                    }
                   }}
                 />
               )}
@@ -1992,7 +2056,13 @@ export default function OrderPage() {
                                     initialMarble={editingRequirement.marble!}
                                     initialVariant={editingRequirement.variant!}
                                     isCustomerMode={true}
+                                    resumeSavedSession={true}
                                     onFullscreenChange={setIsCalculatorFullScreen}
+                                    onBackToHome={() => {
+                                      setIsCalculatorFullScreen(false);
+                                      setEditingRequirementId(null);
+                                      router.push('/');
+                                    }}
                                     onSaveToCustomerQuote={(data) => {
                                       setIsCalculatorFullScreen(false);
                                       handleSaveRequirement(editingRequirement!.id, data);

@@ -293,6 +293,7 @@ export default function Home() {
   const [homepageContent, setHomepageContent] = useState(initialHomepageContent);
   const [categoryOrder, setCategoryOrder] = useState<string[]>(() => deduplicateCategories(config.categoryOrder || []));
   const [logoUrl, setLogoUrl] = useState<string>(config.logoUrl);
+  const [hasSavedOptimizerSession, setHasSavedOptimizerSession] = useState(false);
 
 
   const [businessContact, setBusinessContact] = useState({
@@ -315,6 +316,16 @@ export default function Home() {
           setCategoryOrder(deduplicateCategories(parsed));
         }
       }
+    } catch (e) {}
+
+    try {
+      const hasSaved = Boolean(
+        localStorage.getItem('stonecut_has_active_session') === '1' ||
+          localStorage.getItem('stonecut_room_floor_planner_backup_v2') ||
+          localStorage.getItem('stonecut_saved_stock_inventory_backup_v1') ||
+          localStorage.getItem('stonecut_computer_billing_v1')
+      );
+      if (hasSaved) setHasSavedOptimizerSession(true);
     } catch (e) {}
 
     async function loadData(showLoadingSpinner = true) {
@@ -1096,11 +1107,15 @@ export default function Home() {
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 max-w-7xl mx-auto">
                 {calculators.map((calc) => {
                   const Icon = calc.icon;
+                  const isOptimizerResume = calc.id === 'cutting-optimizer' && hasSavedOptimizerSession;
+                  const targetHref = isOptimizerResume
+                    ? `/order/general-supplies-order?calc=${calc.id}&resume=1`
+                    : `/order/general-supplies-order?calc=${calc.id}`;
                   return (
                     <Link 
                       key={calc.id} 
                       id={`home-calc-btn-${calc.id}`}
-                      href={`/order/general-supplies-order?calc=${calc.id}`}
+                      href={targetHref}
                       onClick={() => setIsCalculatorLoading(true)}
                       className="flex flex-col items-center justify-center p-4 rounded-xl border bg-background hover:bg-accent hover:border-primary/50 shadow-sm hover:shadow-md transition-all group text-center cursor-pointer min-h-[110px]"
                     >
@@ -1113,6 +1128,11 @@ export default function Home() {
                       <span className="text-[10px] text-muted-foreground line-clamp-2 mt-1 hidden sm:block leading-tight">
                         {language === 'ur' ? calc.descriptionUr : calc.descriptionEn}
                       </span>
+                      {isOptimizerResume && (
+                        <span className="mt-1.5 px-2 py-0.5 rounded bg-emerald-600/15 border border-emerald-500/40 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                          {language === 'ur' ? 'پچھلا کام جاری رکھیں' : 'Resume Saved Work'}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

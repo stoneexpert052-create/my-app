@@ -430,6 +430,44 @@ export function SlabPdfBlueprintModal({
         ctx.lineWidth = 3;
         ctx.strokeRect(originX, originY, drawW, drawH);
 
+        // 4-Sided Edge Trim (Safai) Hatched Zone + Net Usable Boundary
+        if (edgeTrim > 0) {
+          const trimPx = Math.max(4, edgeTrim * scale);
+          const usableDrawX = originX + trimPx;
+          const usableDrawY = originY + trimPx;
+          const usableDrawW = Math.max(0, drawW - trimPx * 2);
+          const usableDrawH = Math.max(0, drawH - trimPx * 2);
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.14)';
+          ctx.fillRect(originX, originY, drawW, trimPx);
+          ctx.fillRect(originX, usableDrawY + usableDrawH, drawW, trimPx);
+          ctx.fillRect(originX, usableDrawY, trimPx, usableDrawH);
+          ctx.fillRect(usableDrawX + usableDrawW, usableDrawY, trimPx, usableDrawH);
+
+          drawCadDiagonalHatch(ctx, originX, originY, drawW, trimPx, '#E11D48', 10);
+          drawCadDiagonalHatch(ctx, originX, usableDrawY + usableDrawH, drawW, trimPx, '#E11D48', 10);
+          drawCadDiagonalHatch(ctx, originX, usableDrawY, trimPx, usableDrawH, '#E11D48', 10);
+          drawCadDiagonalHatch(ctx, usableDrawX + usableDrawW, usableDrawY, trimPx, usableDrawH, '#E11D48', 10);
+
+          ctx.strokeStyle = '#0284C7';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(usableDrawX, usableDrawY, usableDrawW, usableDrawH);
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = '#FFE4E6';
+          ctx.fillRect(originX + drawW / 2 - 86, originY + 2, 172, 16);
+          ctx.strokeStyle = '#BE123C';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(originX + drawW / 2 - 86, originY + 2, 172, 16);
+          ctx.fillStyle = '#9F1239';
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`EDGE TRIM: ${edgeTrim}" / side`, originX + drawW / 2, originY + 13);
+          ctx.restore();
+        }
+
         // Draw Remaining / Waste Offcuts with 45° AutoCAD Hatching
         const slabWasteRects = (slab.freeRects || []).filter(
           (o) => Math.min(o.width, o.height) >= 1.5 && Math.max(o.width, o.height) >= 6
@@ -551,6 +589,101 @@ export function SlabPdfBlueprintModal({
             ctx.fillText(String(p.label).slice(0, 26), cx, cy + 16);
           }
         });
+
+        // Draw Explicit Interior Saw Cut Lines + Blade Kerf Badges
+        const cutXSet = new Set<number>();
+        const cutYSet = new Set<number>();
+        const trimXMin = edgeTrim + 0.15;
+        const trimXMax = slab.slabLength - edgeTrim - 0.15;
+        const trimYMin = edgeTrim + 0.15;
+        const trimYMax = slab.slabWidth - edgeTrim - 0.15;
+
+        (slab.placedPieces || []).forEach((p) => {
+          const x1 = Number(p.x.toFixed(1));
+          const x2 = Number((p.x + p.width).toFixed(1));
+          const y1 = Number(p.y.toFixed(1));
+          const y2 = Number((p.y + p.height).toFixed(1));
+          if (x1 > trimXMin && x1 < trimXMax) cutXSet.add(x1);
+          if (x2 > trimXMin && x2 < trimXMax) cutXSet.add(x2);
+          if (y1 > trimYMin && y1 < trimYMax) cutYSet.add(y1);
+          if (y2 > trimYMin && y2 < trimYMax) cutYSet.add(y2);
+        });
+
+        let pdfCutStep = 1;
+        const pdfCutOriginX = originX + edgeTrim * scale;
+        const pdfCutOriginY = originY + edgeTrim * scale;
+        const pdfCutSpanW = Math.max(0, (slab.slabLength - edgeTrim * 2) * scale);
+        const pdfCutSpanH = Math.max(0, (slab.slabWidth - edgeTrim * 2) * scale);
+
+        Array.from(cutYSet)
+          .sort((a, b) => a - b)
+          .forEach((cyIn) => {
+            const lineY = originY + cyIn * scale;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(225, 29, 72, 0.25)';
+            ctx.lineWidth = Math.max(4, kerf * scale * 4);
+            ctx.beginPath();
+            ctx.moveTo(pdfCutOriginX, lineY);
+            ctx.lineTo(pdfCutOriginX + pdfCutSpanW, lineY);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#BE123C';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.moveTo(pdfCutOriginX, lineY);
+            ctx.lineTo(pdfCutOriginX + pdfCutSpanW, lineY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const tag = `✂ C${pdfCutStep++} · K:${kerf}"`;
+            ctx.font = 'bold 10px monospace';
+            const tw = ctx.measureText(tag).width + 10;
+            ctx.fillStyle = '#FFE4E6';
+            ctx.fillRect(pdfCutOriginX + pdfCutSpanW - tw - 6, lineY - 9, tw, 18);
+            ctx.strokeStyle = '#BE123C';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(pdfCutOriginX + pdfCutSpanW - tw - 6, lineY - 9, tw, 18);
+            ctx.fillStyle = '#9F1239';
+            ctx.textAlign = 'center';
+            ctx.fillText(tag, pdfCutOriginX + pdfCutSpanW - tw / 2 - 6, lineY + 3.5);
+            ctx.restore();
+          });
+
+        Array.from(cutXSet)
+          .sort((a, b) => a - b)
+          .forEach((cxIn) => {
+            const lineX = originX + cxIn * scale;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(225, 29, 72, 0.25)';
+            ctx.lineWidth = Math.max(4, kerf * scale * 4);
+            ctx.beginPath();
+            ctx.moveTo(lineX, pdfCutOriginY);
+            ctx.lineTo(lineX, pdfCutOriginY + pdfCutSpanH);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#BE123C';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.moveTo(lineX, pdfCutOriginY);
+            ctx.lineTo(lineX, pdfCutOriginY + pdfCutSpanH);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const tag = `✂ C${pdfCutStep++} · K:${kerf}"`;
+            ctx.font = 'bold 10px monospace';
+            const tw = ctx.measureText(tag).width + 10;
+            ctx.fillStyle = '#FFE4E6';
+            ctx.fillRect(lineX - tw / 2, pdfCutOriginY + 8, tw, 18);
+            ctx.strokeStyle = '#BE123C';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(lineX - tw / 2, pdfCutOriginY + 8, tw, 18);
+            ctx.fillStyle = '#9F1239';
+            ctx.textAlign = 'center';
+            ctx.fillText(tag, lineX, pdfCutOriginY + 20);
+            ctx.restore();
+          });
 
         // =====================================================================
         // SECTION 2 (BOTTOM): SEPARATE 2D AUTOCAD DRAWINGS FOR
@@ -1169,7 +1302,7 @@ export function SlabPdfBlueprintModal({
                       )}
                     </span>
                     <span>
-                      ↕ WIDTH: {slab.slabWidth}&quot; &nbsp;|&nbsp; ↔ LENGTH: {slab.slabLength}&quot;
+                      ↕ WIDTH: {slab.slabWidth}&quot; &nbsp;|&nbsp; ↔ LENGTH: {slab.slabLength}&quot; &nbsp;|&nbsp; TRIM: {edgeTrim}&quot; &nbsp;|&nbsp; KERF: {kerf}&quot;
                     </span>
                   </div>
 
@@ -1192,6 +1325,57 @@ export function SlabPdfBlueprintModal({
                         }}
                       />
                     )}
+
+                    {/* Edge Trim 4-Sided Perimeter Hatch & Net Boundary */}
+                    {edgeTrim > 0 && (() => {
+                      const trimXPct = Math.min(18, (edgeTrim / Math.max(1, slab.slabLength)) * 100);
+                      const trimYPct = Math.min(18, (edgeTrim / Math.max(1, slab.slabWidth)) * 100);
+                      const trimBg =
+                        'repeating-linear-gradient(45deg, rgba(225,29,72,0.18), rgba(225,29,72,0.18) 5px, rgba(255,255,255,0.85) 5px, rgba(255,255,255,0.85) 10px)';
+                      return (
+                        <>
+                          <div
+                            className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-center"
+                            style={{ height: `${trimYPct}%`, backgroundImage: trimBg }}
+                          >
+                            <span className="px-1.5 py-0 rounded bg-rose-50 border border-rose-700 text-[9px] font-mono font-black text-rose-900">
+                              EDGE TRIM: {edgeTrim}&quot;/side
+                            </span>
+                          </div>
+                          <div
+                            className="absolute bottom-0 left-0 right-0 pointer-events-none"
+                            style={{ height: `${trimYPct}%`, backgroundImage: trimBg }}
+                          />
+                          <div
+                            className="absolute left-0 pointer-events-none"
+                            style={{
+                              top: `${trimYPct}%`,
+                              bottom: `${trimYPct}%`,
+                              width: `${trimXPct}%`,
+                              backgroundImage: trimBg,
+                            }}
+                          />
+                          <div
+                            className="absolute right-0 pointer-events-none"
+                            style={{
+                              top: `${trimYPct}%`,
+                              bottom: `${trimYPct}%`,
+                              width: `${trimXPct}%`,
+                              backgroundImage: trimBg,
+                            }}
+                          />
+                          <div
+                            className="absolute border border-dashed border-sky-700 pointer-events-none"
+                            style={{
+                              left: `${trimXPct}%`,
+                              right: `${trimXPct}%`,
+                              top: `${trimYPct}%`,
+                              bottom: `${trimYPct}%`,
+                            }}
+                          />
+                        </>
+                      );
+                    })()}
 
                     {/* Remaining / Waste Zones on Master Slab (45° AutoCAD Diagonal Hatching) */}
                     {slabWasteItems.map((off, oIdx) => {
@@ -1240,6 +1424,116 @@ export function SlabPdfBlueprintModal({
                         </span>
                       </div>
                     ))}
+
+                    {/* Interior Saw Cut Lines + Blade Kerf Overlay */}
+                    {(() => {
+                      const xSet = new Set<number>();
+                      const ySet = new Set<number>();
+                      const tMinX = edgeTrim + 0.15;
+                      const tMaxX = slab.slabLength - edgeTrim - 0.15;
+                      const tMinY = edgeTrim + 0.15;
+                      const tMaxY = slab.slabWidth - edgeTrim - 0.15;
+                      (slab.placedPieces || []).forEach((p) => {
+                        const x1 = Number(p.x.toFixed(1));
+                        const x2 = Number((p.x + p.width).toFixed(1));
+                        const y1 = Number(p.y.toFixed(1));
+                        const y2 = Number((p.y + p.height).toFixed(1));
+                        if (x1 > tMinX && x1 < tMaxX) xSet.add(x1);
+                        if (x2 > tMinX && x2 < tMaxX) xSet.add(x2);
+                        if (y1 > tMinY && y1 < tMaxY) ySet.add(y1);
+                        if (y2 > tMinY && y2 < tMaxY) ySet.add(y2);
+                      });
+                      const yCuts = Array.from(ySet).sort((a, b) => a - b);
+                      const xCuts = Array.from(xSet).sort((a, b) => a - b);
+                      if (yCuts.length === 0 && xCuts.length === 0) return null;
+                      let cStep = 1;
+                      return (
+                        <svg
+                          viewBox={`0 0 ${slab.slabLength} ${slab.slabWidth}`}
+                          preserveAspectRatio="none"
+                          className="absolute inset-0 w-full h-full pointer-events-none z-20"
+                        >
+                          {yCuts.map((cy) => {
+                            const curStep = cStep++;
+                            return (
+                              <g key={`hy-${cy}`}>
+                                <line
+                                  x1={edgeTrim}
+                                  y1={cy}
+                                  x2={slab.slabLength - edgeTrim}
+                                  y2={cy}
+                                  stroke="#E11D48"
+                                  strokeOpacity="0.28"
+                                  strokeWidth={Math.max(0.5, kerf * 2.5)}
+                                />
+                                <line
+                                  x1={edgeTrim}
+                                  y1={cy}
+                                  x2={slab.slabLength - edgeTrim}
+                                  y2={cy}
+                                  stroke="#BE123C"
+                                  strokeWidth="0.6"
+                                  strokeDasharray="2.5 1.5"
+                                />
+                                <text
+                                  x={slab.slabLength - edgeTrim - 1.5}
+                                  y={Math.max(4, cy - 1)}
+                                  textAnchor="end"
+                                  fill="#9F1239"
+                                  stroke="#FFFFFF"
+                                  strokeWidth="0.5"
+                                  paintOrder="stroke"
+                                  fontSize="3.2"
+                                  fontFamily="monospace"
+                                  fontWeight="bold"
+                                >
+                                  {`✂ C${curStep} · K:${kerf}"`}
+                                </text>
+                              </g>
+                            );
+                          })}
+                          {xCuts.map((cx) => {
+                            const curStep = cStep++;
+                            return (
+                              <g key={`vx-${cx}`}>
+                                <line
+                                  x1={cx}
+                                  y1={edgeTrim}
+                                  x2={cx}
+                                  y2={slab.slabWidth - edgeTrim}
+                                  stroke="#E11D48"
+                                  strokeOpacity="0.28"
+                                  strokeWidth={Math.max(0.5, kerf * 2.5)}
+                                />
+                                <line
+                                  x1={cx}
+                                  y1={edgeTrim}
+                                  x2={cx}
+                                  y2={slab.slabWidth - edgeTrim}
+                                  stroke="#BE123C"
+                                  strokeWidth="0.6"
+                                  strokeDasharray="2.5 1.5"
+                                />
+                                <text
+                                  x={cx + 1.2}
+                                  y={edgeTrim + 4.5}
+                                  textAnchor="start"
+                                  fill="#9F1239"
+                                  stroke="#FFFFFF"
+                                  strokeWidth="0.5"
+                                  paintOrder="stroke"
+                                  fontSize="3.2"
+                                  fontFamily="monospace"
+                                  fontWeight="bold"
+                                >
+                                  {`✂ C${curStep} · K:${kerf}"`}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      );
+                    })()}
                   </div>
                 </div>
 
