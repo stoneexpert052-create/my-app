@@ -25,7 +25,7 @@ import {
   Check,
   Smartphone
 } from 'lucide-react';
-import { getPublicOrigin } from '@/lib/utils';
+import { getPublicOrigin, OFFICIAL_CARD_QR_URL, OFFICIAL_CARD_QR_OPTIONS } from '@/lib/utils';
 import config from '@/lib/config.json';
 
 interface CompanyBrochureProps {
@@ -36,13 +36,14 @@ interface CompanyBrochureProps {
 
 export function CompanyBrochure({ id = 'stone-expert-brochure-sheet', className = '', compact = false }: CompanyBrochureProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [websiteUrl, setWebsiteUrl] = useState<string>('https://stone-expert.pk');
+  const [websiteUrl, setWebsiteUrl] = useState<string>('https://stoneexpert.net');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const origin = getPublicOrigin() || window.location.origin;
       setWebsiteUrl(origin);
-      QRCode.toDataURL(origin, {
+      QRCode.toDataURL(OFFICIAL_CARD_QR_URL, {
+        ...OFFICIAL_CARD_QR_OPTIONS,
         width: 220,
         margin: 1,
         color: {

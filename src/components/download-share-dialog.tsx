@@ -22,7 +22,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getPublicOrigin } from '@/lib/utils';
+import { getPublicOrigin, OFFICIAL_CARD_QR_URL, OFFICIAL_CARD_QR_OPTIONS } from '@/lib/utils';
 import { useLanguage } from '@/context/language-context';
 import { getHomepageConfig } from '@/lib/admin-actions';
 import defaultConfig from '@/lib/config.json';
@@ -65,11 +65,12 @@ export function DownloadShareDialog({ isOpen, onOpenChange }: DownloadShareDialo
         console.error('Error loading config for logo', err);
       });
       
-      // Generate QR Code pointing to home page
+      // Generate exact official visiting-card QR code (redirects to stoneexpert.net)
       setLoading(true);
       QRCode.toDataURL(
-        origin,
+        OFFICIAL_CARD_QR_URL,
         {
+          ...OFFICIAL_CARD_QR_OPTIONS,
           margin: 1,
           width: 300,
           color: {

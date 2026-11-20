@@ -9,8 +9,23 @@ export function cn(...inputs: ClassValue[]) {
  * Returns the public app origin. Returns the current window origin so that
  * copied links and shared WhatsApp links always open directly on the active site.
  */
+export const OFFICIAL_CARD_QR_URL = 'https://stoneexpert052.ai.studio';
+export const OFFICIAL_CARD_QR_OPTIONS = {
+  errorCorrectionLevel: 'M' as const,
+  maskPattern: 2 as const,
+};
+
 export function getPublicOrigin(): string {
-  if (typeof window === 'undefined') return '';
+  if (typeof window === 'undefined') return 'https://stoneexpert.net';
+  const hostname = window.location.hostname.toLowerCase();
+  if (
+    hostname.startsWith('ais-pre-') ||
+    hostname.startsWith('ais-dev-') ||
+    hostname.endsWith('.ai.studio') ||
+    hostname === 'ai.studio'
+  ) {
+    return 'https://stoneexpert.net';
+  }
   return window.location.origin;
 }
 

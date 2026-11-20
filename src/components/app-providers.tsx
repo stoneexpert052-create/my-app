@@ -11,6 +11,7 @@ import { CalculationProvider } from '@/context/calculation-context';
 import { FullscreenImageProvider } from '@/context/fullscreen-image-context';
 import { AppBackground } from '@/components/app-background';
 import { Toaster } from '@/components/ui/toaster';
+import { SharedDomainRedirect } from '@/components/shared-domain-redirect';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
               <OrderSummaryProvider>
                 <CalculationProvider>
                   <FullscreenImageProvider>
+                    <SharedDomainRedirect />
                     <AppBackground />
                     {children}
                     <Toaster />

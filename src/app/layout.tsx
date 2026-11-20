@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Stone Expert - Rawalpindi & Islamabad',
     description: 'Calculate your marble and granite costs instantly. Serving the twin cities with premium quality.',
-    url: 'https://stoneexpert.com', // Replace with your actual domain when ready
+    url: 'https://stoneexpert.net',
     siteName: 'Stone Expert',
     locale: 'en_PK',
     type: 'website',
@@ -42,6 +42,20 @@ export default function RootLayout({
             __html: `
               (function() {
                 if (typeof window === 'undefined') return;
+
+                try {
+                  var host = (window.location.hostname || '').toLowerCase();
+                  var stay = window.location.search.indexOf('stay=1') !== -1;
+                  if (!stay && (host.indexOf('ais-pre-') === 0 || host.slice(-10) === '.ai.studio' || host === 'ai.studio')) {
+                    var target = 'https://stoneexpert.net' + window.location.pathname + window.location.search + window.location.hash;
+                    if (window.top && window.top !== window.self) {
+                      window.top.location.replace(target);
+                    } else {
+                      window.location.replace(target);
+                    }
+                    return;
+                  }
+                } catch (e) {}
 
                 if (typeof Node !== 'undefined' && !Node.prototype.toJSON) {
                   Node.prototype.toJSON = function() {
@@ -129,9 +143,9 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'HomeGoodsStore',
               name: 'Stone Expert - Marble, Granite & Construction',
-              image: 'https://stoneexpert.com/logo.svg',
-              '@id': 'https://stoneexpert.com',
-              url: 'https://stoneexpert.com',
+              image: 'https://stoneexpert.net/logo.svg',
+              '@id': 'https://stoneexpert.net',
+              url: 'https://stoneexpert.net',
               telephone: '+92-300-1234567',
               priceRange: '$$',
               address: {

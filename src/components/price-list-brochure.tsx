@@ -25,7 +25,7 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react';
-import { getPublicOrigin } from '@/lib/utils';
+import { getPublicOrigin, OFFICIAL_CARD_QR_URL, OFFICIAL_CARD_QR_OPTIONS } from '@/lib/utils';
 import config from '@/lib/config.json';
 import initialMarbles from '@/lib/marbles-data.json';
 import initialFixing from '@/lib/fixing-materials-data.json';
@@ -79,8 +79,9 @@ export function PriceListBrochure({
       const origin = getPublicOrigin() || window.location.origin;
       setWebsiteUrl(origin);
 
-      // 1. Generate Web App Store QR Code (From Front of Card)
-      QRCode.toDataURL(origin, {
+      // 1. Generate Exact Visiting Card QR Code (Redirects to stoneexpert.net)
+      QRCode.toDataURL(OFFICIAL_CARD_QR_URL, {
+        ...OFFICIAL_CARD_QR_OPTIONS,
         width: 260,
         margin: 1,
         color: { dark: '#0f172a', light: '#ffffff' }

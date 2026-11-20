@@ -4241,10 +4241,53 @@ export function RoomFloorBookmatchPlanner({
   // (True 1:1 Proportional Pure-SVG Floor Diagram + True 1:1 Slab Cutting CAD with Edge Trim, Saw Cuts & Kerf)
   // =========================================================================
   const handleDownloadStandaloneRoomPdfReport = () => {
-    const partsForTable = buildRoomCutParts();
-    const wasteForTable = buildRoomWasteOffcuts();
-    const styleTitle = tr(currentStyleMeta.labelEn, currentStyleMeta.labelUr);
-    const isRtl = cadLang === 'ur';
+    void (async () => {
+      const partsForTable = buildRoomCutParts();
+      const wasteForTable = buildRoomWasteOffcuts();
+      const styleTitle = tr(currentStyleMeta.labelEn, currentStyleMeta.labelUr);
+      const isRtl = cadLang === 'ur';
+
+      const urlCache = new Map<string, string>();
+      const resolvePrintableDataUri = async (rawUrl: string | null | undefined): Promise<string> => {
+        if (!rawUrl) return '';
+        if (urlCache.has(rawUrl)) return urlCache.get(rawUrl)!;
+        if (rawUrl.startsWith('data:')) {
+          urlCache.set(rawUrl, rawUrl);
+          return rawUrl;
+        }
+        const absUrl =
+          rawUrl.startsWith('/') && typeof window !== 'undefined'
+            ? `${window.location.origin}${rawUrl}`
+            : rawUrl;
+        try {
+          const resp = await fetch(absUrl);
+          if (!resp.ok) throw new Error('fetch failed');
+          const blob = await resp.blob();
+          const dataUri = await new Promise<string>((resolve) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result || absUrl));
+            fr.onerror = () => resolve(absUrl);
+            fr.readAsDataURL(blob);
+          });
+          urlCache.set(rawUrl, dataUri);
+          return dataUri;
+        } catch {
+          urlCache.set(rawUrl, absUrl);
+          return absUrl;
+        }
+      };
+
+      const urlsToResolve = new Set<string>();
+      if (slabImageUrl) urlsToResolve.add(slabImageUrl);
+      if (effectiveOuterBorderTextureUrl) urlsToResolve.add(effectiveOuterBorderTextureUrl);
+      if (pattiCustomSlabImageUrl) urlsToResolve.add(pattiCustomSlabImageUrl);
+      for (let s = 1; s <= totalSameStockSlabsInList; s++) {
+        const stImg = getSlabState(s).customImageUrl;
+        if (stImg) urlsToResolve.add(stImg);
+      }
+      await Promise.all(Array.from(urlsToResolve).map((u) => resolvePrintableDataUri(u)));
+      const getResolvedImg = (rawUrl: string | null | undefined): string =>
+        rawUrl ? urlCache.get(rawUrl) || rawUrl : '';
 
     const roomPartsRowsHtml = partsForTable
       .map((pt, i) => {
@@ -4507,6 +4550,282 @@ export function RoomFloorBookmatchPlanner({
     `;
 
     // =========================================================================
+    // FULL-COLOR CLEAN VIEW MARBLE VISUAL PICTURE (NO CAD CLUTTER, REAL MARBLE TEXTURES)
+    // =========================================================================
+    const cleanPxPerIn = Math.min(460 / roomW, 250 / roomH);
+    const cleanDrawW = Math.max(120, Math.round(roomW * cleanPxPerIn));
+    const cleanDrawH = Math.max(120, Math.round(roomH * cleanPxPerIn));
+    const cleanBorderPx = bIn > 0 ? Math.max(4, Math.round(bIn * cleanPxPerIn)) : 0;
+    const cleanPattiPx = pIn > 0 ? Math.max(3, Math.round(pIn * cleanPxPerIn)) : 0;
+    const cleanTopPct =
+      topSideCutWidthIn > 0 ? Number(((topSideCutWidthIn / innerFloorWidthIn) * 100).toFixed(2)) : 0;
+    const cleanBotPct =
+      bottomSideCutWidthIn > 0
+        ? Number(((bottomSideCutWidthIn / innerFloorWidthIn) * 100).toFixed(2))
+        : 0;
+    const cleanLeftPct =
+      leftSideCutLengthIn > 0
+        ? Number(((leftSideCutLengthIn / innerFloorLengthIn) * 100).toFixed(2))
+        : 0;
+    const cleanRightPct =
+      rightSideCutLengthIn > 0
+        ? Number(((rightSideCutLengthIn / innerFloorLengthIn) * 100).toFixed(2))
+        : 0;
+
+    const cleanColTemplate = bmColTrackLengths
+      .map((l) => `${((l / Math.max(1, actualCenterGridLIn)) * 100).toFixed(3)}%`)
+      .join(' ');
+    const cleanRowTemplate = bmRowTrackWidths
+      .map((w) => `${((w / Math.max(1, actualCenterGridWIn)) * 100).toFixed(3)}%`)
+      .join(' ');
+
+    const cleanMainSlabImg = getResolvedImg(slabImageUrl);
+    const cleanBorderImg = getResolvedImg(effectiveOuterBorderTextureUrl);
+    const cleanPattiImg = getResolvedImg(pattiCustomSlabImageUrl);
+
+    const cleanUnrotSlabPxW = Math.max(20, Math.round(safeSlabL * cleanPxPerIn));
+    const cleanUnrotSlabPxH = Math.max(20, Math.round(safeSlabW * cleanPxPerIn));
+    const cleanLrSlabPxW = Math.max(20, Math.round(safeSlabW * cleanPxPerIn));
+    const cleanLrSlabPxH = Math.max(20, Math.round(safeSlabL * cleanPxPerIn));
+
+    const cleanTopBandHtml =
+      topSideCutWidthIn > 0
+        ? `<div style="height:${cleanTopPct}%;width:100%;display:flex;align-items:stretch;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.18);">
+            ${
+              leftSideCutLengthIn > 0
+                ? `<div style="width:${cleanLeftPct}%;height:100%;position:relative;overflow:hidden;flex-shrink:0;border-right:1px solid rgba(255,255,255,0.18);">
+                    <div style="position:absolute;inset:0;background-image:url('${cleanMainSlabImg}');background-size:cover;background-repeat:no-repeat;"></div>
+                  </div>`
+                : ''
+            }
+            <div style="flex:1;height:100%;display:grid;grid-template-columns:${cleanColTemplate};">
+              ${Array.from({ length: bmCols })
+                .map((_, cIdx) => {
+                  const fallbackSlabNum = Math.min(
+                    totalSameStockSlabsInList,
+                    totalBmPiecesCount + (cIdx % Math.max(1, slabsForTopBottomSideCuts)) + 1
+                  );
+                  const sideSlabNum = getPieceTargetSlab(`ST-${cIdx + 1}`, fallbackSlabNum);
+                  const sideSt = getSlabState(sideSlabNum);
+                  const sideMetrics = getSlabPieceMetrics(sideSlabNum);
+                  const sideImg = getResolvedImg(sideSt.customImageUrl || slabImageUrl);
+                  const sFlipH = sideSt.flipHOverride ?? false;
+                  const sFlipV = sideSt.flipVOverride ?? false;
+                  return `<div style="position:relative;height:100%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.15);">
+                    <div style="position:absolute;inset:0;background-image:url('${sideImg}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-position:${sideMetrics.bgPosX}% ${sideMetrics.bgPosY}%;background-repeat:no-repeat;transform:scale(${sFlipH ? -1 : 1},${sFlipV ? -1 : 1}) rotate(${sideSt.rotationDeg}deg);"></div>
+                  </div>`;
+                })
+                .join('')}
+            </div>
+            ${
+              rightSideCutLengthIn > 0
+                ? `<div style="width:${cleanRightPct}%;height:100%;position:relative;overflow:hidden;flex-shrink:0;border-left:1px solid rgba(255,255,255,0.18);">
+                    <div style="position:absolute;inset:0;background-image:url('${cleanMainSlabImg}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-repeat:no-repeat;"></div>
+                  </div>`
+                : ''
+            }
+          </div>`
+        : '';
+
+    const cleanLeftBandHtml =
+      leftSideCutLengthIn > 0
+        ? `<div style="width:${cleanLeftPct}%;height:100%;display:grid;grid-template-rows:${cleanRowTemplate};flex-shrink:0;border-right:1px solid rgba(255,255,255,0.18);">
+            ${Array.from({ length: bmRows })
+              .map((_, rIdx) => {
+                const fallbackLrSlabNum = Math.min(
+                  totalSameStockSlabsInList,
+                  totalBmPiecesCount +
+                    slabsForTopBottomSideCuts +
+                    (rIdx % Math.max(1, slabsForLeftRightSideCuts)) +
+                    1
+                );
+                const lrSlabNum = getPieceTargetSlab(`SL-${rIdx + 1}`, fallbackLrSlabNum);
+                const lrSt = getSlabState(lrSlabNum);
+                const lrMetrics = getSlabPieceMetrics(lrSlabNum);
+                const lrImg = getResolvedImg(lrSt.customImageUrl || slabImageUrl);
+                const lrFlipH = lrSt.flipHOverride ?? false;
+                const lrFlipV = lrSt.flipVOverride ?? false;
+                return `<div style="position:relative;width:100%;height:100%;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.15);">
+                  <div style="position:absolute;inset:0;background-image:url('${lrImg}');background-size:${cleanLrSlabPxW}px ${cleanLrSlabPxH}px;background-position:${lrMetrics.bgPosY}% ${lrMetrics.bgPosX}%;background-repeat:no-repeat;transform:scale(${lrFlipH ? -1 : 1},${lrFlipV ? -1 : 1}) rotate(${lrSt.rotationDeg}deg);"></div>
+                </div>`;
+              })
+              .join('')}
+          </div>`
+        : '';
+
+    const cleanRightBandHtml =
+      rightSideCutLengthIn > 0
+        ? `<div style="width:${cleanRightPct}%;height:100%;display:grid;grid-template-rows:${cleanRowTemplate};flex-shrink:0;border-left:1px solid rgba(255,255,255,0.18);">
+            ${Array.from({ length: bmRows })
+              .map((_, rIdx) => {
+                const fallbackLrSlabNum = Math.min(
+                  totalSameStockSlabsInList,
+                  totalBmPiecesCount +
+                    slabsForTopBottomSideCuts +
+                    (rIdx % Math.max(1, slabsForLeftRightSideCuts)) +
+                    1
+                );
+                const lrSlabNum = getPieceTargetSlab(`SR-${rIdx + 1}`, fallbackLrSlabNum);
+                const lrSt = getSlabState(lrSlabNum);
+                const lrMetrics = getSlabPieceMetrics(lrSlabNum);
+                const lrImg = getResolvedImg(lrSt.customImageUrl || slabImageUrl);
+                const lrFlipH = lrSt.flipHOverride ?? false;
+                const lrFlipV = lrSt.flipVOverride ?? false;
+                return `<div style="position:relative;width:100%;height:100%;overflow:hidden;border-bottom:1px solid rgba(255,255,255,0.15);">
+                  <div style="position:absolute;inset:0;background-image:url('${lrImg}');background-size:${cleanLrSlabPxW}px ${cleanLrSlabPxH}px;background-position:${lrMetrics.bgPosY}% ${lrMetrics.bgPosX}%;background-repeat:no-repeat;transform:scale(${lrFlipH ? -1 : 1},${lrFlipV ? -1 : 1}) rotate(${lrSt.rotationDeg}deg);"></div>
+                </div>`;
+              })
+              .join('')}
+          </div>`
+        : '';
+
+    const cleanBmGridCellsHtml = Array.from({ length: totalBmPiecesCount })
+      .map((_, slotIdx) => {
+        const mappedSlabNum = slotToSlabMap[slotIdx] || slotIdx + 1;
+        const slabSt = getSlabState(mappedSlabNum);
+        const slabMetrics = getSlabPieceMetrics(mappedSlabNum);
+        const effectiveImgUrl = getResolvedImg(slabSt.customImageUrl || slabImageUrl);
+        const r = Math.floor(slotIdx / bmCols);
+        const c = slotIdx % bmCols;
+        const trackColLIn = bmColTrackLengths[c] || singleBmPieceLengthIn;
+        const trackRowWIn = bmRowTrackWidths[r] || singleBmPieceWidthIn;
+        const pieceBoxWFrac = Number(
+          Math.min(100, Math.max(8, (slabMetrics.activePieceLIn / Math.max(1, trackColLIn)) * 100)).toFixed(2)
+        );
+        const pieceBoxHFrac = Number(
+          Math.min(100, Math.max(8, (slabMetrics.activePieceWIn / Math.max(1, trackRowWIn)) * 100)).toFixed(2)
+        );
+        const is90Rot = slabSt.rotationDeg % 180 !== 0;
+        const tileDrawPxW = Math.max(16, Math.round(slabMetrics.activePieceLIn * cleanPxPerIn));
+        const tileDrawPxH = Math.max(16, Math.round(slabMetrics.activePieceWIn * cleanPxPerIn));
+        const autoFlips = getAutoFlipForPattern(veinPattern, r, c);
+        const flipH = slabSt.flipHOverride !== null ? slabSt.flipHOverride : autoFlips.flipH;
+        const flipV = slabSt.flipVOverride !== null ? slabSt.flipVOverride : autoFlips.flipV;
+
+        const innerTileStyle = is90Rot
+          ? `position:absolute;left:50%;top:50%;width:${tileDrawPxH}px;height:${tileDrawPxW}px;transform:translate(-50%,-50%) scale(${flipH ? -1 : 1},${flipV ? -1 : 1}) rotate(${slabSt.rotationDeg}deg);background-image:url('${effectiveImgUrl}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-position:${slabMetrics.bgPosX}% ${slabMetrics.bgPosY}%;background-repeat:no-repeat;`
+          : `width:100%;height:100%;transform:scale(${flipH ? -1 : 1},${flipV ? -1 : 1}) rotate(${slabSt.rotationDeg}deg);background-image:url('${effectiveImgUrl}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-position:${slabMetrics.bgPosX}% ${slabMetrics.bgPosY}%;background-repeat:no-repeat;`;
+
+        return `<div style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#0f172a;">
+          <div style="position:relative;width:${pieceBoxWFrac}%;height:${pieceBoxHFrac}%;overflow:hidden;border:0.5px solid rgba(255,255,255,0.12);">
+            <div style="${innerTileStyle}"></div>
+          </div>
+        </div>`;
+      })
+      .join('');
+
+    const cleanBottomBandHtml =
+      bottomSideCutWidthIn > 0
+        ? `<div style="height:${cleanBotPct}%;width:100%;display:flex;align-items:stretch;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.18);">
+            ${
+              leftSideCutLengthIn > 0
+                ? `<div style="width:${cleanLeftPct}%;height:100%;position:relative;overflow:hidden;flex-shrink:0;border-right:1px solid rgba(255,255,255,0.18);">
+                    <div style="position:absolute;inset:0;background-image:url('${cleanMainSlabImg}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-repeat:no-repeat;"></div>
+                  </div>`
+                : ''
+            }
+            <div style="flex:1;height:100%;display:grid;grid-template-columns:${cleanColTemplate};">
+              ${Array.from({ length: bmCols })
+                .map((_, cIdx) => {
+                  const fallbackSlabNum = Math.min(
+                    totalSameStockSlabsInList,
+                    totalBmPiecesCount + ((cIdx + 1) % Math.max(1, slabsForTopBottomSideCuts)) + 1
+                  );
+                  const sideSlabNum = getPieceTargetSlab(`SB-${cIdx + 1}`, fallbackSlabNum);
+                  const sideSt = getSlabState(sideSlabNum);
+                  const sideMetrics = getSlabPieceMetrics(sideSlabNum);
+                  const sideImg = getResolvedImg(sideSt.customImageUrl || slabImageUrl);
+                  const sFlipH = sideSt.flipHOverride ?? false;
+                  const sFlipV = sideSt.flipVOverride ?? false;
+                  return `<div style="position:relative;height:100%;overflow:hidden;border-right:1px solid rgba(255,255,255,0.15);">
+                    <div style="position:absolute;inset:0;background-image:url('${sideImg}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-position:${sideMetrics.bgPosX}% ${sideMetrics.bgPosY}%;background-repeat:no-repeat;transform:scale(${sFlipH ? -1 : 1},${sFlipV ? -1 : 1}) rotate(${sideSt.rotationDeg}deg);"></div>
+                  </div>`;
+                })
+                .join('')}
+            </div>
+            ${
+              rightSideCutLengthIn > 0
+                ? `<div style="width:${cleanRightPct}%;height:100%;position:relative;overflow:hidden;flex-shrink:0;border-left:1px solid rgba(255,255,255,0.18);">
+                    <div style="position:absolute;inset:0;background-image:url('${cleanMainSlabImg}');background-size:${cleanUnrotSlabPxW}px ${cleanUnrotSlabPxH}px;background-repeat:no-repeat;"></div>
+                  </div>`
+                : ''
+            }
+          </div>`
+        : '';
+
+    const cleanOuterBorderLabel =
+      borderSlabSource === 'from_custom_border_stock_slab' ? borderSlabMaterialName : slabMaterialName;
+    const cleanPattiLabel = pattiCustomSlabImageUrl
+      ? pattiSlabMaterialName
+      : isRtl
+      ? contrastMeta.nameUr
+      : contrastMeta.nameEn;
+
+    const cleanColorRoomHtml = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <div style="width:${cleanDrawW}px;height:${cleanDrawH}px;padding:${cleanBorderPx}px;background-image:url('${cleanBorderImg}');background-size:cover;border:2px solid #0f172a;display:flex;align-items:center;justify-content:center;position:relative;box-sizing:border-box;">
+          <div style="width:100%;height:100%;padding:${hasBrassPatti && doubleBrassPatti ? '2px' : '0px'};background:${
+      hasBrassPatti && doubleBrassPatti
+        ? 'linear-gradient(135deg,#fde047 0%,#ca8a04 50%,#fef08a 100%)'
+        : 'transparent'
+    };display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
+            <div style="width:100%;height:100%;padding:${cleanPattiPx}px;${
+      pIn > 0 && cleanPattiImg ? `background-image:url('${cleanPattiImg}');background-size:cover;` : ''
+    }background-color:${pIn > 0 ? contrastMeta.bgHex : 'transparent'};display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
+              <div style="width:100%;height:100%;padding:${hasBrassPatti ? '2px' : '0px'};background:${
+      hasBrassPatti ? 'linear-gradient(135deg,#fef08a 0%,#eab308 50%,#a16207 100%)' : 'transparent'
+    };display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;overflow:hidden;box-sizing:border-box;">
+                ${cleanTopBandHtml}
+                <div style="flex:1;width:100%;display:flex;align-items:stretch;min-height:0;">
+                  ${cleanLeftBandHtml}
+                  <div style="flex:1;height:100%;display:grid;grid-template-columns:${cleanColTemplate};grid-template-rows:${cleanRowTemplate};background:#0f172a;overflow:hidden;">
+                    ${cleanBmGridCellsHtml}
+                  </div>
+                  ${cleanRightBandHtml}
+                </div>
+                ${cleanBottomBandHtml}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="width:100%;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;font-family:monospace;font-size:10px;padding-top:4px;border-top:1px solid #cbd5e1;">
+          <span style="display:inline-flex;align-items:center;gap:4px;border:1px solid #0f172a;border-radius:4px;padding:2px 6px;background:#f8fafc;">
+            <img src="${cleanMainSlabImg}" style="width:14px;height:14px;object-fit:cover;border-radius:2px;border:1px solid #334155;" />
+            <strong>${tr('Center + Cuts', 'سینٹر + سائیڈ کٹ')}:</strong> ${slabMaterialName}
+          </span>
+          ${
+            bIn > 0
+              ? `<span style="display:inline-flex;align-items:center;gap:4px;border:1px solid #0f172a;border-radius:4px;padding:2px 6px;background:#f0fdf4;">
+                  <img src="${cleanBorderImg}" style="width:14px;height:14px;object-fit:cover;border-radius:2px;border:1px solid #047857;" />
+                  <strong>${tr('Border', 'بارڈر')} (${bIn}"):</strong> ${cleanOuterBorderLabel}
+                </span>`
+              : ''
+          }
+          ${
+            pIn > 0
+              ? `<span style="display:inline-flex;align-items:center;gap:4px;border:1px solid #0f172a;border-radius:4px;padding:2px 6px;background:#fffbeb;">
+                  ${
+                    cleanPattiImg
+                      ? `<img src="${cleanPattiImg}" style="width:14px;height:14px;object-fit:cover;border-radius:2px;border:1px solid #92400e;" />`
+                      : `<span style="width:14px;height:14px;border-radius:2px;border:1px solid #78350f;background:${contrastMeta.bgHex};display:inline-block;"></span>`
+                  }
+                  <strong>${tr('Strip', 'پٹی')} (${pIn}"):</strong> ${cleanPattiLabel}
+                </span>`
+              : ''
+          }
+          ${
+            hasBrassPatti
+              ? `<span style="display:inline-flex;align-items:center;gap:4px;border:1px solid #0f172a;border-radius:4px;padding:2px 6px;background:#fefce8;">
+                  <span style="width:14px;height:14px;border-radius:2px;border:1px solid #854d0e;background:linear-gradient(135deg,#fef08a,#ca8a04);display:inline-block;"></span>
+                  <strong>${doubleBrassPatti ? tr('Double Brass', 'ڈبل براس پٹی') : tr('Brass Patti', 'براس پٹی')}</strong>
+                </span>`
+              : ''
+          }
+        </div>
+      </div>
+    `;
+
+    // =========================================================================
     // TRUE 1:1 PURE-SVG STOCK SLAB CUTTING DIAGRAMS (EDGE TRIM + SAW CUTS + KERF!)
     // =========================================================================
     const grossSlabWIn = slabDirectionInRoom === 'horizontal' ? (slabWidthIn || 60) : (slabLengthIn || 104);
@@ -4733,11 +5052,21 @@ export function RoomFloorBookmatchPlanner({
     </div>
 
     <div style="display:grid;grid-template-columns:1.15fr 0.85fr;gap:12px;align-items:start;">
-      <div style="border:2px solid #0f172a;padding:10px;background:#ffffff;">
-        <div style="font-weight:900;color:#0f172a;font-family:monospace;font-size:12px;margin-bottom:6px;border-bottom:2px solid #0f172a;padding-bottom:4px;">
-          1. ${tr('TRUE 1:1 ROOM FLOOR LAYOUT (BORDER + BRASS + SIDE CUTS + BOOKMATCH)', 'کمرے کے فرش کا اصل 1:1 آٹو کیڈ ڈایاگرام')} (${totalRoomWidthIn}" × ${totalRoomLengthIn}")
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="border:2px solid #0f172a;padding:10px;background:#ffffff;">
+          <div style="font-weight:900;color:#0f172a;font-family:monospace;font-size:12px;margin-bottom:6px;border-bottom:2px solid #0f172a;padding-bottom:4px;">
+            1. ${tr('TRUE 1:1 ROOM FLOOR LAYOUT (BORDER + BRASS + SIDE CUTS + BOOKMATCH)', 'کمرے کے فرش کا اصل 1:1 آٹو کیڈ ڈایاگرام')} (${totalRoomWidthIn}" × ${totalRoomLengthIn}")
+          </div>
+          ${roomFloorExactSvgHtml}
         </div>
-        ${roomFloorExactSvgHtml}
+
+        <div style="border:2px solid #0f172a;padding:10px;background:#ffffff;break-inside:avoid;">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-weight:900;color:#0f172a;font-family:monospace;font-size:12px;margin-bottom:8px;border-bottom:2px solid #0f172a;padding-bottom:4px;">
+            <span>🎨 ${tr('CLEAN VIEW COLOR PREVIEW (MARBLE PLACEMENT)', 'کلین ویو کلر تصویر (کون سا ماربل کیسے لگا ہے)')}</span>
+            <span style="color:#92400e;">${styleTitle}</span>
+          </div>
+          ${cleanColorRoomHtml}
+        </div>
       </div>
 
       <div style="border:2px solid #0f172a;padding:10px;background:#ffffff;">
@@ -4812,11 +5141,16 @@ export function RoomFloorBookmatchPlanner({
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })();
   };
 
   // Reusable Room Bookmatch Canvas Renderer with TRUE 1:1 GEOMETRIC PROPORTIONS (pxPerInch)
   // Inside a fixed-height CAD Viewport so a 14×16 room looks genuinely 14:16 (slightly off-square), NEVER stretched flat!
-  const renderRoomFloorCanvas = (isFullMonitorModal: boolean, isPdfMode = false) => {
+  const renderRoomFloorCanvas = (
+    isFullMonitorModal: boolean,
+    isPdfMode = false,
+    forceCleanColorPreview = false
+  ) => {
     const isNarrowMobile = viewportDims.w < 768;
     const autoCenterHeightPx = Math.max(230, Math.min(480, viewportDims.h - (isNarrowMobile ? 350 : 320)));
     const viewportMaxW = isFullMonitorModal
@@ -4833,7 +5167,9 @@ export function RoomFloorBookmatchPlanner({
     const viewportMaxH = isFullMonitorModal
       ? Math.max(320, Math.round(viewportDims.h * 0.68))
       : isPdfMode
-      ? 330
+      ? forceCleanColorPreview
+        ? 260
+        : 330
       : Math.max(195, autoCenterHeightPx - 64);
 
     // Uniform 1:1 Scale Factor (identical pixels-per-inch along both X/Length and Y/Width!)
@@ -4872,9 +5208,10 @@ export function RoomFloorBookmatchPlanner({
         ? Number(((rightSideCutLengthIn / innerFloorLengthIn) * 100).toFixed(2))
         : 0;
 
-    const isPdfPaper = isPdfMode || floorViewMode === 'pdf_preview';
-    const isCleanChauras = !isPdfPaper && chaurasPurePreview;
-    const isCadVisible = isPdfPaper || (!isCleanChauras && showBlueprintCadLines);
+    const isPdfPaper = !forceCleanColorPreview && (isPdfMode || floorViewMode === 'pdf_preview');
+    const isCleanChauras = forceCleanColorPreview || (!isPdfPaper && chaurasPurePreview);
+    const isCadVisible =
+      !forceCleanColorPreview && (isPdfPaper || (!isCleanChauras && showBlueprintCadLines));
 
     return (
       <div
@@ -4886,20 +5223,29 @@ export function RoomFloorBookmatchPlanner({
           setRoomDraggingPieceIdx(null);
           setRoomDragStartMouse(null);
         }}
+        style={
+          forceCleanColorPreview
+            ? { WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }
+            : undefined
+        }
         className={`relative rounded-xl border flex flex-col items-center justify-between transition-colors ${
-          isPdfPaper
+          forceCleanColorPreview
+            ? 'border border-slate-300 bg-white text-slate-950'
+            : isPdfPaper
             ? 'border-2 border-slate-950 bg-white text-slate-950'
             : 'border-slate-800 bg-slate-950'
         } ${
           isFullMonitorModal
             ? 'w-full h-full p-4 sm:p-6'
             : isPdfMode
-            ? 'w-full p-3'
+            ? forceCleanColorPreview
+              ? 'w-full p-2'
+              : 'w-full p-3'
             : 'p-2'
         }`}
       >
         {/* SINGLE UNIFIED AUTOCAD TOOLBAR (Pcs + Rotate + Style + Chauras + Manual + Zoom + CAD + Full) */}
-        {!isPdfMode && (
+        {!isPdfMode && !forceCleanColorPreview && (
           <div className="w-full flex flex-wrap items-center justify-between gap-1.5 mb-1.5 z-30 print:hidden border-b border-slate-800/90 pb-1.5">
             <div className="flex flex-wrap items-center gap-1 min-w-0">
               <span className="text-[11px] font-mono font-black text-sky-400 whitespace-nowrap">
@@ -5137,7 +5483,7 @@ export function RoomFloorBookmatchPlanner({
         )}
 
         {/* IN-DIAGRAM SIMPLE DESIGN BUTTONS + LIVE NON-OVERLAPPING POPUP PANEL (RIGHT ABOVE DIAGRAM!) */}
-        {!isPdfMode && !isFullMonitorModal && (
+        {!isPdfMode && !isFullMonitorModal && !forceCleanColorPreview && (
           <div className="w-full space-y-1.5 mb-1.5 print:hidden">
             <div className="flex flex-wrap items-center justify-between gap-1 rounded-lg border border-slate-800 bg-slate-900/90 px-2 py-1">
               <div className="flex flex-wrap items-center gap-1">
@@ -5780,7 +6126,9 @@ export function RoomFloorBookmatchPlanner({
         {/* AUTO-FIT CAD VIEWPORT CONTAINER (Dynamically fits screen height without vertical overflow!) */}
         <div
           style={{
-            minHeight: isFullMonitorModal
+            minHeight: forceCleanColorPreview
+              ? 'auto'
+              : isFullMonitorModal
               ? '68vh'
               : isPdfMode
               ? '350px'
@@ -7122,22 +7470,110 @@ export function RoomFloorBookmatchPlanner({
                 Right: Each Slab with Separate USED Piece Box vs Separate WASTE Piece Box
                =============================================================== */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-              {/* LEFT: EXACT 1:1 AUTOCAD ROOM FLOOR DRAWING (100% MATCHING MAIN PLANNER VIEWPORT!) */}
-              <div className="lg:col-span-6 border-2 border-slate-950 rounded-lg bg-white p-3 space-y-2.5">
-                <div className="flex items-center justify-between border-b-2 border-slate-950 pb-1.5">
-                  <span className="text-xs font-mono font-black text-slate-950 uppercase">
-                    {tr(
-                      '1. TRUE 1:1 ROOM FLOOR LAYOUT (MATCHES SCREEN 100%)',
-                      '1. کمرے کے فرش کا اصل 1:1 آٹو کیڈ ڈایاگرام (سکرین کے عین مطابق)'
-                    )}
-                  </span>
-                  <span className="text-[11px] font-mono font-bold text-sky-900">
-                    {`${totalRoomWidthIn}" × ${totalRoomLengthIn}"`}
-                  </span>
+              {/* LEFT: EXACT 1:1 AUTOCAD ROOM FLOOR DRAWING + COLOR CLEAN VIEW MARBLE PICTURE */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="border-2 border-slate-950 rounded-lg bg-white p-3 space-y-2.5">
+                  <div className="flex items-center justify-between border-b-2 border-slate-950 pb-1.5">
+                    <span className="text-xs font-mono font-black text-slate-950 uppercase">
+                      {tr(
+                        '1. TRUE 1:1 ROOM FLOOR LAYOUT (MATCHES SCREEN 100%)',
+                        '1. کمرے کے فرش کا اصل 1:1 آٹو کیڈ ڈایاگرام (سکرین کے عین مطابق)'
+                      )}
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-sky-900">
+                      {`${totalRoomWidthIn}" × ${totalRoomLengthIn}"`}
+                    </span>
+                  </div>
+
+                  {/* Live 1:1 Floor Canvas Rendered in White Paper Architectural Print Mode */}
+                  {renderRoomFloorCanvas(false, true)}
                 </div>
 
-                {/* Live 1:1 Floor Canvas Rendered in White Paper Architectural Print Mode */}
-                {renderRoomFloorCanvas(false, true)}
+                {/* FULL-COLOR CLEAN VIEW IMAGE (Shows Exact Marble Placement, Veins & Borders in Color) */}
+                <div
+                  className="border-2 border-slate-950 rounded-lg bg-white p-3 space-y-2 break-inside-avoid"
+                  style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+                >
+                  <div className="flex items-center justify-between border-b-2 border-slate-950 pb-1.5">
+                    <span className="text-xs font-mono font-black text-slate-950 uppercase">
+                      {tr(
+                        '🎨 CLEAN VIEW COLOR PREVIEW (MARBLE PLACEMENT)',
+                        '🎨 کلین ویو کلر تصویر (کون سا ماربل کیسے لگا ہے)'
+                      )}
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-amber-800">
+                      {tr(currentStyleMeta.labelEn, currentStyleMeta.labelUr)}
+                    </span>
+                  </div>
+
+                  {renderRoomFloorCanvas(false, true, true)}
+
+                  {/* Color Marble Stone Legend so viewer sees which marble is used where */}
+                  <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1 border-t border-slate-200 text-[10px] font-mono text-slate-900">
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-900 bg-slate-50">
+                      <img
+                        src={slabImageUrl}
+                        alt={slabMaterialName}
+                        className="w-3.5 h-3.5 rounded-xs object-cover border border-slate-500"
+                      />
+                      <strong>{tr('Center + Cuts', 'سینٹر + سائیڈ کٹ')}:</strong> {slabMaterialName}
+                    </span>
+                    {effectiveOuterBorderIn > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-900 bg-emerald-50">
+                        <img
+                          src={effectiveOuterBorderTextureUrl}
+                          alt={
+                            borderSlabSource === 'from_custom_border_stock_slab'
+                              ? borderSlabMaterialName
+                              : slabMaterialName
+                          }
+                          className="w-3.5 h-3.5 rounded-xs object-cover border border-emerald-700"
+                        />
+                        <strong>
+                          {tr('Border', 'بارڈر')} ({effectiveOuterBorderIn}&quot;):
+                        </strong>{' '}
+                        {borderSlabSource === 'from_custom_border_stock_slab'
+                          ? borderSlabMaterialName
+                          : slabMaterialName}
+                      </span>
+                    )}
+                    {effectiveContrastPattiIn > 0 && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-900 bg-amber-50">
+                        {pattiCustomSlabImageUrl ? (
+                          <img
+                            src={pattiCustomSlabImageUrl}
+                            alt={pattiSlabMaterialName}
+                            className="w-3.5 h-3.5 rounded-xs object-cover border border-amber-800"
+                          />
+                        ) : (
+                          <span
+                            className="w-3.5 h-3.5 rounded-xs border border-amber-900 inline-block"
+                            style={{ backgroundColor: contrastMeta.bgHex }}
+                          />
+                        )}
+                        <strong>
+                          {tr('Strip', 'پٹی')} ({effectiveContrastPattiIn}&quot;):
+                        </strong>{' '}
+                        {pattiCustomSlabImageUrl
+                          ? pattiSlabMaterialName
+                          : tr(contrastMeta.nameEn, contrastMeta.nameUr)}
+                      </span>
+                    )}
+                    {hasBrassPatti && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-900 bg-yellow-50">
+                        <span
+                          className="w-3.5 h-3.5 rounded-xs border border-amber-700 inline-block"
+                          style={{ background: 'linear-gradient(135deg,#fef08a,#ca8a04)' }}
+                        />
+                        <strong>
+                          {doubleBrassPatti
+                            ? tr('Double Brass', 'ڈبل براس پٹی')
+                            : tr('Brass Patti', 'براس پٹی')}
+                        </strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* RIGHT: EACH SLAB TRUE 1:1 AUTOCAD CUTTING BLUEPRINT (EDGE TRIM + SAW CUTS + KERF + WASTE) */}
