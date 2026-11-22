@@ -29,14 +29,14 @@ import {
   Flame
 } from 'lucide-react';
 import { formatSaleBadgeText } from '@/lib/utils';
-import { useFullscreenImage } from '@/context/fullscreen-image-context';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { language } = useLanguage();
-  const { openImage } = useFullscreenImage();
+  const { openGallery } = useFullscreenImage();
   const id = params?.id as string;
 
   const [item, setItem] = useState<Marble | FixingMaterial | null>(null);
@@ -191,51 +191,89 @@ export default function ProductDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16 items-start">
             
             {/* Left Column: Full-size Image Showcase */}
-            <div className="space-y-4">
-              <div 
-                className="relative aspect-square md:aspect-[4/3] w-full overflow-hidden bg-muted rounded-2xl border shadow-lg cursor-pointer group/showcase"
-                onClick={() => openImage(activeImage, item.name)}
-                title="Click to view full screen"
-              >
-                <Image
-                  src={activeImage || `https://placehold.co/800x600?text=${encodeURIComponent(item.name)}`}
-                  alt={item.name}
-                  fill
-                  priority
-                  className="object-cover transition-transform duration-500 group-hover/showcase:scale-103"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 opacity-90 shadow-md">
-                  <Maximize2 className="h-3.5 w-3.5" />
-                  <span>Click to Zoom</span>
-                </div>
-              </div>
+            {(() => {
+              const fallbackImage = `https://placehold.co/800x600?text=${encodeURIComponent(item.name)}`;
+              const galleryItems = buildProductGallery(
+                item.imageUrl || fallbackImage,
+                item.name,
+                isStone ? stoneItem.gallery : undefined
+              );
+              const activeIndex = Math.max(
+                0,
+                galleryItems.findIndex((g) => g.url === activeImage)
+              );
 
-              {/* Multi-image Gallery Thumbnails if available */}
-              {isStone && stoneItem.gallery && stoneItem.gallery.length > 0 && (
-                <div className="flex flex-wrap gap-2.5 p-2 bg-muted/40 rounded-xl border">
-                  <button 
-                    onClick={() => setActiveImage(stoneItem.imageUrl)}
-                    className={`relative h-16 w-24 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
-                      activeImage === stoneItem.imageUrl ? "border-primary scale-105 shadow-md" : "border-transparent opacity-70 hover:opacity-100"
-                    }`}
+              return (
+                <div className="space-y-4">
+                  <div
+                    className="relative aspect-square md:aspect-[4/3] w-full overflow-hidden bg-muted rounded-2xl border shadow-lg cursor-pointer group/showcase"
+                    onClick={() => openGallery(galleryItems, activeIndex)}
+                    title="Click to view full screen"
                   >
-                    <Image src={stoneItem.imageUrl} alt={stoneItem.name} fill className="object-cover" />
-                  </button>
-                  {stoneItem.gallery.map((img) => (
-                    <button 
-                      key={img.id}
-                      onClick={() => setActiveImage(img.url)}
-                      className={`relative h-16 w-24 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
-                        activeImage === img.url ? "border-primary scale-105 shadow-md" : "border-transparent opacity-70 hover:opacity-100"
-                      }`}
-                    >
-                      <Image src={img.url} alt={img.altText || stoneItem.name} fill className="object-cover" />
-                    </button>
-                  ))}
+                    <Image
+                      src={activeImage || fallbackImage}
+                      alt={item.name}
+                      fill
+                      priority
+                      className="object-cover transition-transform duration-500 group-hover/showcase:scale-103"
+                      referrerPolicy="no-referrer"
+                      unoptimized={(activeImage || '').startsWith('data:')}
+                    />
+                    <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 opacity-90 group-hover/showcase:opacity-100 group-hover/showcase:bg-black/85 transition-all shadow-md">
+                      <Maximize2 className="h-3.5 w-3.5" />
+                      <span>
+                        {language === 'ur' ? 'فل اسکرین دیکھیں' : 'View Lightbox'}
+                        {galleryItems.length > 1 ? ` (${activeIndex + 1}/${galleryItems.length})` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Multi-image Gallery Thumbnails if available */}
+                  {galleryItems.length > 1 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          {labels.gallery} ({galleryItems.length})
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {language === 'ur' ? 'بڑی تصویر کے لیے کلک کریں' : 'Click any photo for full size'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2.5 p-2.5 bg-muted/40 rounded-xl border">
+                        {galleryItems.map((img, idx) => (
+                          <button
+                            key={`${img.url}-${idx}`}
+                            type="button"
+                            onClick={() => {
+                              setActiveImage(img.url);
+                              openGallery(galleryItems, idx);
+                            }}
+                            title={img.caption || `View ${item.name} photo ${idx + 1}`}
+                            className={`relative h-16 w-24 rounded-lg overflow-hidden border-2 transition-all shrink-0 group/thumb cursor-pointer ${
+                              activeImage === img.url
+                                ? 'border-primary scale-105 shadow-md'
+                                : 'border-transparent opacity-80 hover:opacity-100 hover:border-primary/50'
+                            }`}
+                          >
+                            <Image
+                              src={img.url}
+                              alt={img.alt || item.name}
+                              fill
+                              className="object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                              referrerPolicy="no-referrer"
+                              unoptimized={img.url.startsWith('data:')}
+                            />
+                            <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                              <Maximize2 className="h-4 w-4 text-white drop-shadow" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Right Column: Detailed Product Information */}
             <div className="space-y-6 lg:space-y-8">

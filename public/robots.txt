@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /dashboard/
 Disallow: /admin/
+Disallow: /api/
 
-Sitemap: https://stoneexpert.com/sitemap.xml
+Sitemap: https://stoneexpert.net/sitemap.xml

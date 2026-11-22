@@ -13,8 +13,10 @@ import {
   ensureCategoryExists,
   updateSupplierRateListAndSyncApp,
   syncSupplierRatesToEntireApp,
+  saveSaleRibbonStyle,
   getDb
 } from "@/lib/admin-actions";
+import { normalizeSaleRibbonStyle } from "@/lib/sale-ribbon-style";
 import { collection, doc, setDoc } from "firebase/firestore";
 
 export async function POST(req: NextRequest) {
@@ -372,6 +374,26 @@ export async function POST(req: NextRequest) {
         successMessageUr = `سپلائر "${res.supplierName}" کی ریٹ لسٹ کے مطابق (${markupPercentage}% مارک اپ کے ساتھ) پوری ایپ کی ${res.updatedAppProductsCount} پروڈکٹس کے ریٹ اپ ڈیٹ کر دیے گئے ہیں۔`;
         successMessageEn = `Synced ${res.updatedAppProductsCount} app products from supplier "${res.supplierName}" (${markupPercentage}% markup).`;
         break;
+      }
+
+      case "UPDATE_SALE_RIBBON_STYLE": {
+        const normalizedStyle = normalizeSaleRibbonStyle(payload || {});
+        const res = await saveSaleRibbonStyle(normalizedStyle);
+        if (!res.success) {
+          throw new Error(res.error || "Failed to update sale ribbon styling");
+        }
+
+        successMessageUr = `مین ہیڈر سیل ربن (#main-header-sale-ribbon) کا رنگ/گریڈینٹ (${normalizedStyle.gradientPreset})، شیڈو (${normalizedStyle.shadowLevel}) اور اینیمیشن (${normalizedStyle.entranceAnimation}) کامیابی سے لاگو ہو گیا!`;
+        successMessageEn = `Main header sale ribbon updated with ${normalizedStyle.gradientPreset} gradient, ${normalizedStyle.shadowLevel} shadow, and ${normalizedStyle.entranceAnimation} entrance animation.`;
+        return NextResponse.json({
+          success: true,
+          actionType,
+          targetId: 'main-header-sale-ribbon',
+          saleRibbonStyle: normalizedStyle,
+          messageUr: successMessageUr,
+          messageEn: successMessageEn,
+          timestamp: new Date().toISOString()
+        });
       }
 
       default:

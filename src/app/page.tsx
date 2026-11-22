@@ -3,7 +3,7 @@
 import { Header } from '@/components/header';
 import { motion } from 'framer-motion';
 import { MarbleCard } from '@/components/marble-card';
-import { useFullscreenImage } from '@/context/fullscreen-image-context';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
@@ -50,6 +50,14 @@ import { useFirestore } from '@/firebase/provider';
 import { defaultDailyRates } from '@/lib/data';
 import type { DailyRates } from '@/lib/types';
 import { Fuel, Coins } from 'lucide-react';
+import { FloatingAdminAiWidget } from '@/components/admin-ai/floating-ai-widget';
+import {
+  DEFAULT_SALE_RIBBON_STYLE,
+  normalizeSaleRibbonStyle,
+  resolveSaleRibbonInlineStyle,
+  resolveSaleRibbonMotionProps,
+  type SaleRibbonStyleConfig
+} from '@/lib/sale-ribbon-style';
 
 
 
@@ -198,7 +206,7 @@ const detailedRates = {
 
 export default function Home() {
   const { t, language } = useLanguage();
-  const { openImage } = useFullscreenImage();
+  const { openImage, openGallery } = useFullscreenImage();
   const router = useRouter();
   const db = useFirestore();
   const [dailyRates, setDailyRates] = useState<DailyRates>(defaultDailyRates);
@@ -228,6 +236,30 @@ export default function Home() {
 
   // All-Sale Products Popup State
   const [isAllSalePopupOpen, setIsAllSalePopupOpen] = useState(false);
+
+  // Dynamic AI-managed styling for #main-header-sale-ribbon
+  const [saleRibbonStyle, setSaleRibbonStyle] = useState<SaleRibbonStyleConfig>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('stone_expert_sale_ribbon_style');
+        if (cached) return normalizeSaleRibbonStyle(JSON.parse(cached));
+      } catch (e) {}
+    }
+    return DEFAULT_SALE_RIBBON_STYLE;
+  });
+
+  useEffect(() => {
+    const handleRibbonStyleEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) {
+        setSaleRibbonStyle(normalizeSaleRibbonStyle(detail));
+      }
+    };
+    window.addEventListener('sale_ribbon_style_updated', handleRibbonStyleEvent);
+    return () => {
+      window.removeEventListener('sale_ribbon_style_updated', handleRibbonStyleEvent);
+    };
+  }, []);
   const [saleSearchQuery, setSaleSearchQuery] = useState('');
   const [saleFilterCategory, setSaleFilterCategory] = useState<'all' | 'marbles' | 'supplies'>('all');
 
@@ -293,7 +325,6 @@ export default function Home() {
   const [homepageContent, setHomepageContent] = useState(initialHomepageContent);
   const [categoryOrder, setCategoryOrder] = useState<string[]>(() => deduplicateCategories(config.categoryOrder || []));
   const [logoUrl, setLogoUrl] = useState<string>(config.logoUrl);
-  const [hasSavedOptimizerSession, setHasSavedOptimizerSession] = useState(false);
 
 
   const [businessContact, setBusinessContact] = useState({
@@ -316,16 +347,6 @@ export default function Home() {
           setCategoryOrder(deduplicateCategories(parsed));
         }
       }
-    } catch (e) {}
-
-    try {
-      const hasSaved = Boolean(
-        localStorage.getItem('stonecut_has_active_session') === '1' ||
-          localStorage.getItem('stonecut_room_floor_planner_backup_v2') ||
-          localStorage.getItem('stonecut_saved_stock_inventory_backup_v1') ||
-          localStorage.getItem('stonecut_computer_billing_v1')
-      );
-      if (hasSaved) setHasSavedOptimizerSession(true);
     } catch (e) {}
 
     async function loadData(showLoadingSpinner = true) {
@@ -358,6 +379,9 @@ export default function Home() {
           } else {
             setLogoUrl(config.logoUrl);
           }
+          if (hpConfig.saleRibbonStyle) {
+            setSaleRibbonStyle(normalizeSaleRibbonStyle(hpConfig.saleRibbonStyle));
+          }
           setBusinessContact({
             phoneNumber: hpConfig.businessPhoneNumber || config.businessPhoneNumber,
             whatsappNumber: hpConfig.businessWhatsAppNumber || config.businessWhatsAppNumber,
@@ -381,7 +405,9 @@ export default function Home() {
     loadData(true);
 
     const unsubscribe = subscribeToAppUpdates((event) => {
-      if (event.type === 'category_order_updated') {
+      if (event.type === 'sale_ribbon_style_updated' && event.detail) {
+        setSaleRibbonStyle(normalizeSaleRibbonStyle(event.detail));
+      } else if (event.type === 'category_order_updated') {
         if (event.detail && Array.isArray(event.detail)) {
           setCategoryOrder(deduplicateCategories(event.detail));
         } else {
@@ -825,14 +851,6 @@ export default function Home() {
       icon: DraftingCompass,
       descriptionEn: 'Tread, riser and molding details for staircases',
       descriptionUr: 'سیڑھیوں کے ٹریڈ، رائزر اور مولڈنگ کی تفصیلات',
-    },
-    {
-      id: 'cutting-optimizer',
-      labelEn: 'Cutting Optimizer',
-      labelUr: 'کٹنگ آپٹیمائزر (سلیب کٹنگ)',
-      icon: Scissors,
-      descriptionEn: '2D slab cutting, bookmatch & floor fixing diagram',
-      descriptionUr: 'سلیب کٹنگ، بک میچ اور فلور فکسنگ کا مکمل 2D نقشہ',
     }
   ];
 
@@ -934,46 +952,101 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Prominent Main Header Sale Ribbon */}
-          {allSaleProducts.length > 0 && (
-            <div
-              id="main-header-sale-ribbon"
-              onClick={() => setIsAllSalePopupOpen(true)}
-              role="button"
-              tabIndex={0}
-              className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white shadow-md transition-all duration-300 cursor-pointer overflow-hidden group select-none border-y border-red-500/40 relative z-20"
-            >
-              <div className="container mx-auto px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-3 text-center sm:text-left">
-                  <div className="p-1.5 rounded-full bg-white/20 group-hover:scale-110 transition-transform flex items-center justify-center shrink-0 shadow-xs">
-                    <Flame className="h-5 w-5 fill-amber-300 text-amber-200 animate-bounce" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-                      <span className="text-xs sm:text-sm font-black tracking-wide uppercase bg-black/30 px-2 py-0.5 rounded text-amber-300 border border-white/10">
-                        {language === 'ur' ? '🔥 خصوصی رعایتی سیل لائیو ہے!' : '🔥 Special Discount Sale Live!'}
-                      </span>
-                      <span className="text-xs sm:text-sm font-bold text-white/95">
-                        {language === 'ur'
-                          ? 'ماربل، گرینائٹ اور فکسنگ ٹولز پر روپوں اور فیصد میں خصوصی رعایت — تمام سیل پروڈکٹس دیکھنے کے لیے کلک کریں'
-                          : 'Exclusive price discounts in PKR & % across all categories — Click to view all sale deals'}
-                      </span>
+          {/* Prominent Main Header Sale Ribbon (AI Operations Manager Dynamic Styling) */}
+          {allSaleProducts.length > 0 && (() => {
+            const ribbonCss = resolveSaleRibbonInlineStyle(saleRibbonStyle);
+            const ribbonMotion = resolveSaleRibbonMotionProps(saleRibbonStyle.entranceAnimation);
+            return (
+              <motion.div
+                key={`sale-ribbon-${saleRibbonStyle.updatedAt || saleRibbonStyle.entranceAnimation}`}
+                id="main-header-sale-ribbon"
+                initial={ribbonMotion.initial}
+                animate={ribbonMotion.animate}
+                transition={ribbonMotion.transition}
+                onClick={() => setIsAllSalePopupOpen(true)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsAllSalePopupOpen(true);
+                  }
+                }}
+                style={{
+                  backgroundImage: ribbonCss.backgroundImage,
+                  boxShadow: ribbonCss.boxShadow,
+                  borderColor: ribbonCss.borderColor,
+                }}
+                className="w-full text-white transition-all duration-300 cursor-pointer overflow-hidden group select-none border-y relative z-20"
+              >
+                {/* Optional subtle animated light-sweep shimmer overlay */}
+                {saleRibbonStyle.shimmerOverlay && (
+                  <motion.div
+                    aria-hidden="true"
+                    initial={{ x: '-120%' }}
+                    animate={{ x: '220%' }}
+                    transition={{
+                      repeat: Infinity,
+                      repeatDelay: 4.5,
+                      duration: 1.6,
+                      ease: 'easeInOut'
+                    }}
+                    className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12"
+                  />
+                )}
+
+                <div className="container mx-auto px-4 py-2.5 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-3 relative z-10">
+                  <div className="flex items-center gap-3 text-center sm:text-left">
+                    <div className="p-1.5 rounded-full bg-white/20 group-hover:scale-110 transition-transform flex items-center justify-center shrink-0 shadow-sm">
+                      <Flame className="h-5 w-5 fill-amber-300 text-amber-200" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
+                        <span className="text-xs sm:text-sm font-black tracking-wide uppercase bg-black/30 px-2.5 py-0.5 rounded text-amber-300 border border-white/15">
+                          {language === 'ur'
+                            ? saleRibbonStyle.headlineUr || 'خصوصی رعایتی سیل لائیو ہے!'
+                            : saleRibbonStyle.headlineEn || 'Special Discount Sale Live!'}
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-white/95">
+                          {language === 'ur'
+                            ? 'ماربل، گرینائٹ اور فکسنگ ٹولز پر روپوں اور فیصد میں خصوصی رعایت — تمام سیل پروڈکٹس دیکھنے کے لیے کلک کریں'
+                            : 'Exclusive price discounts in PKR & % across all categories — Click to view all sale deals'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-xs text-xs font-black text-amber-300 border border-amber-400/40 shadow-xs">
-                    {allSaleProducts.length} {language === 'ur' ? 'سیل پروڈکٹس' : 'Products on Sale'}
-                  </span>
-                  <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-red-600 text-xs font-black shadow-md group-hover:bg-amber-100 transition-colors">
-                    <span>{language === 'ur' ? 'تمام سیل پروڈکٹس دیکھیں' : 'View All Sale Items'}</span>
-                    <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-center">
+                    <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-sm text-xs font-black text-amber-300 border border-amber-400/40 shadow-sm tabular-nums">
+                      {allSaleProducts.length} {language === 'ur' ? 'سیل پروڈکٹس' : 'Products on Sale'}
+                    </span>
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white text-red-700 text-xs font-black shadow-md group-hover:bg-amber-100 transition-colors">
+                      <span>{language === 'ur' ? 'تمام سیل پروڈکٹس دیکھیں' : 'View All Sale Items'}</span>
+                      <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('open-admin-ai-sale-ribbon'));
+                        }
+                      }}
+                      title={
+                        language === 'ur'
+                          ? 'AI Operations Manager کھول کر سیل بینر کے رنگ، شیڈو اور اینیمیشن تبدیل کریں'
+                          : 'Activate AI Operations Manager to style this sale banner'
+                      }
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-950/75 hover:bg-slate-950 text-amber-300 border border-amber-400/50 text-[11px] font-extrabold shadow-sm transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <WandSparkles className="h-3.5 w-3.5 shrink-0" />
+                      <span>{language === 'ur' ? 'AI اسٹائل' : 'AI Style'}</span>
+                    </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            );
+          })()}
 
           <section className="w-full border-b bg-background/50 relative">
             <div className="container grid lg:grid-cols-2 gap-6 items-center py-6 md:py-8">
@@ -1104,13 +1177,10 @@ export default function Home() {
                 </p>
               </div>
               
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4 max-w-7xl mx-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-7xl mx-auto">
                 {calculators.map((calc) => {
                   const Icon = calc.icon;
-                  const isOptimizerResume = calc.id === 'cutting-optimizer' && hasSavedOptimizerSession;
-                  const targetHref = isOptimizerResume
-                    ? `/order/general-supplies-order?calc=${calc.id}&resume=1`
-                    : `/order/general-supplies-order?calc=${calc.id}`;
+                  const targetHref = `/order/general-supplies-order?calc=${calc.id}`;
                   return (
                     <Link 
                       key={calc.id} 
@@ -1128,11 +1198,6 @@ export default function Home() {
                       <span className="text-[10px] text-muted-foreground line-clamp-2 mt-1 hidden sm:block leading-tight">
                         {language === 'ur' ? calc.descriptionUr : calc.descriptionEn}
                       </span>
-                      {isOptimizerResume && (
-                        <span className="mt-1.5 px-2 py-0.5 rounded bg-emerald-600/15 border border-emerald-500/40 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
-                          {language === 'ur' ? 'پچھلا کام جاری رکھیں' : 'Resume Saved Work'}
-                        </span>
-                      )}
                     </Link>
                   );
                 })}
@@ -2026,48 +2091,78 @@ export default function Home() {
                         <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-start">
                             
                             {/* Left Column: Image Gallery */}
-                            <div className="lg:col-span-3 space-y-6">
-                                <div 
-                                    className="relative aspect-video lg:aspect-auto lg:h-[450px] w-full overflow-hidden rounded-xl border bg-muted shadow-lg cursor-pointer hover:opacity-95 transition-opacity group/image"
-                                    onClick={() => openImage(activeGalleryImage, selectedMarble.name)}
-                                    title="Click to view full screen"
-                                >
-                                    <Image
-                                        src={activeGalleryImage}
-                                        alt={`Sample view of ${selectedMarble.name}`}
-                                        fill
-                                        className="object-contain transition-transform duration-300 group-hover/image:scale-102"
-                                        priority
-                                    />
-                                    <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-xs text-xs text-white px-2.5 py-1 rounded-md font-medium tracking-wide flex items-center gap-1 opacity-0 group-hover/image:opacity-100 transition-opacity">
-                                        <Maximize className="h-3 w-3" /> Full Screen
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <h4 className="font-bold text-sm sm:text-lg flex items-center gap-2">
-                                        <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                                        Reference Samples (سیڑھی، کچن، فلور)
-                                    </h4>
-                                    <ScrollArea className="w-full whitespace-nowrap pb-2">
-                                        <div className="flex gap-2 sm:gap-3">
-                                            {[selectedMarble.imageUrl, ...selectedMarble.gallery.map(g => g.url)].map((url, idx) => (
-                                            <button 
-                                                key={url} 
-                                                onClick={() => setActiveGalleryImage(url || `https://placehold.co/400x400?text=Sample+${idx+1}`)} 
-                                                className={cn(
-                                                    'h-16 w-16 sm:h-24 sm:w-24 lg:h-28 lg:w-28 flex-shrink-0 relative rounded-lg overflow-hidden border-2 transition-all shadow-sm hover:scale-105', 
-                                                    activeGalleryImage === url ? 'border-primary ring-2 ring-primary/20 scale-105' : 'border-transparent opacity-70 hover:opacity-100'
-                                                )}
-                                            >
-                                                <Image src={url || `https://placehold.co/400x400?text=Sample+${idx+1}`} alt={`sample ${idx}`} fill className="object-cover" />
-                                            </button>
-                                            ))}
+                            {(() => {
+                                const marbleGallery = buildProductGallery(
+                                    selectedMarble.imageUrl,
+                                    selectedMarble.name,
+                                    selectedMarble.gallery
+                                );
+                                const activeIdx = Math.max(
+                                    0,
+                                    marbleGallery.findIndex((g) => g.url === activeGalleryImage)
+                                );
+                                return (
+                                    <div className="lg:col-span-3 space-y-6">
+                                        <div
+                                            className="relative aspect-video lg:aspect-auto lg:h-[450px] w-full overflow-hidden rounded-xl border bg-muted shadow-lg cursor-pointer hover:opacity-95 transition-opacity group/image"
+                                            onClick={() => openGallery(marbleGallery, activeIdx)}
+                                            title="Click to view full screen"
+                                        >
+                                            <Image
+                                                src={activeGalleryImage}
+                                                alt={`Sample view of ${selectedMarble.name}`}
+                                                fill
+                                                className="object-contain transition-transform duration-300 group-hover/image:scale-102"
+                                                priority
+                                                referrerPolicy="no-referrer"
+                                                unoptimized={activeGalleryImage.startsWith('data:')}
+                                            />
+                                            <div className="absolute bottom-3 right-3 bg-black/65 backdrop-blur-xs text-xs text-white px-2.5 py-1 rounded-md font-medium tracking-wide flex items-center gap-1 opacity-85 group-hover/image:opacity-100 transition-opacity">
+                                                <Maximize className="h-3 w-3" /> Full Screen{marbleGallery.length > 1 ? ` (${activeIdx + 1}/${marbleGallery.length})` : ''}
+                                            </div>
                                         </div>
-                                        <ScrollBar orientation="horizontal" />
-                                    </ScrollArea>
-                                </div>
-                            </div>
+
+                                        <div className="space-y-3">
+                                            <h4 className="font-bold text-sm sm:text-lg flex items-center gap-2">
+                                                <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                                                Reference Samples (سیڑھی، کچن، فلور)
+                                            </h4>
+                                            <ScrollArea className="w-full whitespace-nowrap pb-2">
+                                                <div className="flex gap-2 sm:gap-3">
+                                                    {marbleGallery.map((img, idx) => (
+                                                    <button
+                                                        key={`${img.url}-${idx}`}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setActiveGalleryImage(img.url);
+                                                            openGallery(marbleGallery, idx);
+                                                        }}
+                                                        title={img.caption || `View sample ${idx + 1} full screen`}
+                                                        className={cn(
+                                                            'h-16 w-16 sm:h-24 sm:w-24 lg:h-28 lg:w-28 flex-shrink-0 relative rounded-lg overflow-hidden border-2 transition-all shadow-sm hover:scale-105 group/sample cursor-pointer',
+                                                            activeGalleryImage === img.url ? 'border-primary ring-2 ring-primary/20 scale-105' : 'border-transparent opacity-75 hover:opacity-100'
+                                                        )}
+                                                    >
+                                                        <Image
+                                                            src={img.url}
+                                                            alt={img.alt || `sample ${idx + 1}`}
+                                                            fill
+                                                            className="object-cover"
+                                                            referrerPolicy="no-referrer"
+                                                            unoptimized={img.url.startsWith('data:')}
+                                                        />
+                                                        <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/sample:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <Maximize className="h-4 w-4 text-white drop-shadow" />
+                                                        </div>
+                                                    </button>
+                                                    ))}
+                                                </div>
+                                                <ScrollBar orientation="horizontal" />
+                                            </ScrollArea>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Right Column: Pricing & Details */}
                             <div className="lg:col-span-2 space-y-8">
@@ -2314,34 +2409,49 @@ export default function Home() {
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-1">
-                          {selectedProvider.gallery.map((img) => (
-                            <div key={img.id} className="border rounded-lg overflow-hidden bg-muted/10 flex flex-col relative group">
-                              <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
-                                <Image 
-                                  src={img.url} 
-                                  alt={img.altText || 'Work sample'} 
-                                  fill 
-                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                  unoptimized
-                                />
-                                {img.price && (
-                                  <div className="absolute bottom-1.5 left-1.5 bg-black/75 backdrop-blur-xs text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono">
-                                    Rs. {img.price}/{
-                                      img.unit === 'sqft' ? 'sqft' :
-                                      img.unit === 'sqmeter' ? 'sqmeter' :
-                                      img.unit === 'rft' ? 'rft' :
-                                      img.unit === 'piece' ? 'pc' : 'job'
-                                    }
+                          {selectedProvider.gallery.map((img, idx) => {
+                            const providerGallery = (selectedProvider.gallery || []).map((g, gIdx) => ({
+                              url: g.url,
+                              alt: g.altText || `${selectedProvider.name} — Work Sample ${gIdx + 1}`,
+                              caption: g.altText || `${selectedProvider.name} — Showcase ${gIdx + 1}`,
+                            }));
+                            return (
+                              <div
+                                key={img.id}
+                                onClick={() => openGallery(providerGallery, idx)}
+                                title="Click to view full screen"
+                                className="border rounded-lg overflow-hidden bg-muted/10 flex flex-col relative group cursor-pointer"
+                              >
+                                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                                  <Image
+                                    src={img.url}
+                                    alt={img.altText || 'Work sample'}
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                    unoptimized
+                                  />
+                                  <div className="absolute top-1.5 right-1.5 bg-black/65 backdrop-blur-xs text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Maximize className="h-3 w-3" />
                                   </div>
-                                )}
+                                  {img.price && (
+                                    <div className="absolute bottom-1.5 left-1.5 bg-black/75 backdrop-blur-xs text-indigo-400 border border-indigo-500/30 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono">
+                                      Rs. {img.price}/{
+                                        img.unit === 'sqft' ? 'sqft' :
+                                        img.unit === 'sqmeter' ? 'sqmeter' :
+                                        img.unit === 'rft' ? 'rft' :
+                                        img.unit === 'piece' ? 'pc' : 'job'
+                                      }
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-2 shrink-0">
+                                  <p className="text-[10px] font-semibold text-foreground truncate leading-normal">
+                                    {img.altText || 'Showcase Project'}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="p-2 shrink-0">
-                                <p className="text-[10px] font-semibold text-foreground truncate leading-normal">
-                                  {img.altText || 'Showcase Project'}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -2471,6 +2581,9 @@ export default function Home() {
           </motion.div>
         </div>
       )}
+
+      {/* AI Operations Manager Drawer (activated via #main-header-sale-ribbon AI Style button) */}
+      <FloatingAdminAiWidget hideFloatingButton={true} defaultFocusTarget="sale-ribbon" />
     </>
   );
 }

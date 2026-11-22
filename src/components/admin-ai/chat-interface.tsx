@@ -37,16 +37,24 @@ export interface ChatMessage {
 interface ChatInterfaceProps {
   className?: string;
   compact?: boolean;
+  focusTarget?: 'sale-ribbon' | null;
 }
 
-export function AdminAiChatInterface({ className = '', compact = false }: ChatInterfaceProps) {
+export function AdminAiChatInterface({
+  className = '',
+  compact = false,
+  focusTarget = null
+}: ChatInterfaceProps) {
   const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const isSaleRibbonFocus = focusTarget === 'sale-ribbon';
     return [
       {
         id: 'msg-welcome',
         role: 'model',
-        content: `**السلام علیکم!** میں **Stone Expert AI Operations Manager** ہوں۔\n\nآپ مجھے اپنی زبان (اردو یا انگریزی) میں کسی بھی کام کا حکم دے سکتے ہیں:\n* 📸 **سپلائر کی ریٹ لسٹ کی تصویر (Rate Sheet Photo)** اپلوڈ کریں اور بتائیں کہ یہ کس سپلائر کی ہے — میں پوری فہرست پڑھ کر **اسٹاک مینجمنٹ میں اس سپلائر کے ریٹس** اور **پوری ایپ کے کسٹمر ریٹس** ایک ساتھ اپ ڈیٹ کر دوں گا!\n* کسی ماربل یا کیمیکل کا **ریٹ تبدیل کرنا** یا **بلک ڈسکاؤنٹ** لگانا\n* کسی پروڈکٹ کو **In Stock یا Out of Stock** کرنا\n\n⚠️ **حفاظتی طریقہ کار (Safety Gate):** کوئی بھی ریٹ تبدیل کرنے سے پہلے میں آپ کو مکمل فہرست دکھا کر **اوکے / تائید (Confirm)** طلب کروں گا۔`,
+        content: isSaleRibbonFocus
+          ? `**السلام علیکم!** AI Operations Manager اب **مین ہیڈر سیل ربن (\`#main-header-sale-ribbon\`)** پر فوکسڈ ہے۔\n\nآپ نیچے کسی بھی فوری کمانڈ پر کلک کریں یا اپنی پسند کا **کلر گریڈینٹ، شیڈو / گلو، یا اینٹرنس اینیمیشن** لکھ کر بتائیں — میں لائیو پری ویو دکھا کر آپ کی تائید کے بعد فوراً لاگو کر دوں گا!`
+          : `**السلام علیکم!** میں **Stone Expert AI Operations Manager** ہوں۔\n\nآپ مجھے اپنی زبان (اردو یا انگریزی) میں کسی بھی کام کا حکم دے سکتے ہیں:\n* 🎨 **مین ہیڈر سیل بینر** کے رنگ (Gradients)، شیڈو (Shadows) یا اینٹرنس اینیمیشن تبدیل کرنا\n* 📸 **سپلائر کی ریٹ لسٹ کی تصویر (Rate Sheet Photo)** اپلوڈ کر کے ریٹس اپ ڈیٹ کرنا\n* کسی ماربل یا کیمیکل کا **ریٹ تبدیل کرنا** یا **بلک ڈسکاؤنٹ** لگانا\n\n⚠️ **حفاظتی طریقہ کار (Safety Gate):** کوئی بھی تبدیلی لاگو کرنے سے پہلے میں آپ سے **اوکے / تائید (Confirm)** طلب کروں گا۔`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     ];
@@ -246,25 +254,51 @@ export function AdminAiChatInterface({ className = '', compact = false }: ChatIn
     });
   };
 
-  const quickPrompts = [
-    {
-      label: "📸 ریٹ لسٹ تصویر اپلوڈ کریں",
-      isUploadTrigger: true,
-      prompt: ""
-    },
-    {
-      label: "المجید فیکٹری کے ریٹس ایپ پر لاگو کریں",
-      prompt: "المجید ماربل اینڈ گرینائٹ فیکٹری کی ریٹ لسٹ کے حساب سے پوری ایپ کے ریٹس اپ ڈیٹ کر دیں۔"
-    },
-    {
-      label: "زیارت وائٹ کا ریٹ بڑھاؤ",
-      prompt: "زیارت وائٹ ماربل کا ریٹ بڑھا کر 450 روپے فی مربع فٹ کر دو"
-    },
-    {
-      label: "10% سیل لگاؤ",
-      prompt: "تمام ماربلز پر 10 فیصد سیل لگا دو"
-    }
-  ];
+  const quickPrompts: Array<{ label: string; prompt: string; isUploadTrigger?: boolean }> =
+    focusTarget === 'sale-ribbon'
+      ? [
+          {
+            label: '✨ Royal Gold + Glow + Spring',
+            prompt:
+              'Apply royal-obsidian gold gradient, glow shadow, spring-drop entrance animation, and shimmer overlay to #main-header-sale-ribbon.'
+          },
+          {
+            label: '🌿 Emerald Gold + Shimmer',
+            prompt:
+              'Apply emerald-gold gradient, elevated shadow, shimmer-sweep entrance animation, and shimmer overlay to #main-header-sale-ribbon.'
+          },
+          {
+            label: '🔥 Sunset Copper + Dramatic Shadow',
+            prompt:
+              'Apply sunset-copper gradient, dramatic shadow, and fade-scale entrance animation to #main-header-sale-ribbon.'
+          },
+          {
+            label: '💎 Sapphire Gold + Slide Down',
+            prompt:
+              'Apply sapphire-gold gradient, glow shadow, and slide-down entrance animation to #main-header-sale-ribbon.'
+          }
+        ]
+      : [
+          {
+            label: '🎨 سیل بینر اسٹائل بدلیں',
+            prompt:
+              'مین ہیڈر سیل ربن (#main-header-sale-ribbon) پر شاہی گولڈ (royal-obsidian) گریڈینٹ، گلو شیڈو اور spring-drop اینیمیشن لگائیں۔'
+          },
+          {
+            label: '📸 ریٹ لسٹ تصویر اپلوڈ کریں',
+            isUploadTrigger: true,
+            prompt: ''
+          },
+          {
+            label: 'المجید فیکٹری کے ریٹس ایپ پر لاگو کریں',
+            prompt:
+              'المجید ماربل اینڈ گرینائٹ فیکٹری کی ریٹ لسٹ کے حساب سے پوری ایپ کے ریٹس اپ ڈیٹ کر دیں۔'
+          },
+          {
+            label: '10% سیل لگاؤ',
+            prompt: 'تمام ماربلز پر 10 فیصد سیل لگا دو'
+          }
+        ];
 
   return (
     <div className={`flex flex-col bg-background border rounded-2xl shadow-lg overflow-hidden ${className}`}>

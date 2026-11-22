@@ -19,9 +19,15 @@ import {
   PlusCircle,
   Trash2,
   FileSpreadsheet,
-  Store
+  Store,
+  Palette,
+  Flame
 } from 'lucide-react';
 import type { AdminActionProposal } from '@/app/api/admin-ai/chat/route';
+import {
+  normalizeSaleRibbonStyle,
+  resolveSaleRibbonInlineStyle
+} from '@/lib/sale-ribbon-style';
 
 interface ActionConfirmationCardProps {
   proposal: AdminActionProposal;
@@ -41,6 +47,13 @@ export function ActionConfirmationCard({
 
   // Interactive editable state for BULK_SUPPLIER_RATE_UPDATE
   const isBulkSupplierUpdate = proposal.actionType === 'BULK_SUPPLIER_RATE_UPDATE';
+  const isSaleRibbonStyleUpdate = proposal.actionType === 'UPDATE_SALE_RIBBON_STYLE';
+  const previewRibbonStyle = isSaleRibbonStyleUpdate
+    ? normalizeSaleRibbonStyle(proposal.payload || {})
+    : null;
+  const previewRibbonCss = previewRibbonStyle
+    ? resolveSaleRibbonInlineStyle(previewRibbonStyle)
+    : null;
   const [supplierName, setSupplierName] = useState<string>(
     proposal.payload?.supplierName || proposal.targetName || 'Marble Supplier'
   );
@@ -56,6 +69,8 @@ export function ActionConfirmationCard({
 
   const getActionIcon = () => {
     switch (proposal.actionType) {
+      case 'UPDATE_SALE_RIBBON_STYLE':
+        return <Palette className="h-4 w-4 text-amber-500" />;
       case 'BULK_SUPPLIER_RATE_UPDATE':
       case 'APPLY_SUPPLIER_MARKUP':
         return <FileSpreadsheet className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />;
@@ -127,6 +142,14 @@ export function ActionConfirmationCard({
       if (res.ok && data.success) {
         setStatus('applied');
         if (typeof window !== 'undefined') {
+          if (data.saleRibbonStyle) {
+            try {
+              localStorage.setItem('stone_expert_sale_ribbon_style', JSON.stringify(data.saleRibbonStyle));
+            } catch (e) {}
+            window.dispatchEvent(
+              new CustomEvent('sale_ribbon_style_updated', { detail: data.saleRibbonStyle })
+            );
+          }
           window.dispatchEvent(new CustomEvent('products_updated', { detail: data }));
         }
         onExecuted?.(data);
@@ -285,6 +308,36 @@ export function ActionConfirmationCard({
           </div>
         )}
 
+        {/* Live Preview for UPDATE_SALE_RIBBON_STYLE */}
+        {isSaleRibbonStyleUpdate && previewRibbonStyle && previewRibbonCss && (
+          <div className="space-y-2 rounded-lg border border-border/80 bg-background/90 p-2.5">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+              <span>Live Preview (#main-header-sale-ribbon)</span>
+              <span className="font-mono text-amber-600 dark:text-amber-400">
+                {previewRibbonStyle.gradientPreset} • {previewRibbonStyle.shadowLevel} • {previewRibbonStyle.entranceAnimation}
+              </span>
+            </div>
+            <div
+              className="w-full rounded-lg px-3 py-2 text-white flex items-center justify-between gap-2 border overflow-hidden relative"
+              style={{
+                backgroundImage: previewRibbonCss.backgroundImage,
+                boxShadow: previewRibbonCss.boxShadow,
+                borderColor: previewRibbonCss.borderColor,
+              }}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Flame className="h-3.5 w-3.5 text-amber-200 shrink-0" />
+                <span className="text-[11px] font-black truncate">
+                  {previewRibbonStyle.headlineUr || previewRibbonStyle.headlineEn || 'Special Discount Sale Live!'}
+                </span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-white text-slate-900 text-[10px] font-black shrink-0">
+                View Deals
+              </span>
+            </div>
+          </div>
+        )}
+
         {!isBulkSupplierUpdate && (proposal.previousValue || proposal.newValue) && (
           <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg bg-background/80 border border-border/60">
             {proposal.previousValue && (
@@ -342,18 +395,40 @@ export function ActionConfirmationCard({
               className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
               <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-              {isUrdu ? 'اوکے، تمام ریٹس اپ ڈیٹ کریں (Confirm)' : 'Confirm & Apply'}
+              {isSaleRibbonStyleUpdate
+                ? isUrdu
+                  ? 'اوکے، بینر اسٹائل لاگو کریں (Apply Style)'
+                  : 'Apply Banner Style'
+                : isUrdu
+                ? 'اوکے، تمام ریٹس اپ ڈیٹ کریں (Confirm)'
+                : 'Confirm & Apply'}
             </Button>
           </>
         ) : status === 'executing' ? (
           <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 py-1">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>{isUrdu ? 'سپلائر اور ایپ کے ریٹس اپ ڈیٹ ہو رہے ہیں...' : 'Updating supplier & app rates...'}</span>
+            <span>
+              {isSaleRibbonStyleUpdate
+                ? isUrdu
+                  ? 'سیل بینر پر نیا اسٹائل لاگو ہو رہا ہے...'
+                  : 'Applying sale banner style...'
+                : isUrdu
+                ? 'سپلائر اور ایپ کے ریٹس اپ ڈیٹ ہو رہے ہیں...'
+                : 'Updating supplier & app rates...'}
+            </span>
           </div>
         ) : status === 'applied' ? (
           <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 py-1">
             <CheckCircle2 className="h-4 w-4" />
-            <span>{isUrdu ? 'کامیابی سے سپلائر اور ایپ کے ریٹس اپ ڈیٹ ہو گئے!' : 'Successfully Applied & Synced!'}</span>
+            <span>
+              {isSaleRibbonStyleUpdate
+                ? isUrdu
+                  ? 'سیل بینر کا نیا اسٹائل کامیابی سے لاگو ہو گیا!'
+                  : 'Sale Banner Style Applied!'
+                : isUrdu
+                ? 'کامیابی سے سپلائر اور ایپ کے ریٹس اپ ڈیٹ ہو گئے!'
+                : 'Successfully Applied & Synced!'}
+            </span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground py-1">

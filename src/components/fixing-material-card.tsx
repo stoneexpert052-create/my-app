@@ -12,8 +12,9 @@ import {
 import { Button } from '@/components/ui/button';
 import type { FixingMaterial } from '@/lib/types';
 import { Badge } from './ui/badge';
-import { Tag, Calculator, Globe, Flame } from 'lucide-react';
+import { Tag, Calculator, Globe, Flame, Maximize2 } from 'lucide-react';
 import { formatSaleBadgeText } from '@/lib/utils';
+import { useFullscreenImage } from '@/context/fullscreen-image-context';
 import Link from 'next/link';
 import React from 'react';
 
@@ -23,6 +24,7 @@ interface FixingMaterialCardProps {
 }
 
 export const FixingMaterialCard = React.memo(function FixingMaterialCard({ material, onImageClick }: FixingMaterialCardProps) {
+  const { openImage } = useFullscreenImage();
   const isSale = !!(material.onSale || (typeof material.discount === 'number' && material.discount > 0));
   const discountVal = typeof material.discount === 'number' ? material.discount : 0;
   const discountedPrice = isSale
@@ -87,6 +89,21 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
             Click to View Details
           </span>
         </div>
+
+        {/* Quick Fullscreen Lightbox Button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openImage(material.imageUrl, material.name);
+          }}
+          title={`View ${material.name} full size`}
+          aria-label={`View ${material.name} full size`}
+          className="absolute bottom-3.5 right-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/65 text-white border border-white/15 backdrop-blur-xs shadow-md transition-all hover:bg-primary hover:text-primary-foreground hover:scale-105 cursor-pointer"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
 
         {/* Subtle Hover Overlay */}
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />

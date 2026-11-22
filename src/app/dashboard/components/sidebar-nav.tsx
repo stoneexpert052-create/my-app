@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
-import { Home, LayoutGrid, Package, ShoppingCart, LogOut, Settings, KeyRound, Users, PenSquare, Layers, Search, Hammer, Wrench, Building2, FileText, UserCheck, Lightbulb, Sparkles } from 'lucide-react';
+import { Home, LayoutGrid, Package, ShoppingCart, LogOut, Settings, KeyRound, Users, PenSquare, Layers, Search, Hammer, Wrench, Building2, FileText, UserCheck, Lightbulb, Sparkles, Scissors } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 const navItems = [
@@ -31,7 +31,7 @@ const navItems = [
   { href: '/dashboard/searches', icon: Search, label: 'Search Analytics' },
   { href: '/dashboard/orders', icon: ShoppingCart, label: 'Orders' },
   { href: '/dashboard/service-providers', icon: Users, label: 'Service Providers' },
-  { href: '/dashboard/manual-orders', icon: PenSquare, label: 'Manual Orders & Cutting Optimizer (مینوئل آرڈر و کٹنگ)' },
+  { href: '/dashboard/manual-orders', icon: Scissors, label: 'Cutting Optimizer & Manual Orders (کٹنگ آپٹیمائزر و آرڈر)', isOptimizer: true },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -66,6 +66,7 @@ export function DashboardSidebarNav() {
             const isBrochure = item.href === '/dashboard/brochure';
             const isStudio = item.href === '/dashboard/lampshade-studio';
             const isAi = (item as any).isAi || item.href === '/dashboard/ai-assistant';
+            const isOptimizer = (item as any).isOptimizer || item.href === '/dashboard/manual-orders';
             return (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
@@ -75,6 +76,8 @@ export function DashboardSidebarNav() {
                   className={
                     isAi
                       ? "bg-gradient-to-r from-amber-500/20 via-purple-500/10 to-amber-500/10 hover:from-amber-500/30 text-amber-950 dark:text-amber-200 font-black border border-amber-500/40 shadow-xs"
+                      : isOptimizer
+                      ? "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-950 dark:text-emerald-200 font-bold border border-emerald-500/35 shadow-xs"
                       : isStudio 
                       ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-300 font-bold border border-amber-500/35" 
                       : isBrochure 
@@ -84,12 +87,16 @@ export function DashboardSidebarNav() {
                 >
                   <Link href={item.href} className="flex items-center w-full justify-between">
                     <div className="flex items-center gap-2">
-                      <item.icon className={isAi ? "text-amber-500 animate-pulse font-black" : isStudio || isBrochure ? "text-amber-600 dark:text-amber-400 font-bold" : undefined} />
+                      <item.icon className={isAi ? "text-amber-500 animate-pulse font-black" : isOptimizer ? "text-emerald-600 dark:text-emerald-400 font-bold" : isStudio || isBrochure ? "text-amber-600 dark:text-amber-400 font-bold" : undefined} />
                       <span>{item.label}</span>
                     </div>
                     {isAi ? (
                       <span className="text-[10px] bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs flex items-center gap-1">
                         AI
+                      </span>
+                    ) : isOptimizer ? (
+                      <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                        PRO
                       </span>
                     ) : isStudio ? (
                       <span className="text-[10px] bg-gradient-to-r from-amber-600 to-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">

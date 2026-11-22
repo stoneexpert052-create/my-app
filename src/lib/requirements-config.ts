@@ -21,6 +21,5 @@ export const requirementOptions: { label: string; value: RequirementType; icon: 
     { label: 'Stairs', value: 'stairs', icon: DraftingCompass },
     { label: 'Kitchen', value: 'kitchen', icon: ChefHat },
     { label: 'Vanity', value: 'vanity', icon: VenetianMask },
-    { label: 'Cutting Optimizer (سلیب کٹنگ)', value: 'cutting-optimizer', icon: Scissors },
     { label: 'Labor Quote', value: 'labor_quote', icon: Briefcase },
 ];

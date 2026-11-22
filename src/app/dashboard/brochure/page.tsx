@@ -23,21 +23,29 @@ import {
   Tag,
   Coins,
   QrCode as QrIcon,
-  CheckCircle2
+  CheckCircle2,
+  CalendarClock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { CompanyBrochure } from '@/components/company-brochure';
 import { PriceListBrochure } from '@/components/price-list-brochure';
+import { SocialAutoPostScheduler } from '@/components/social-autopost-scheduler';
 import { getPublicOrigin } from '@/lib/utils';
 import config from '@/lib/config.json';
 
 function DashboardBrochureContent() {
   const searchParams = useSearchParams();
-  const initialType = searchParams.get('type') === 'price-list' ? 'price-list' : 'company';
+  const rawInitial = searchParams.get('type');
+  const initialType: 'company' | 'price-list' | 'social-scheduler' =
+    rawInitial === 'price-list'
+      ? 'price-list'
+      : rawInitial === 'social-scheduler'
+      ? 'social-scheduler'
+      : 'company';
 
-  const [activeBrochure, setActiveBrochure] = useState<'company' | 'price-list'>(initialType);
+  const [activeBrochure, setActiveBrochure] = useState<'company' | 'price-list' | 'social-scheduler'>(initialType);
   const [mounted, setMounted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -49,6 +57,8 @@ function DashboardBrochureContent() {
     const paramType = searchParams.get('type');
     if (paramType === 'price-list') {
       setActiveBrochure('price-list');
+    } else if (paramType === 'social-scheduler') {
+      setActiveBrochure('social-scheduler');
     } else if (paramType === 'company') {
       setActiveBrochure('company');
     }
@@ -72,49 +82,54 @@ function DashboardBrochureContent() {
     const storeUrl = typeof window !== 'undefined' ? (getPublicOrigin() || window.location.origin) : 'https://stoneexpert.net';
 
     if (activeBrochure === 'price-list') {
-      return `🏛️ *Stone Expert (سٹون ایکسپرٹ) - آفیشل ماربل و گرینائٹ ریٹ لسٹ و بروشر*
+      return `🏛️ *Stone Expert (سٹون ایکسپرٹ) - Official Marble & Granite Price List Brochure / آفیشل ریٹ لسٹ و بروشر*
 
-پاکستان کے سب سے بڑے ڈیجیٹل اسٹون نیٹ ورک سے براہِ راست فیکٹری ریٹس پر ماربل و گرینائٹ دستیاب ہیں۔
+Direct factory rates for premium marble & granite from Pakistan's trusted digital stone network.
+پاکستان کے قابلِ اعتماد ڈیجیٹل اسٹون نیٹ ورک سے براہِ راست فیکٹری ریٹس پر ماربل و گرینائٹ دستیاب ہیں۔
 
-💰 *پرائس لسٹ و مٹیریل ورائٹی:*
-• امپورٹڈ گرینائٹ (24", 36", 48", 52" - Egypt Green, Emerald Pearl, Blue Pearl, Silver Pearl, Baltic Brown)
-• پاکستانی و لوکل ماربل (زیارت وائٹ، بادل، سنی گرے، بلیک اینڈ گولڈ، انڈس گولڈ)
-• سل بَٹہ، چوکھٹ و کچن کاؤنٹرز
-• گینگ سا امپورٹڈ سلیبز (Ice White, Kolkata Gold, Panda White, Fish Belly)
-• ٹائل بانڈ، ماربل کیمیکل، ایپوکسی و فکسنگ لوازمات
+💰 *Product Range / پرائس لسٹ و مٹیریل ورائٹی:*
+• Imported Granite / امپورٹڈ گرینائٹ (24", 36", 48", 52" - Egypt Green, Emerald Pearl, Blue Pearl, Silver Pearl, Baltic Brown)
+• Pakistani & Local Marble / پاکستانی و لوکل ماربل (Ziarat White, Badal, Sunny Grey, Black & Gold, Indus Gold)
+• Silbata, Doorframes & Kitchen Counters / سل بَٹہ، چوکھٹ و کچن کاؤنٹرز
+• Gangsaw Imported Slabs / گینگ سا امپورٹڈ سلیبز (Ice White, Kolkata Gold, Panda White, Fish Belly)
+• Tile Bond, Marble Chemicals & Fixing Supplies / ٹائل بانڈ، ماربل کیمیکل و فکسنگ لوازمات
 
-📲 *بروشر پر موجود QR کوڈ اسکین کر کے براہِ راست ہماری ویب ایپ پر جائیں اور آن لائن آرڈر تیار کریں۔*
+📲 *Scan the QR code on the brochure to open our live web app & order online.*
+بروشر پر موجود QR کوڈ اسکین کر کے براہِ راست ہماری ویب ایپ پر جائیں اور آن لائن آرڈر تیار کریں۔
 
-📄 *مکمل پرائس لسٹ بروشر اور ریٹس یہاں دیکھیں:*
+📄 *View Complete Price List Brochure / مکمل پرائس لسٹ بروشر یہاں دیکھیں:*
 ${url}
 
-🌐 *آن لائن ویب ایپ وزٹ کریں:*
+🌐 *Online Web App / آن لائن ویب ایپ:*
 ${storeUrl}
 
-📞 *رابطہ و واٹس ایپ آرڈر:* ${businessPhone}
-📍 مین جی ٹی روڈ، راولپنڈی / اسلام آباد`;
+📞 *Contact & WhatsApp Order / رابطہ و واٹس ایپ:* ${businessPhone}
+📍 *Head Office / مرکزی دفتر:* Plot # 375-A, Potohar Road, I-9/3, Islamabad
+📍 پلاٹ نمبر 375-A، پوٹھوہار روڈ، آئی نائن تھری (I-9/3)، اسلام آباد`;
     }
 
-    return `🏛️ *Stone Expert (سٹون ایکسپرٹ) - کمپنی تعارف و بروشر*
+    return `🏛️ *Stone Expert (سٹون ایکسپرٹ) - Official Company Profile & Brochure / کمپنی تعارف و بروشر*
 
-پاکستان کا سب سے بڑا ڈیجیٹل ماربل، گرینائٹ اور کنسٹرکشن فنشنگ نیٹ ورک۔
+Pakistan's trusted digital network for marble, granite, fixing materials & construction solutions.
+پاکستان کا قابلِ اعتماد ڈیجیٹل ماربل، گرینائٹ اور کنسٹرکشن فنشنگ نیٹ ورک۔
 
-✨ *ہماری اہم خدمات و مصنوعات:*
-• تمام اقسام کے لوکل و امپورٹڈ ماربل (زیارت وائٹ، بادل، سنی گرے، بلیک اینڈ گولڈ)
-• امپورٹڈ و لوکل گرینائٹ (بلیک گلیکسی، تپنو، بیلا گرے)
-• اپنا گھر بنائیں (Build Your Home) ماربل و ٹائلز پیکیجز
-• آن لائن ریٹ لسٹ اور فری کاسٹ ایسٹیمیٹر
-• فکسنگ میٹریل، ٹائل بانڈ اور کیمیکلز
-• تصدیق شدہ کاریگر (فکسنگ و پالشنگ ایکسپرٹس)
+✨ *Core Services & Products / ہماری اہم خدمات و مصنوعات:*
+• Local & Imported Marble / لوکل و امپورٹڈ ماربل (Ziarat White, Badal, Sunny Grey, Black & Gold)
+• Imported & Local Granite / امپورٹڈ و لوکل گرینائٹ (Black Galaxy, Tapno, Bela Grey)
+• Build Your Home Packages / اپنا گھر بنائیں ماربل و ٹائلز پیکیجز
+• Daily Live Rate List & Free Cost Estimator / آن لائن ریٹ لسٹ اور فری کاسٹ ایسٹیمیٹر
+• Fixing Materials, Tile Bond & Chemicals / فکسنگ میٹریل، ٹائل بانڈ اور کیمیکلز
+• Verified Artisans & Fixing Experts / تصدیق شدہ کاریگر (فکسنگ و پالشنگ ایکسپرٹس)
 
-📄 *مکمل ڈیجیٹل بروشر اور پی ڈی ایف یہاں دیکھیں:*
+📄 *View Digital Brochure & PDF / مکمل ڈیجیٹل بروشر یہاں دیکھیں:*
 ${url}
 
-🌐 *آن لائن ویب سائٹ:*
+🌐 *Online Website / آن لائن ویب سائٹ:*
 ${storeUrl}
 
-📞 *رابطہ و واٹس ایپ:* ${businessPhone}
-📍 مین جی ٹی روڈ، راولپنڈی / اسلام آباد`;
+📞 *Contact & WhatsApp / رابطہ و واٹس ایپ:* ${businessPhone}
+📍 *Head Office / مرکزی دفتر:* Plot # 375-A, Potohar Road, I-9/3, Islamabad
+📍 پلاٹ نمبر 375-A، پوٹھوہار روڈ، آئی نائن تھری (I-9/3)، اسلام آباد`;
   };
 
   // Download PDF Handler
@@ -279,26 +294,44 @@ ${storeUrl}
 
         {/* TOP QUICK ACTION BUTTONS */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Download PDF Button */}
-          <Button 
-            onClick={handleDownloadPdf} 
-            disabled={isGeneratingPdf}
-            className={`${activeBrochure === 'price-list' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'} text-white shadow-md font-semibold gap-2`}
+          {/* Quick Social Auto-Post Button */}
+          <Button
+            type="button"
+            onClick={() =>
+              setActiveBrochure(activeBrochure === 'social-scheduler' ? 'price-list' : 'social-scheduler')
+            }
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md font-bold gap-2"
           >
-            {isGeneratingPdf ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>پی ڈی ایف تیار ہو رہی ہے...</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                <span>
-                  {activeBrochure === 'price-list' ? 'پرائس لسٹ PDF ڈاؤنلوڈ' : 'کمپنی بروشر PDF ڈاؤنلوڈ'}
-                </span>
-              </>
-            )}
+            <CalendarClock className="w-4 h-4" />
+            <span>
+              {activeBrochure === 'social-scheduler'
+                ? 'بروشر ویو پر جائیں'
+                : 'روزانہ آٹو پوسٹ شیڈولر'}
+            </span>
           </Button>
+
+          {/* Download PDF Button (when viewing a brochure) */}
+          {activeBrochure !== 'social-scheduler' && (
+            <Button 
+              onClick={handleDownloadPdf} 
+              disabled={isGeneratingPdf}
+              className={`${activeBrochure === 'price-list' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'} text-white shadow-md font-semibold gap-2`}
+            >
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>پی ڈی ایف تیار ہو رہی ہے...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>
+                    {activeBrochure === 'price-list' ? 'پرائس لسٹ PDF ڈاؤنلوڈ' : 'کمپنی بروشر PDF ڈاؤنلوڈ'}
+                  </span>
+                </>
+              )}
+            </Button>
+          )}
 
           {/* WhatsApp Share Button */}
           <Button 
@@ -354,8 +387,8 @@ ${storeUrl}
       </div>
 
       {/* ================= BROCHURE TYPE TOGGLE SWITCHER ================= */}
-      <div className="bg-slate-100 dark:bg-slate-900/80 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+      <div className="bg-slate-100 dark:bg-slate-900/80 p-2 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           <Button
             type="button"
             variant={activeBrochure === 'company' ? 'default' : 'ghost'}
@@ -367,7 +400,7 @@ ${storeUrl}
             }`}
           >
             <Building2 className="w-4 h-4" />
-            <span>1. کمپنی تعارف بروشر (Company Profile)</span>
+            <span>1. کمپنی تعارف (Company Profile)</span>
           </Button>
 
           <Button
@@ -381,16 +414,36 @@ ${storeUrl}
             }`}
           >
             <Tag className="w-4 h-4" />
-            <span>2. پرائس لسٹ بروشر مع QR کوڈ (Price List & QR)</span>
-            <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.2 rounded-full uppercase">NEW</span>
+            <span>2. پرائس لسٹ مع QR (Price List)</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant={activeBrochure === 'social-scheduler' ? 'default' : 'ghost'}
+            onClick={() => setActiveBrochure('social-scheduler')}
+            className={`flex-1 sm:flex-initial gap-2 font-bold text-xs sm:text-sm h-10 ${
+              activeBrochure === 'social-scheduler'
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+            }`}
+          >
+            <CalendarClock className="w-4 h-4" />
+            <span>3. روزانہ سوشل آٹو پوسٹ (Auto-Post Scheduler)</span>
+            <span className="text-[10px] bg-amber-400 text-slate-950 font-black px-1.5 py-0.2 rounded-full uppercase">AUTO</span>
           </Button>
         </div>
 
         <div className="text-xs text-muted-foreground px-2 flex items-center gap-1.5">
-          <QrIcon className="w-4 h-4 text-emerald-600" />
+          {activeBrochure === 'social-scheduler' ? (
+            <CalendarClock className="w-4 h-4 text-indigo-600 shrink-0" />
+          ) : (
+            <QrIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+          )}
           <span>
-            {activeBrochure === 'price-list' 
-              ? 'بروشر کے اوپر ویب ایپ کا اسکین کیو آر کوڈ موجود ہے' 
+            {activeBrochure === 'social-scheduler'
+              ? 'روزانہ مقررہ اوقات پر ریٹس، خصوصی پتھر اور ڈسکاؤنٹ پوسٹس شیڈول کریں'
+              : activeBrochure === 'price-list'
+              ? 'بروشر کے اوپر ویب ایپ کا اسکین کیو آر کوڈ موجود ہے'
               : 'کمپنی پروفائل اور سروسز ویو'}
           </span>
         </div>
@@ -466,31 +519,35 @@ ${storeUrl}
         </CardContent>
       </Card>
 
-      {/* ================= LIVE BROCHURE PREVIEW CONTAINER ================= */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>
-              {activeBrochure === 'price-list' 
-                ? 'پرائس لسٹ بروشر کا لائیو پریویو (Live Price List & QR Preview)'
-                : 'کمپنی بروشر کا لائیو پریویو (Live Company Profile Preview)'}
+      {/* ================= ACTIVE CONTENT AREA ================= */}
+      {activeBrochure === 'social-scheduler' ? (
+        <SocialAutoPostScheduler />
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>
+                {activeBrochure === 'price-list' 
+                  ? 'پرائس لسٹ بروشر کا لائیو پریویو (Live Price List & QR Preview)'
+                  : 'کمپنی بروشر کا لائیو پریویو (Live Company Profile Preview)'}
+              </span>
+            </h2>
+            <span className="text-xs text-muted-foreground font-medium">
+              A4 سائز ہائی کوالٹی فارمیٹ
             </span>
-          </h2>
-          <span className="text-xs text-muted-foreground font-medium">
-            A4 سائز ہائی کوالٹی فارمیٹ
-          </span>
-        </div>
+          </div>
 
-        {/* Document Rendering Frame */}
-        <div className="p-2 sm:p-6 bg-slate-200 dark:bg-slate-900/60 rounded-2xl border border-slate-300 dark:border-slate-800">
-          {activeBrochure === 'price-list' ? (
-            <PriceListBrochure id="stone-expert-price-list-sheet" />
-          ) : (
-            <CompanyBrochure id="stone-expert-brochure-sheet" />
-          )}
+          {/* Document Rendering Frame */}
+          <div className="p-2 sm:p-6 bg-slate-200 dark:bg-slate-900/60 rounded-2xl border border-slate-300 dark:border-slate-800">
+            {activeBrochure === 'price-list' ? (
+              <PriceListBrochure id="stone-expert-price-list-sheet" />
+            ) : (
+              <CompanyBrochure id="stone-expert-brochure-sheet" />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }

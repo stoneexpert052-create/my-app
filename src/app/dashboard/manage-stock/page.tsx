@@ -52,12 +52,16 @@ import {
   applyBulkSaleDiscount,
   clearBulkSaleDiscount,
   applySupplierMarkupToApp,
-  getAlMajeedRates
+  getAlMajeedRates,
+  getSupplierApplications,
+  approveSupplierApplication,
+  rejectSupplierApplication
 } from '@/lib/admin-actions';
 import { SupplierRateSheetMatrix } from '@/components/supplier-rate-sheet-matrix';
 import type { Marble, FixingMaterial } from '@/lib/types';
-import type { Supplier, SupplierRate, SupplierProposal, SupplierRateRequest } from '@/lib/admin-actions';
+import type { Supplier, SupplierRate, SupplierProposal, SupplierRateRequest, SupplierApplication } from '@/lib/admin-actions';
 import { getPublicOrigin, cn, formatSaleBadgeText } from '@/lib/utils';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 import { 
   Plus, 
   Eye, 
@@ -97,11 +101,15 @@ import {
   KeyRound,
   Flame,
   Tag,
-  Camera
+  Camera,
+  Handshake,
+  Scissors,
+  Building2
 } from 'lucide-react';
 
 export default function ManageStockPage() {
   const { toast } = useToast();
+  const { openGallery } = useFullscreenImage();
   
   // High-level filter state
   const [productCategory, setProductCategory] = useState<'marbles' | 'fixing_materials' | 'on_sale'>('marbles');
@@ -131,6 +139,14 @@ export default function ManageStockPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [proposals, setProposals] = useState<SupplierProposal[]>([]);
   const [rateRequests, setRateRequests] = useState<SupplierRateRequest[]>([]);
+  const [partnerApplications, setPartnerApplications] = useState<SupplierApplication[]>([]);
+  const [appCustomPins, setAppCustomPins] = useState<Record<string, string>>({});
+  const [approvingAppId, setApprovingAppId] = useState<string | null>(null);
+  const [approvedPartnerBanner, setApprovedPartnerBanner] = useState<{
+    name: string;
+    phone: string;
+    pin: string;
+  } | null>(null);
   
   // Loading & Action States
   const [loading, setLoading] = useState(true);
@@ -156,20 +172,26 @@ export default function ManageStockPage() {
     accessPassword: '',
     status: 'active' as 'active' | 'inactive',
     materialsSupplied: [] as string[],
-    allowedCategories: ['Marble', 'Granite'] as string[]
+    allowedCategories: ['Marble', 'Granite'] as string[],
+    allowCuttingOptimizer: true
   });
 
-  // Quick Add Supplier & Restricted Link Generation States
+  // Quick Add Supplier & Universal Link + Password States
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false);
   const [quickSupplierName, setQuickSupplierName] = useState('');
   const [quickSupplierPhone, setQuickSupplierPhone] = useState('');
+  const [quickSupplierPassword, setQuickSupplierPassword] = useState('');
   const [quickAllowedCategories, setQuickAllowedCategories] = useState<string[]>(['Marble', 'Granite']);
+  const [quickAllowCuttingOptimizer, setQuickAllowCuttingOptimizer] = useState<boolean>(true);
   const [quickGeneratedResult, setQuickGeneratedResult] = useState<{
     supplier: Supplier;
     shareUrl: string;
     allowedCategories: string[];
   } | null>(null);
   const [copiedQuickLink, setCopiedQuickLink] = useState(false);
+
+  // Per-proposal inline App Selling Rate inputs (PKR)
+  const [proposalSellingPrices, setProposalSellingPrices] = useState<Record<string, string>>({});
 
   // Dynamic categories synced with global settings
   const [dynamicCategories, setDynamicCategories] = useState<{ id: string; labelEn: string; labelUr: string }[]>(() => APP_PRODUCT_CATEGORIES);
@@ -246,22 +268,21 @@ export default function ManageStockPage() {
       const res = await createQuickSupplier({
         name: quickSupplierName.trim(),
         phone: quickSupplierPhone.trim(),
-        allowedCategories: quickAllowedCategories
+        allowedCategories: quickAllowedCategories,
+        accessPassword: quickSupplierPassword.trim() || undefined,
+        allowCuttingOptimizer: quickAllowCuttingOptimizer
       });
 
       if (res.success && res.supplier) {
-        const primaryCat = (res.supplier.allowedCategories && res.supplier.allowedCategories.length === 1) 
-          ? res.supplier.allowedCategories[0] 
-          : 'All';
-        const absoluteUrl = getVendorShareUrl(res.supplier.id, primaryCat, res.supplier.accessPassword);
+        const universalUrl = getUniversalVendorUrl();
         setQuickGeneratedResult({
           supplier: res.supplier,
-          shareUrl: absoluteUrl,
+          shareUrl: universalUrl,
           allowedCategories: res.supplier.allowedCategories || quickAllowedCategories
         });
         toast({
-          title: "Supplier Created & Link Ready! 🔗",
-          description: `سپلائر "${res.supplier.name}" کامیابی سے رجسٹر ہو گیا ہے اور مکمل پورٹل لنک تیار ہے۔`
+          title: "سپلائر رجسٹر ہو گیا اور پاسورڈ تیار ہے! 🔑",
+          description: `"${res.supplier.name}" کا پاسورڈ (${res.supplier.accessPassword}) بن گیا ہے۔ سنگل پورٹل لنک شیئر کریں۔`
         });
         fetchData();
       } else {
@@ -283,81 +304,51 @@ export default function ManageStockPage() {
     }
   };
 
-  // Compute active base origin for external sharing
+  // Compute active base origin for external sharing (always defaults to stoneexpert.net)
   const getActiveShareOrigin = () => {
-    if (typeof window === 'undefined') return 'https://stoneexpert.net';
     if (shareDomainMode === 'custom' && customShareDomain.trim()) {
       return customShareDomain.trim().replace(/\/+$/, '');
     }
-    // Return real working window origin directly so links work across all external devices
-    return window.location.origin;
+    return getPublicOrigin();
   };
 
-  // Helper functions for vendor portal sharing
-  const getVendorShareUrl = (supplierId: string, category: string = 'All', pin?: string) => {
-    const origin = getActiveShareOrigin();
-    const params = new URLSearchParams();
-    if (category && category !== 'All') {
-      params.set('category', category);
-    }
-    if (pin) {
-      params.set('pin', pin);
-    }
-    const queryString = params.toString() ? `?${params.toString()}` : '';
-    return `${origin}/supplier/${encodeURIComponent(supplierId)}${queryString}`;
-  };
-
+  // Single Universal Supplier Portal URL for ALL suppliers
   const getUniversalVendorUrl = () => {
     return `${getActiveShareOrigin()}/supplier`;
-  };
-
-  const handleCopyVendorLink = (supplier: Supplier, category: string = 'All', includePin: boolean = true) => {
-    const primaryCat = (supplier.allowedCategories && supplier.allowedCategories.length === 1) 
-      ? supplier.allowedCategories[0] 
-      : category;
-    const password = supplier.accessPassword || '7861';
-    const url = getVendorShareUrl(supplier.id, primaryCat, includePin ? password : undefined);
-    navigator.clipboard.writeText(url);
-    toast({
-      title: "وینڈر پورٹل لنک کاپی ہو گیا! 📋",
-      description: `Direct portal link for "${supplier.name}" copied to clipboard.`,
-    });
   };
 
   const handleCopyUniversalLinkWithPassword = (supplier: Supplier) => {
     const universalUrl = getUniversalVendorUrl();
     const password = supplier.accessPassword || '7861';
-    const textToCopy = `اسٹون ایکسپرٹ محفوظ سپلائر پورٹل:\n🔗 پورٹل لنک: ${universalUrl}\n🔑 آپ کا پاسورڈ / PIN: ${password}\n\nاس لنک کو کھولیں اور اپنا پن درج کر کے اپنے ماربل، اسٹاک اور ریٹس براہ راست اپلوڈ کریں۔`;
+    const textToCopy = `اسٹون ایکسپرٹ سپلائر پورٹل (Stone Expert Supplier Portal)\n\n🔗 پورٹل لنک: ${universalUrl}\n🔑 آپ کا پاسورڈ / PIN: ${password}\n\nلنک کھولیں، اپنا پاسورڈ درج کریں، پہلی دفعہ اپنی فیکٹری کی تفصیلات و تصویر لگائیں اور اپنے مٹیریل، ریٹس اور تصاویر اپلوڈ کر کے سبمٹ کر دیں۔`;
     navigator.clipboard.writeText(textToCopy);
     toast({
-      title: "لنک اور پاسورڈ کاپی ہو گیا! 📋",
-      description: `Universal portal link & PIN (${password}) copied to clipboard.`,
+      title: "سنگل لنک اور پاسورڈ کاپی ہو گیا! 📋",
+      description: `${universalUrl} اور پاسورڈ (${password}) کلپ بورڈ پر کاپی ہو گئے۔`,
     });
   };
 
-  const handleSendVendorWhatsApp = (supplier: Supplier, category: string = 'All') => {
+  const handleSendVendorWhatsApp = (supplier: Supplier) => {
     const universalUrl = getUniversalVendorUrl();
-    const primaryCat = (supplier.allowedCategories && supplier.allowedCategories.length === 1) 
-      ? supplier.allowedCategories[0] 
-      : category;
     const password = supplier.accessPassword || '7861';
-    
-    // Direct link with PIN so recipient never gets locked out or encounters not found
-    const autoUnlockUrl = getVendorShareUrl(supplier.id, primaryCat, password);
-    const standardUrl = getVendorShareUrl(supplier.id, primaryCat);
-    
-    const allowedText = (supplier.allowedCategories && supplier.allowedCategories.length > 0 && !supplier.allowedCategories.includes('All'))
-      ? `\n\nآپ کی رسائی مندرجہ ذیل کیٹگریز کے لیے مخصوص ہے:\n• ${supplier.allowedCategories.join('\n• ')}`
+
+    const safeAllowed = Array.isArray(supplier.allowedCategories)
+      ? supplier.allowedCategories
+      : typeof supplier.allowedCategories === 'string'
+        ? String(supplier.allowedCategories).split(',').map(s => s.trim()).filter(Boolean)
+        : [];
+    const allowedText = (safeAllowed.length > 0 && !safeAllowed.includes('All'))
+      ? `\n\nمجاز کیٹگریز:\n• ${safeAllowed.join('\n• ')}`
       : '';
 
-    const text = `السلام علیکم ${supplier.name} صاحب،\n\nاسٹون ایکسپرٹ (Stone Expert) کا محفوظ سپلائر و وینڈر پورٹل:\n\n👉 براہِ راست 1-کلک لاگ ان لنک:\n${autoUnlockUrl}\n\n👉 یا سنگل پورٹل لنک:\n${universalUrl}\n🔑 آپ کا لاگ ان پاسورڈ / PIN: ${password}\n\n(سادہ ڈائریکٹ لنک: ${standardUrl})${allowedText}\n\nبراہ کرم اس لنک کو کھولیں اور اپنے تمام ریٹس، نیا ماربل و میٹریل اسٹاک اور تصاویر براہ راست اپلوڈ کریں۔\n\nشکریہ،\nاسٹون ایکسپرٹ مینجمنٹ`;
-    
+    const text = `السلام علیکم ${supplier.name}،\n\nاسٹون ایکسپرٹ (Stone Expert) کا سپلائر پورٹل لنک:\n\n🔗 پورٹل لنک (سب سپلائرز کے لیے ایک ہی لنک):\n${universalUrl}\n\n🔑 آپ کا مخصوص پاسورڈ / PIN:\n${password}${allowedText}\n\nطریقہ کار:\n1. لنک کھولیں اور اپنا پاسورڈ درج کریں۔\n2. پہلی بار اپنی فیکٹری کا نام، تصویر، فون نمبر اور ایڈریس درج کریں۔\n3. اپنے مٹیریل، ریٹ اور تصاویر شامل کر کے سبمٹ (Submit) کر دیں۔\n\nشکریہ،\nاسٹون ایکسپرٹ مینجمنٹ`;
+
     const cleanPhone = (supplier.phone || '').replace(/[^0-9]/g, '');
     let formattedPhone = cleanPhone;
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '92' + formattedPhone.slice(1);
     }
-    const waUrl = formattedPhone.length >= 10 
+    const waUrl = formattedPhone.length >= 10
       ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(text)}`
       : `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
@@ -408,18 +399,20 @@ export default function ManageStockPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [marblesData, fixingData, suppliersData, proposalsData, rateRequestsData] = await Promise.all([
+      const [marblesData, fixingData, suppliersData, proposalsData, rateRequestsData, applicationsData] = await Promise.all([
         getMarbles(),
         getFixingMaterials(),
         getSuppliers(),
         getSupplierProposals(),
-        getSupplierRateRequests()
+        getSupplierRateRequests(),
+        getSupplierApplications()
       ]);
       setMarbles(marblesData || []);
       setFixingMaterials(fixingData || []);
       setSuppliers(suppliersData || []);
       setProposals(proposalsData || []);
       setRateRequests(rateRequestsData || []);
+      setPartnerApplications(applicationsData || []);
       
       if (suppliersData && suppliersData.length > 0) {
         setSelectedSupplier(suppliersData[0]);
@@ -436,22 +429,31 @@ export default function ManageStockPage() {
     }
   };
 
-  // Find all rates and suppliers for a specific material/variant combination
+  // Find all active rates and active suppliers for a specific material/variant combination
   const getMaterialSupplierRates = (materialId: string, variantId?: string) => {
     const targetId = variantId ? `${materialId}_${variantId}` : materialId;
-    const results: { supplierName: string; rate: number; supplierId: string }[] = [];
-    
+    const results: { supplierName: string; rate: number; supplierId: string; rateMaterialId: string }[] = [];
+    const seenSuppliers = new Set<string>();
+
     suppliers.forEach(sup => {
-      if (sup.rates) {
-        sup.rates.forEach(r => {
-          if (r.materialId === targetId) {
-            results.push({
-              supplierName: sup.name,
-              rate: r.rate,
-              supplierId: sup.id
-            });
-          }
-        });
+      if (sup.status === 'inactive') return;
+      if (sup.rates && sup.rates.length > 0) {
+        const matchedRate = sup.rates.find(
+          r =>
+            r.status !== 'paused' &&
+            typeof r.rate === 'number' &&
+            r.rate > 0 &&
+            (r.materialId === targetId || (!!variantId && r.materialId === variantId))
+        );
+        if (matchedRate && !seenSuppliers.has(sup.id)) {
+          seenSuppliers.add(sup.id);
+          results.push({
+            supplierName: sup.name,
+            rate: matchedRate.rate,
+            supplierId: sup.id,
+            rateMaterialId: matchedRate.materialId
+          });
+        }
       }
     });
     return results;
@@ -645,6 +647,7 @@ export default function ManageStockPage() {
       updatedRates[rateIndex] = {
         ...updatedRates[rateIndex],
         rate: newRateValue,
+        status: 'active',
         lastUpdated: new Date().toISOString()
       };
     } else {
@@ -669,6 +672,7 @@ export default function ManageStockPage() {
         materialName,
         materialType: vId ? 'marble' : 'fixing_material',
         rate: newRateValue,
+        status: 'active',
         lastUpdated: new Date().toISOString()
       });
     }
@@ -774,17 +778,21 @@ export default function ManageStockPage() {
     }
   };
 
-  // Supplier Proposals Handlers
-  const handleApproveProposalClick = async (proposalId: string) => {
+  // Supplier Proposals Handlers (with inline App Selling Rate & Existing vs. NEW Product detection)
+  const handleApproveProposalClick = async (proposalId: string, customSellingPrice?: number) => {
     setSubmitting(true);
     try {
-      const res = await approveSupplierProposal(proposalId);
+      const res = await approveSupplierProposal(proposalId, customSellingPrice);
       if (res.success) {
+        const finalPriceLabel = res.sellingPrice ? ` (ایپ ریٹ: Rs ${res.sellingPrice.toLocaleString()})` : '';
         toast({
-          title: "Proposal Approved Successfully!",
-          description: "New product has been generated in the database and linked to this wholesaler.",
+          title: res.isNewProduct
+            ? "✨ نیا پروڈکٹ ایپ میں شامل ہو گیا!"
+            : "✅ موجودہ پروڈکٹ کے ساتھ سپلائر ریٹ لنک ہو گیا!",
+          description: res.isNewProduct
+            ? `"${res.productName}" بطور نیا پروڈکٹ ایپ میں خودکار شامل کر دیا گیا ہے${finalPriceLabel}۔`
+            : `"${res.productName}" پہلے سے موجود تھا — اصل پروڈکٹ برقرار رکھتے ہوئے سپلائر ریٹ منسلک کر دیا گیا${finalPriceLabel}۔`,
         });
-        // Refresh all data
         fetchData();
       } else {
         toast({
@@ -867,7 +875,8 @@ export default function ManageStockPage() {
       accessPassword: randomPin,
       status: 'active',
       materialsSupplied: ['marble'],
-      allowedCategories: ['Marble', 'Granite']
+      allowedCategories: ['Marble', 'Granite'],
+      allowCuttingOptimizer: true
     });
     setIsSupplierModalOpen(true);
   };
@@ -882,12 +891,39 @@ export default function ManageStockPage() {
       address: sup.address || '',
       accessPassword: sup.accessPassword || '7861',
       status: sup.status || 'active',
-      materialsSupplied: sup.materialsSupplied || [],
-      allowedCategories: sup.allowedCategories && sup.allowedCategories.length > 0 
+      materialsSupplied: Array.isArray(sup.materialsSupplied) ? sup.materialsSupplied : [],
+      allowedCategories: Array.isArray(sup.allowedCategories) && sup.allowedCategories.length > 0 
         ? sup.allowedCategories 
-        : ['Marble', 'Granite']
+        : ['Marble', 'Granite'],
+      allowCuttingOptimizer: sup.allowCuttingOptimizer !== false
     });
     setIsSupplierModalOpen(true);
+  };
+
+  const handleToggleSupplierCuttingOptimizer = async (sup: Supplier) => {
+    const nextEnabled = sup.allowCuttingOptimizer === false;
+    const updatedSupplier: Supplier = {
+      ...sup,
+      allowCuttingOptimizer: nextEnabled
+    };
+    try {
+      const res = await saveSupplier(updatedSupplier);
+      if (res.success) {
+        setSuppliers(prev => prev.map(s => (s.id === sup.id ? updatedSupplier : s)));
+        toast({
+          title: nextEnabled
+            ? 'کٹنگ آپٹیمائزر آن کر دیا گیا ✂️'
+            : 'کٹنگ آپٹیمائزر بند کر دیا گیا 🔒',
+          description: `${sup.name} کے پورٹل میں کٹنگ آپٹیمائزر اب ${nextEnabled ? 'فعال (ON)' : 'بند (OFF)'} ہے۔`
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: error.message || 'Could not update permission.'
+      });
+    }
   };
 
   const handleDeleteSupplier = async (id: string) => {
@@ -1051,8 +1087,11 @@ export default function ManageStockPage() {
     variantId?: string;
     name: string;
     baseName: string;
+    variantLabel: string;
+    unit: string;
     type: 'marble' | 'fixing_material';
     imageUrl: string;
+    gallery?: string[];
     availability: string;
     price: number;
     isHidden: boolean;
@@ -1060,13 +1099,14 @@ export default function ManageStockPage() {
     discount: number;
     discountType: 'percentage' | 'fixed';
     saleBadgeText: string;
+    heroHighlightOnSale?: boolean;
     category: string;
   }[] => {
     const list: any[] = [];
 
     // Marbles
     marbles.forEach(m => {
-      const fallbackUrl = `https://placehold.co/150?text=${encodeURIComponent(m.name)}`;
+      const fallbackUrl = `https://placehold.co/300?text=${encodeURIComponent(m.name)}`;
       const imageUrl = (m.imageUrl && m.imageUrl.trim() !== '') ? m.imageUrl : fallbackUrl;
       const availability = (m as any).stockStatus || ((m as any).inStock !== false ? 'in_stock' : 'out_of_stock');
       const isHidden = !!m.isHidden;
@@ -1076,19 +1116,24 @@ export default function ManageStockPage() {
       const saleBadgeText = m.saleBadgeText || '';
       const heroHighlightOnSale = m.heroHighlightOnSale !== false;
       const category = m.category || m.materialType || 'Marble';
+      const unit = ['Vanity', 'Inlay', 'Antique'].includes(m.materialType || '') ? 'pc' : 'sqft';
 
       const type = 'marble';
 
       if (m.variants && m.variants.length > 0) {
         m.variants.forEach(v => {
+          const variantLabel = [v.size, v.thickness].filter(Boolean).join(' · ');
           list.push({
             rowId: `${m.id}_${v.id}`,
             productId: m.id,
             variantId: v.id,
             name: `${m.name} - ${v.size} (${v.thickness})`,
             baseName: m.name,
+            variantLabel,
+            unit,
             type,
             imageUrl,
+            gallery: m.gallery,
             availability,
             price: v.price || 0,
             isHidden,
@@ -1106,8 +1151,11 @@ export default function ManageStockPage() {
           productId: m.id,
           name: m.name,
           baseName: m.name,
+          variantLabel: category,
+          unit,
           type,
           imageUrl,
+          gallery: m.gallery,
           availability,
           price: 0,
           isHidden,
@@ -1123,7 +1171,7 @@ export default function ManageStockPage() {
 
     // Fixing Materials
     fixingMaterials.forEach(fm => {
-      const fallbackUrl = `https://placehold.co/150?text=${encodeURIComponent(fm.name)}`;
+      const fallbackUrl = `https://placehold.co/300?text=${encodeURIComponent(fm.name)}`;
       const imageUrl = (fm.imageUrl && fm.imageUrl.trim() !== '') ? fm.imageUrl : fallbackUrl;
       const availability = (fm as any).stockStatus || (fm.isFeatured !== false ? 'in_stock' : 'out_of_stock');
       const isHidden = !!(fm as any).isHidden;
@@ -1139,8 +1187,11 @@ export default function ManageStockPage() {
         productId: fm.id,
         name: fm.name,
         baseName: fm.name,
+        variantLabel: category,
+        unit: fm.unit || 'unit',
         type: 'fixing_material',
         imageUrl,
+        gallery: undefined,
         availability,
         price: fm.price || 0,
         isHidden,
@@ -1171,7 +1222,7 @@ export default function ManageStockPage() {
   });
 
   return (
-    <main className="flex flex-1 flex-col gap-6 p-4 md:gap-8 md:p-8 max-w-7xl mx-auto w-full bg-background min-h-screen">
+    <main className="flex flex-1 flex-col gap-6 p-4 md:gap-8 md:p-6 max-w-[1440px] mx-auto w-full bg-background min-h-screen">
       
       {/* 1. Unifed Elegant Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-6 border-b border-border/60">
@@ -1193,25 +1244,20 @@ export default function ManageStockPage() {
           </div>
           <Button
             onClick={() => {
-              const alMajeed = suppliers.find(
-                s => s.id === 'al-majeed-marble-granite-factory' || (s.name || '').toLowerCase().includes('al majeed')
-              );
-              if (alMajeed) {
-                setViewingSupplierProducts(alMajeed);
-              }
+              setViewingSupplierProducts(null);
               setIsViewSuppliersModalOpen(true);
             }}
             size="sm"
-            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-xs bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all cursor-pointer ring-1 ring-amber-400/50"
+            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-sm bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all cursor-pointer ring-1 ring-amber-400/50"
           >
-            <span>📄 المجد ریٹ شیٹ (24&quot; | 36&quot; | 48&quot; | 52&quot; | Gangsaw)</span>
+            <span>📄 سپلائر ریٹ شیٹس (Rate Sheets)</span>
           </Button>
           <Button
             onClick={() => {
               window.dispatchEvent(new CustomEvent('open-admin-ai-scanner'));
             }}
             size="sm"
-            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-xs bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-all cursor-pointer ring-1 ring-indigo-400/40"
+            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-sm bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-all cursor-pointer ring-1 ring-indigo-400/40"
           >
             <Camera className="h-3.5 w-3.5 text-amber-200" />
             AI ریٹ لسٹ اسکینر (Scan Supplier Rate Image)
@@ -1220,16 +1266,17 @@ export default function ManageStockPage() {
             onClick={() => {
               setQuickSupplierName('');
               setQuickSupplierPhone('');
+              setQuickSupplierPassword(`${Math.floor(1000 + Math.random() * 9000)}`);
               setQuickAllowedCategories(['Marble', 'Granite']);
               setQuickGeneratedResult(null);
               setCopiedQuickLink(false);
               setIsQuickAddModalOpen(true);
             }}
             size="sm"
-            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-xs bg-emerald-600 text-white hover:bg-emerald-700 transition-all cursor-pointer ring-1 ring-emerald-400/30"
+            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-sm bg-emerald-600 text-white hover:bg-emerald-700 transition-all cursor-pointer ring-1 ring-emerald-400/30"
           >
             <Sparkles className="h-3.5 w-3.5 text-emerald-100" />
-            Quick Add & Generate Link / نیا سپلائر و لنک
+            نیا سپلائر + پاسورڈ بنائیں
           </Button>
           <Button 
             onClick={() => {
@@ -1243,18 +1290,21 @@ export default function ManageStockPage() {
             className="font-extrabold text-xs h-8 px-3 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 transition-all cursor-pointer"
           >
             <Share2 className="h-3.5 w-3.5" />
-            Share Link / سپلائر لنک
+            سنگل سپلائر لنک (Universal Link)
           </Button>
           <Button 
             onClick={openAddSupplierModal}
             size="sm"
-            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-xs bg-indigo-600 text-white hover:bg-indigo-700 transition-all cursor-pointer"
+            className="font-extrabold text-xs h-8 px-3 gap-1.5 shadow-sm bg-indigo-600 text-white hover:bg-indigo-700 transition-all cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
             Full Form
           </Button>
           <Button 
-            onClick={() => setIsViewSuppliersModalOpen(true)}
+            onClick={() => {
+              setViewingSupplierProducts(null);
+              setIsViewSuppliersModalOpen(true);
+            }}
             size="sm"
             variant="outline"
             className="font-extrabold text-xs h-8 px-3 gap-1.5 border-indigo-200 hover:bg-indigo-50 text-indigo-700 transition-all cursor-pointer"
@@ -1265,84 +1315,413 @@ export default function ManageStockPage() {
         </div>
       </div>
 
-      {/* 1.5 PENDING SUPPLIER PROPOSALS NOTIFICATION BOX */}
-      {proposals.filter(p => p.status === 'pending').length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 space-y-4 shadow-xs animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-              <h2 className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                📬 Pending Supplier Proposals & Stone Offers
-              </h2>
+      {/* 1.4 APPROVED PARTNER PIN SHARE BANNER */}
+      {approvedPartnerBanner && (
+        <div className="bg-emerald-500/15 border border-emerald-500/35 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5 text-xs">
+            <div className="font-extrabold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>{approvedPartnerBanner.name} بطور سپلائر منظور ہو گیا!</span>
             </div>
-            <Badge variant="outline" className="bg-amber-100 text-amber-850 border-amber-300 font-extrabold text-[10px] py-0.5 px-2 rounded-full">
+            <p className="text-muted-foreground">
+              یونیورسل پورٹل لنک: <span className="font-mono font-bold text-foreground">https://stoneexpert.net/supplier</span> • سپلائر PIN: <span className="font-mono font-black text-emerald-600 dark:text-emerald-300">{approvedPartnerBanner.pin}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`https://wa.me/${approvedPartnerBanner.phone.replace(/[^0-9]/g, '').replace(/^0/, '92')}?text=${encodeURIComponent(
+                `*السلام علیکم ${approvedPartnerBanner.name}!*\nآپ کی اسٹون ایکسپرٹ پارٹنرشپ درخواست منظور ہو گئی ہے۔\n\n*پورٹل لنک:* https://stoneexpert.net/supplier\n*آپ کا خفیہ PIN:* ${approvedPartnerBanner.pin}\n\nلنک کھول کر اپنا PIN درج کریں اور اپنے ماربل، گرینائٹ و ٹائلز کے ریٹس اور تصاویر اپلوڈ کریں۔ شکریہ!`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>واٹس ایپ پر PIN بھیجیں</span>
+            </a>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setApprovedPartnerBanner(null)}
+              className="h-8 text-xs"
+            >
+              بند کریں
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 1.45 PENDING PARTNER WITH US / NEW SUPPLIER APPLICATIONS */}
+      {partnerApplications.filter(a => a.status === 'pending').length > 0 && (
+        <div className="bg-indigo-500/10 border border-indigo-500/25 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 shrink-0">
+                <Handshake className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-foreground">
+                  نئی پارٹنرشپ درخواستیں (Partner With Us Applications)
+                </h2>
+                <p className="text-[11px] text-muted-foreground">
+                  ویب سائٹ ہیڈر کے &quot;Partner With Us&quot; بٹن سے آنے والی نئی فیکٹریز — منظور کریں اور فوری PIN جاری کریں۔
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/40 font-extrabold text-[10px] py-0.5 px-2.5 rounded-full">
+              {partnerApplications.filter(a => a.status === 'pending').length} Pending
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {partnerApplications
+              .filter(a => a.status === 'pending')
+              .map(app => (
+                <div
+                  key={app.id}
+                  className="bg-background border border-border rounded-xl p-3.5 flex flex-col justify-between gap-3 text-xs shadow-sm"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-start gap-2.5">
+                      {app.factoryImageUrl ? (
+                        <img
+                          src={app.factoryImageUrl}
+                          alt={app.factoryName}
+                          className="h-12 w-12 rounded-lg object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-lg bg-muted border border-border flex items-center justify-center text-muted-foreground shrink-0">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-extrabold text-sm text-foreground truncate">
+                          {app.factoryName}
+                        </div>
+                        {app.contactPerson && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <User className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{app.contactPerson}</span>
+                          </div>
+                        )}
+                        <div className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          <span>{app.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(app.city || app.address) && (
+                      <div className="text-[11px] text-muted-foreground flex items-start gap-1">
+                        <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                        <span>{[app.address, app.city].filter(Boolean).join(', ')}</span>
+                      </div>
+                    )}
+
+                    {Array.isArray(app.categories) && app.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {app.categories.map(cat => (
+                          <span
+                            key={cat}
+                            className="px-2 py-0.5 rounded bg-muted text-[10px] font-bold text-foreground/80"
+                          >
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {app.notes && (
+                      <p className="text-[11px] text-muted-foreground bg-muted/40 rounded-lg p-2">
+                        {app.notes}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex items-center gap-1.5">
+                      <KeyRound className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                      <Input
+                        value={appCustomPins[app.id] || ''}
+                        onChange={e =>
+                          setAppCustomPins(prev => ({ ...prev, [app.id]: e.target.value }))
+                        }
+                        placeholder="مخصوص PIN (خالی چھوڑیں تو آٹو بنے گا)"
+                        className="h-7 text-[11px] font-mono"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={approvingAppId === app.id}
+                        onClick={async () => {
+                          setApprovingAppId(app.id);
+                          try {
+                            const res = await approveSupplierApplication(app.id, appCustomPins[app.id]);
+                            if (res.success && res.supplier) {
+                              setApprovedPartnerBanner({
+                                name: res.supplier.name,
+                                phone: res.supplier.phone,
+                                pin: res.supplier.accessPassword || ''
+                              });
+                              toast({
+                                title: 'پارٹنر منظور ہو گیا! ✅',
+                                description: `${res.supplier.name} کا PIN (${res.supplier.accessPassword}) تیار ہے۔`
+                              });
+                              fetchData();
+                            } else {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Approval Failed',
+                                description: res.error || 'Could not approve application'
+                              });
+                            }
+                          } finally {
+                            setApprovingAppId(null);
+                          }
+                        }}
+                        className="flex-1 h-8 text-[11px] font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white gap-1 cursor-pointer"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        <span>منظور کریں اور PIN بنائیں</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={approvingAppId === app.id}
+                        onClick={async () => {
+                          setApprovingAppId(app.id);
+                          try {
+                            const res = await rejectSupplierApplication(app.id);
+                            if (res.success) {
+                              toast({ title: 'درخواست مسترد کر دی گئی۔' });
+                              fetchData();
+                            }
+                          } finally {
+                            setApprovingAppId(null);
+                          }
+                        }}
+                        className="h-8 px-2.5 text-[11px] font-bold text-rose-500 hover:bg-rose-500/10 border-rose-500/30 cursor-pointer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* 1.5 PENDING SUPPLIER PROPOSALS NOTIFICATION BOX (EXISTING VS. NEW PRODUCT + INLINE RATE ADJUSTER) */}
+      {proposals.filter(p => p.status === 'pending').length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+              </span>
+              <div>
+                <h2 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                  📬 نئی سپلائر ریکویسٹس (Pending Supplier Requests)
+                </h2>
+                <p className="text-[11px] text-muted-foreground">
+                  موجودہ پروڈکٹ برقرار رہے گا؛ نیا پروڈکٹ الگ بیج کے ساتھ نظر آئے گا — یہیں سے اپنا ایپ ریٹ سیٹ کر کے ایکسیپٹ کریں۔
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" className="bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40 font-extrabold text-[10px] py-0.5 px-2.5 rounded-full">
               {proposals.filter(p => p.status === 'pending').length} Action Required
             </Badge>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {proposals.filter(p => p.status === 'pending').map((prop) => (
-              <div key={prop.id} className="bg-background border border-border/80 hover:border-indigo-300 transition-all rounded-xl p-3 flex flex-col justify-between gap-3 text-xs shadow-xs">
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="font-extrabold text-foreground text-sm block truncate">{prop.productName}</span>
-                      <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1 mt-0.5">
-                        By <strong className="text-indigo-650">{prop.supplierName}</strong>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {proposals.filter(p => p.status === 'pending').map((prop) => {
+              const normalizedName = (prop.productName || '').trim().toLowerCase();
+              const matchedExisting = marbles.find(
+                m => (m.name || '').trim().toLowerCase() === normalizedName
+              );
+              const existingAppPrice = matchedExisting?.variants?.[0]?.price || 0;
+              const defaultSellingRate = matchedExisting && existingAppPrice > 0
+                ? existingAppPrice
+                : Math.round((prop.rate || 0) * 1.2);
+              const rawInput = proposalSellingPrices[prop.id];
+              const currentSellingPrice = rawInput !== undefined ? Number(rawInput) : defaultSellingRate;
+              const marginPct = prop.rate > 0 && currentSellingPrice > 0
+                ? Number((((currentSellingPrice - prop.rate) / prop.rate) * 100).toFixed(1))
+                : 0;
+              const supObj = suppliers.find(s => s.id === prop.supplierId);
+
+              return (
+                <div
+                  key={prop.id}
+                  className={cn(
+                    "bg-background border rounded-xl p-3.5 flex flex-col justify-between gap-3 text-xs shadow-sm transition-colors",
+                    matchedExisting
+                      ? "border-border/80 hover:border-emerald-400/60"
+                      : "border-indigo-500/40 hover:border-indigo-500 ring-1 ring-indigo-500/15"
+                  )}
+                >
+                  <div className="space-y-2.5">
+                    {/* Status Row: Existing vs NEW Product */}
+                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                      {matchedExisting ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-extrabold">
+                          موجودہ پروڈکٹ (Existing — Rate Link)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-600 text-white text-[10px] font-extrabold">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          نیا پروڈکٹ (NEW — ایپ میں شامل ہوگا)
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {prop.size || 'Standard'}
                       </span>
                     </div>
-                    {prop.imageUrl && (
-                      <img 
-                        src={prop.imageUrl} 
-                        alt={prop.productName} 
-                        className="h-10 w-10 object-cover rounded-md border border-border/40 shrink-0 bg-muted"
-                      />
-                    )}
+
+                    {/* Product Title, Supplier & Clickable Thumbnail */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-extrabold text-foreground text-sm block truncate" title={prop.productName}>
+                          {prop.productName}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 mt-0.5">
+                          {supObj?.factoryImageUrl && (
+                            <img
+                              src={supObj.factoryImageUrl}
+                              alt={prop.supplierName}
+                              className="h-4 w-4 rounded-full object-cover border border-border shrink-0"
+                            />
+                          )}
+                          <span className="truncate">
+                            سپلائر: <strong className="text-foreground">{prop.supplierName}</strong>
+                          </span>
+                        </span>
+                        <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                          <span>{prop.materialType}</span>
+                          <span>•</span>
+                          <span>{prop.thickness || '6-Sutar'}</span>
+                        </div>
+                      </div>
+
+                      {prop.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => openGallery([{ url: prop.imageUrl, alt: prop.productName }], 0)}
+                          title="تصویر بڑی دیکھنے کے لیے کلک کریں"
+                          className="h-14 w-14 rounded-lg overflow-hidden border border-border/60 shrink-0 bg-muted cursor-pointer hover:opacity-90 transition-opacity"
+                        >
+                          <img
+                            src={prop.imageUrl}
+                            alt={prop.productName}
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Inline Rate Comparison & Admin App Rate Adjuster */}
+                    <div className="bg-muted/35 border border-border/60 rounded-lg p-2.5 space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground font-semibold">سپلائر ریٹ (Factory Cost):</span>
+                        <span className="font-mono tabular-nums font-black text-emerald-600 dark:text-emerald-400">
+                          Rs {prop.rate.toLocaleString()} /{prop.unit || 'sqft'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-foreground">
+                            ہمارا ایپ ریٹ (App Rate PKR):
+                          </label>
+                          <span
+                            className={cn(
+                              "font-mono tabular-nums text-[10px] font-extrabold px-1.5 py-0.5 rounded",
+                              marginPct > 0
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                : marginPct < 0
+                                  ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                                  : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {marginPct > 0 ? `+${marginPct}%` : `${marginPct}%`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <div className="relative flex-1">
+                            <span className="absolute left-2 top-2 text-[10px] font-mono font-bold text-muted-foreground">Rs</span>
+                            <Input
+                              type="number"
+                              value={rawInput !== undefined ? rawInput : String(defaultSellingRate)}
+                              onChange={(e) =>
+                                setProposalSellingPrices(prev => ({ ...prev, [prop.id]: e.target.value }))
+                              }
+                              className="h-8 pl-7 pr-2 text-right font-mono tabular-nums font-extrabold text-xs bg-background"
+                            />
+                          </div>
+                          {[10, 15, 20, 30].map(pct => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() =>
+                                setProposalSellingPrices(prev => ({
+                                  ...prev,
+                                  [prop.id]: String(Math.round(prop.rate * (1 + pct / 100)))
+                                }))
+                              }
+                              className="h-8 px-1.5 rounded border border-border/70 bg-background hover:bg-muted text-[10px] font-mono font-bold text-foreground cursor-pointer transition-colors"
+                              title={`Set +${pct}% markup`}
+                            >
+                              +{pct}%
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-1.5 bg-muted/40 p-2 rounded-lg text-[10px] text-muted-foreground font-semibold">
-                    <div>Type: <span className="text-foreground font-bold block">{prop.materialType}</span></div>
-                    <div>Origin: <span className="text-foreground font-bold block">{prop.origin}</span></div>
-                    <div>Format: <span className="text-foreground font-bold block">{prop.size}</span></div>
-                    <div>Thickness: <span className="text-foreground font-bold block">{prop.thickness}</span></div>
-                  </div>
-                  
-                  {prop.description && (
-                    <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed bg-muted/20 p-1.5 rounded border border-border/20">
-                      {prop.description}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-between pt-2 border-t border-border/25 mt-1">
-                  <div>
-                    <span className="text-[9px] text-muted-foreground font-semibold block leading-none mb-0.5">Wholesale Rate</span>
-                    <span className="text-xs font-black text-emerald-600">PKR {prop.rate.toLocaleString()} /sqft</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-1.5 shrink-0">
+
+                  {/* Accept / Reject Footer */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
                     <Button
                       size="sm"
                       variant="ghost"
+                      disabled={submitting}
                       onClick={() => handleRejectProposalClick(prop.id)}
-                      className="h-8 text-[10px] font-extrabold text-rose-500 hover:text-rose-600 hover:bg-rose-50 px-2 rounded-lg"
+                      className="h-8 text-[11px] font-bold text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 px-2.5 rounded-lg cursor-pointer"
                     >
-                      Dismiss
+                      رد کریں (Reject)
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => handleApproveProposalClick(prop.id)}
-                      className="h-8 text-[10px] font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white px-3 gap-1 rounded-lg"
+                      disabled={submitting}
+                      onClick={() =>
+                        handleApproveProposalClick(
+                          prop.id,
+                          !Number.isNaN(currentSellingPrice) && currentSellingPrice > 0
+                            ? currentSellingPrice
+                            : undefined
+                        )
+                      }
+                      className={cn(
+                        "h-8 text-[11px] font-extrabold text-white px-3 gap-1.5 rounded-lg cursor-pointer",
+                        matchedExisting
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : "bg-indigo-600 hover:bg-indigo-700"
+                      )}
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {matchedExisting ? 'ایکسیپٹ (ریٹ لنک کریں)' : 'ایکسیپٹ اور ایپ میں شامل کریں'}
                     </Button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1554,9 +1933,9 @@ export default function ManageStockPage() {
             No products matching your filters or search. Try searching for other terms.
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="admin-stock-grid grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3 items-stretch">
             {filteredRows.map((row) => {
-              // Find registered supplier comparison rates for this specific product row id
+              // Find registered active supplier comparison rates for this specific product row id
               const currentRates = getMaterialSupplierRates(row.productId, row.variantId);
               
               // We'll create inline sub-tab selector state for each product row
@@ -1597,7 +1976,7 @@ export default function ManageStockPage() {
         )}
       </div>
 
-      {/* 0. QUICK ADD SUPPLIER & GENERATE RESTRICTED LINK DIALOG */}
+      {/* 0. QUICK ADD SUPPLIER & UNIVERSAL LINK + PASSWORD DIALOG */}
       <Dialog 
         open={isQuickAddModalOpen} 
         onOpenChange={(open) => {
@@ -1612,33 +1991,33 @@ export default function ManageStockPage() {
           <DialogHeader className="px-1">
             <DialogTitle className="font-headline font-extrabold text-foreground flex items-center gap-2 text-lg">
               <Sparkles className="h-5 w-5 text-emerald-600" />
-              Quick Add Supplier & Generate Access Link / نیا سپلائر و مخصوص لنک
+              نیا سپلائر شامل کریں + پاسورڈ بنائیں
             </DialogTitle>
             <DialogDescription className="text-xs">
-              سپلائر کا صرف نام اور فون نمبر لکھیں اور جن کیٹگریز کی رسائی دینا چاہتے ہیں وہ منتخب کر کے فوری طور پر مخصوص اپلوڈ لنک حاصل کریں۔
+              تمام سپلائرز کے لیے ایک ہی لنک (stoneexpert.net/supplier) ہوگا — ہر سپلائر کو اس کا الگ پاسورڈ دیں گے تو اس کا اپنا پورٹل کھلے گا۔
             </DialogDescription>
           </DialogHeader>
 
           {quickGeneratedResult ? (
-            /* GENERATED LINK SUCCESS VIEW */
+            /* GENERATED UNIVERSAL LINK + UNIQUE PIN SUCCESS VIEW */
             <div className="space-y-4 py-3 overflow-y-auto pr-1">
               <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-3">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-extrabold text-sm">
                   <CheckCircle2 className="h-5 w-5 shrink-0" />
-                  <span>سپلائر کامیابی سے شامل ہو گیا اور مخصوص لنک تیار ہے!</span>
+                  <span>سپلائر کامیابی سے رجسٹر ہو گیا اور پاسورڈ تیار ہے!</span>
                 </div>
-                <div className="text-xs text-muted-foreground space-y-1">
+                <div className="text-xs text-muted-foreground space-y-1.5">
                   <p><strong>Supplier:</strong> {quickGeneratedResult.supplier.name}</p>
                   <p><strong>Phone / WhatsApp:</strong> {quickGeneratedResult.supplier.phone}</p>
                   <div className="flex items-center gap-2 pt-1">
-                    <strong className="text-foreground">لاگ ان PIN / Password:</strong>
-                    <span className="font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 text-xs">
-                      {quickGeneratedResult.supplier.accessPassword || '7861'}
+                    <strong className="text-foreground">مخصوص پاسورڈ / PIN:</strong>
+                    <span className="font-mono font-black text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded border border-amber-500/40 text-sm tracking-widest">
+                      {quickGeneratedResult.supplier.accessPassword}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                    <strong className="text-foreground">مجاز کیٹگریز (Allowed Scope):</strong>
-                    {quickGeneratedResult.allowedCategories.map(cat => (
+                    <strong className="text-foreground">مجاز کیٹگریز:</strong>
+                    {(Array.isArray(quickGeneratedResult.allowedCategories) ? quickGeneratedResult.allowedCategories : []).map(cat => (
                       <Badge key={cat} variant="secondary" className="text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                         <Lock className="h-2.5 w-2.5 mr-1" /> {cat}
                       </Badge>
@@ -1647,96 +2026,62 @@ export default function ManageStockPage() {
                 </div>
               </div>
 
-              {/* Universal Portal Link & PIN Box */}
-              <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+              {/* Single Universal Portal Link & PIN Box */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
                 <Label className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <KeyRound className="h-3.5 w-3.5 text-amber-500" />
-                    سنگل پورٹل لنک و پن (Universal Link & PIN):
+                    سنگل سپلائر پورٹل لنک (سب سپلائرز کے لیے ایک ہی لنک):
                   </span>
-                  <span className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">سب کے لیے ایک ہی لنک</span>
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input 
                     readOnly 
-                    value={`${getPublicOrigin()}/supplier`} 
-                    className="h-10 text-xs font-mono bg-background text-foreground"
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => handleCopyUniversalLinkWithPassword(quickGeneratedResult.supplier)}
-                    className="h-10 px-4 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 cursor-pointer"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                    Copy Link & PIN
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  ہر سپلائر کو یہ لنک دیں اور ساتھ اس کا پاسورڈ (<span className="font-mono font-bold text-amber-600 dark:text-amber-400">{quickGeneratedResult.supplier.accessPassword || '7861'}</span>) فراہم کریں، وہ خود بخود اپنے اکاؤنٹ میں کھل جائے گا۔
-                </p>
-              </div>
-
-              {/* Direct Link Box */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold flex items-center justify-between">
-                  <span>سپلائر کا پورٹل لنک (Direct Supplier Portal URL):</span>
-                  <span className="text-[10px] text-muted-foreground">صرف انہی کیٹگریز کے لیے فعال</span>
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input 
-                    readOnly 
-                    value={quickGeneratedResult.shareUrl} 
-                    className="h-10 text-xs font-mono bg-muted text-foreground selection:bg-indigo-500 selection:text-white"
+                    value={getUniversalVendorUrl()} 
+                    className="h-10 text-xs font-mono font-bold bg-background text-foreground"
                   />
                   <Button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(quickGeneratedResult.shareUrl);
+                      handleCopyUniversalLinkWithPassword(quickGeneratedResult.supplier);
                       setCopiedQuickLink(true);
-                      toast({
-                        title: "Link Copied! 📋",
-                        description: `Portal link for "${quickGeneratedResult.supplier.name}" copied to clipboard.`
-                      });
                       setTimeout(() => setCopiedQuickLink(false), 3000);
                     }}
-                    className={`h-10 px-4 text-xs font-bold text-white shrink-0 gap-1.5 transition-all cursor-pointer ${
-                      copiedQuickLink ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'
-                    }`}
+                    className={cn(
+                      "h-10 px-4 text-xs font-bold text-white shrink-0 gap-1.5 cursor-pointer",
+                      copiedQuickLink ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"
+                    )}
                   >
-                    {copiedQuickLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedQuickLink ? 'Copied!' : 'Copy Link'}
+                    {copiedQuickLink ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedQuickLink ? 'کاپی ہو گیا!' : 'لنک اور پاسورڈ کاپی کریں'}
                   </Button>
                 </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  جب سپلائر یہ لنک کھول کر پاسورڈ (<span className="font-mono font-bold text-foreground">{quickGeneratedResult.supplier.accessPassword}</span>) درج کرے گا تو پہلے مرحلے میں اپنی فیکٹری کی تفصیلات و تصویر لگائے گا اور اگلے مرحلے میں مٹیریل، ریٹ اور تصاویر سبمٹ کر سکے گا۔
+                </p>
               </div>
 
               {/* 1-Click WhatsApp Send */}
-              <div className="pt-2 flex flex-col sm:flex-row gap-2">
+              <div className="pt-1 flex flex-col sm:flex-row gap-2">
                 <Button
                   type="button"
                   onClick={() => handleSendVendorWhatsApp(quickGeneratedResult.supplier)}
-                  className="h-11 flex-1 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-xs cursor-pointer"
+                  className="h-11 flex-1 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm cursor-pointer"
                 >
                   <Share2 className="h-4 w-4" />
-                  Send to Supplier via WhatsApp (1-Click)
+                  واٹس ایپ پر لنک اور پاسورڈ بھیجیں (WhatsApp)
                 </Button>
 
-                <Link href={quickGeneratedResult.shareUrl} target="_blank">
+                <Link href="/supplier" target="_blank">
                   <Button
                     type="button"
                     variant="outline"
                     className="h-11 px-4 text-xs font-bold border-slate-300 dark:border-slate-700 gap-1.5 cursor-pointer w-full sm:w-auto"
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Open Portal View
+                    پورٹل چیک کریں
                   </Button>
                 </Link>
-              </div>
-
-              <div className="p-3 bg-muted/40 rounded-xl text-[11px] text-muted-foreground space-y-1">
-                <p className="font-bold text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-indigo-500" /> رسائی کا طریقہ کار (Access Policy):
-                </p>
-                <p>جب سپلائر یہ لنک کھولے گا تو وہ صرف اوپر دی گئی منتخب کردہ کیٹگریز کے اندر ہی مٹیریل، تصاویر، سائز اور ہول سیل ریٹس درج کر سکے گا۔ دیگر کیٹگریز کے لیے اس کی رسائی محدود ہو گی۔</p>
               </div>
 
               <div className="border-t pt-3 flex justify-between items-center">
@@ -1747,13 +2092,14 @@ export default function ManageStockPage() {
                   onClick={() => {
                     setQuickSupplierName('');
                     setQuickSupplierPhone('');
+                    setQuickSupplierPassword(`${Math.floor(1000 + Math.random() * 9000)}`);
                     setQuickAllowedCategories(['Marble', 'Granite']);
                     setQuickGeneratedResult(null);
                     setCopiedQuickLink(false);
                   }}
                   className="text-xs font-bold"
                 >
-                  + Add Another Supplier (ایک اور سپلائر شامل کریں)
+                  + ایک اور سپلائر شامل کریں
                 </Button>
                 <Button
                   type="button"
@@ -1771,13 +2117,13 @@ export default function ManageStockPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="quick_name" className="text-xs font-bold">
-                    سپلائر کا نام (Supplier / Wholesaler Name) *
+                    سپلائر / فیکٹری کا نام *
                   </Label>
                   <Input 
                     id="quick_name"
                     value={quickSupplierName}
                     onChange={(e) => setQuickSupplierName(e.target.value)}
-                    placeholder="مثال: مکہ ماربل فیکٹری / Al-Makkah Marble"
+                    placeholder="مثال: مکہ ماربل فیکٹری"
                     required
                     className="h-9 text-xs"
                     autoFocus
@@ -1786,7 +2132,7 @@ export default function ManageStockPage() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="quick_phone" className="text-xs font-bold">
-                    فون یا واٹس ایپ نمبر (Phone / WhatsApp) *
+                    فون یا واٹس ایپ نمبر *
                   </Label>
                   <Input 
                     id="quick_phone"
@@ -1794,18 +2140,69 @@ export default function ManageStockPage() {
                     onChange={(e) => setQuickSupplierPhone(e.target.value)}
                     placeholder="مثال: 03001234567"
                     required
-                    className="h-9 text-xs"
+                    className="h-9 text-xs font-mono"
                   />
                 </div>
               </div>
 
+              {/* Custom Unique Password / PIN for this Supplier */}
+              <div className="space-y-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="quick_password" className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-amber-500" />
+                    <span>سپلائر کا مخصوص پاسورڈ / PIN</span>
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setQuickSupplierPassword(`${Math.floor(1000 + Math.random() * 9000)}`)}
+                    className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline font-bold cursor-pointer"
+                  >
+                    + نیا PIN بنائیں
+                  </button>
+                </div>
+                <Input
+                  id="quick_password"
+                  value={quickSupplierPassword}
+                  onChange={(e) => setQuickSupplierPassword(e.target.value)}
+                  placeholder="خالی چھوڑیں تو خودکار منفرد PIN بن جائے گا"
+                  className="h-9 text-xs font-mono font-bold tracking-widest bg-background"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  سب سپلائرز کو ایک ہی لنک (<span className="font-mono font-bold">{getUniversalVendorUrl()}</span>) ملے گا؛ یہ پاسورڈ ڈالنے پر اس سپلائر کا اپنا پورٹل کھل جائے گا۔
+                </p>
+              </div>
+
+              {/* Cutting Optimizer Exclusive Tool Access Toggle */}
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <Scissors className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>کٹنگ آپٹیمائزر رسائی (Cutting Optimizer Access)</span>
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    اگر یہ آن ہو تو اس سپلائر / خاص شخص کو اپنے پورٹل کے اندر Cutting Optimizer Pro ٹول استعمال کرنے کی اجازت ہوگی۔
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuickAllowCuttingOptimizer(prev => !prev)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black shrink-0 border transition-all cursor-pointer ${
+                    quickAllowCuttingOptimizer
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                      : 'bg-muted text-muted-foreground border-border'
+                  }`}
+                >
+                  {quickAllowCuttingOptimizer ? 'ON / آن ✓' : 'OFF / بند'}
+                </button>
+              </div>
+
               {/* CATEGORY ALLOW SYSTEM / مجاز کیٹگریز کا انتخاب */}
-              <div className="space-y-2 pt-2 border-t border-border/40">
+              <div className="space-y-2 pt-1 border-t border-border/40">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                   <div>
                     <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <Lock className="h-3.5 w-3.5 text-indigo-500" />
-                      الاؤ کیٹگریز کا انتخاب (Allowed Product Categories System) *
+                      الاؤ کیٹگریز کا انتخاب (Allowed Categories) *
                     </Label>
                     <p className="text-[10px] text-muted-foreground">
                       وہ مٹیریل منتخب کریں جنہیں یہ سپلائر اپلوڈ کرنے کا مجاز ہوگا:
@@ -1857,7 +2254,7 @@ export default function ManageStockPage() {
                 </div>
 
                 {/* Categories Grid Checkboxes */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-52 overflow-y-auto p-1 border border-border/60 rounded-xl bg-muted/20">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1 border border-border/60 rounded-xl bg-muted/20">
                   {dynamicCategories.map((cat) => {
                     const isSelected = quickAllowedCategories.includes(cat.id);
                     return (
@@ -1867,7 +2264,7 @@ export default function ManageStockPage() {
                         onClick={() => handleToggleQuickCategory(cat.id)}
                         className={`p-2 rounded-lg border text-left transition-all flex items-start gap-2 ${
                           isSelected
-                            ? 'bg-indigo-500/10 border-indigo-500/40 text-foreground shadow-xs'
+                            ? 'bg-indigo-500/10 border-indigo-500/40 text-foreground shadow-sm'
                             : 'bg-background border-border/40 text-muted-foreground hover:border-border'
                         }`}
                       >
@@ -1904,10 +2301,10 @@ export default function ManageStockPage() {
                   type="submit" 
                   size="sm" 
                   disabled={submitting} 
-                  className="h-9 px-4 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer shadow-xs"
+                  className="h-9 px-4 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer shadow-sm"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  {submitting ? 'Generating Link...' : 'Generate Restricted Link & Save (مخصوص لنک بنائیں)'}
+                  {submitting ? 'محفوظ ہو رہا ہے...' : 'سپلائر محفوظ کریں اور پاسورڈ حاصل کریں'}
                 </Button>
               </DialogFooter>
             </form>
@@ -2055,6 +2452,30 @@ export default function ManageStockPage() {
               </p>
             </div>
 
+            {/* Cutting Optimizer Access Permission Toggle */}
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                  <Scissors className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>کٹنگ آپٹیمائزر رسائی (Cutting Optimizer Pro)</span>
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  اس سپلائر یا خاص فرد کے پورٹل میں کٹنگ آپٹیمائزر ٹول آن یا آف کریں۔
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSupplierForm(prev => ({ ...prev, allowCuttingOptimizer: !prev.allowCuttingOptimizer }))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black shrink-0 border transition-all cursor-pointer ${
+                  supplierForm.allowCuttingOptimizer
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                    : 'bg-muted text-muted-foreground border-border'
+                }`}
+              >
+                {supplierForm.allowCuttingOptimizer ? 'ON / آن ✓' : 'OFF / بند'}
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-4 items-center pt-2">
               <div className="flex items-center gap-2">
                 <Label htmlFor="sup_status" className="text-xs font-bold">Supplier Status:</Label>
@@ -2075,39 +2496,26 @@ export default function ManageStockPage() {
 
             {editingSupplier && (
               <div className="border-t border-border/40 pt-4 mt-2 space-y-2">
-                <Label className="text-[11px] font-bold text-foreground">Quick Share Live Upload Link</Label>
+                <Label className="text-[11px] font-bold text-foreground">
+                  سنگل پورٹل لنک اور پاسورڈ شیئر کریں ({getUniversalVendorUrl()})
+                </Label>
                 <div className="flex items-center gap-2">
-                  <Select value={shareCategory} onValueChange={setShareCategory}>
-                    <SelectTrigger className="h-8 text-xs font-semibold w-full">
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All">All Categories</SelectItem>
-                      {dynamicCategories.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>{cat.labelEn} ({cat.labelUr})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <Button 
                     type="button" 
                     variant="outline"
                     size="sm" 
-                    onClick={() => {
-                      handleCopyVendorLink(editingSupplier, shareCategory);
-                    }}
-                    className="h-8 text-xs font-bold border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 dark:text-indigo-400 gap-1.5 shrink-0 px-3 cursor-pointer"
+                    onClick={() => handleCopyUniversalLinkWithPassword(editingSupplier)}
+                    className="h-8 flex-1 text-xs font-bold border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 gap-1.5 cursor-pointer"
                   >
-                    <Share2 className="h-3.5 w-3.5" /> Copy Link
+                    <Copy className="h-3.5 w-3.5" /> لنک اور پاسورڈ کاپی کریں
                   </Button>
                   <Button 
                     type="button" 
                     size="sm" 
-                    onClick={() => {
-                      handleSendVendorWhatsApp(editingSupplier, shareCategory);
-                    }}
-                    className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shrink-0 px-3 cursor-pointer"
+                    onClick={() => handleSendVendorWhatsApp(editingSupplier)}
+                    className="h-8 flex-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer"
                   >
-                    WhatsApp
+                    <Share2 className="h-3.5 w-3.5" /> WhatsApp پر بھیجیں
                   </Button>
                 </div>
               </div>
@@ -2279,6 +2687,21 @@ export default function ManageStockPage() {
                     const productsCount = sup.rates?.length || 0;
                     return (
                       <div key={sup.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          {sup.factoryImageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => openGallery([{ url: sup.factoryImageUrl!, alt: sup.name }], 0)}
+                              className="h-11 w-11 rounded-lg overflow-hidden border border-border shrink-0 bg-muted cursor-pointer hover:opacity-90"
+                              title="فیکٹری کی تصویر دیکھیں"
+                            >
+                              <img
+                                src={sup.factoryImageUrl}
+                                alt={sup.name}
+                                className="h-full w-full object-cover"
+                              />
+                            </button>
+                          )}
                         <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-bold text-sm text-foreground truncate max-w-[240px]">{sup.name}</h4>
@@ -2293,6 +2716,19 @@ export default function ManageStockPage() {
                               <KeyRound className="h-2.5 w-2.5 text-amber-500" />
                               PIN: {sup.accessPassword || '7861'}
                             </span>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSupplierCuttingOptimizer(sup)}
+                              title="کلک کر کے اس سپلائر کے لیے کٹنگ آپٹیمائزر آن یا آف کریں"
+                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded border flex items-center gap-1 transition-all cursor-pointer ${
+                                sup.allowCuttingOptimizer !== false
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                                  : 'bg-slate-500/10 text-muted-foreground border-border hover:bg-muted'
+                              }`}
+                            >
+                              <Scissors className="h-2.5 w-2.5" />
+                              <span>{sup.allowCuttingOptimizer !== false ? 'کٹنگ آپٹیمائزر: آن' : 'کٹنگ آپٹیمائزر: بند'}</span>
+                            </button>
                           </div>
                           
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -2318,18 +2754,27 @@ export default function ManageStockPage() {
                           {/* Allowed Scope Badges */}
                           <div className="flex items-center gap-1.5 flex-wrap pt-1">
                             <span className="text-[10px] font-semibold text-muted-foreground">مجاز کیٹگریز:</span>
-                            {(!sup.allowedCategories || sup.allowedCategories.length === 0) ? (
-                              <Badge variant="secondary" className="text-[9px] h-4 py-0 font-normal text-muted-foreground">
-                                All Categories (تمام)
-                              </Badge>
-                            ) : (
-                              sup.allowedCategories.map(cat => (
+                            {(() => {
+                              const allowedList = Array.isArray(sup.allowedCategories)
+                                ? sup.allowedCategories
+                                : typeof sup.allowedCategories === 'string'
+                                  ? String(sup.allowedCategories).split(',').map(s => s.trim()).filter(Boolean)
+                                  : [];
+                              if (allowedList.length === 0) {
+                                return (
+                                  <Badge variant="secondary" className="text-[9px] h-4 py-0 font-normal text-muted-foreground">
+                                    All Categories (تمام)
+                                  </Badge>
+                                );
+                              }
+                              return allowedList.map(cat => (
                                 <Badge key={cat} variant="secondary" className="text-[9px] h-4 py-0 font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
                                   {cat}
                                 </Badge>
-                              ))
-                            )}
+                              ));
+                            })()}
                           </div>
+                        </div>
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0">
@@ -2434,22 +2879,22 @@ export default function ManageStockPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 4. DEDICATED SHARE VENDOR UPLOAD LINK DIALOG */}
+      {/* 4. SINGLE UNIVERSAL SUPPLIER LINK & PER-SUPPLIER PASSWORD DIALOG */}
       <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
         <DialogContent className="sm:max-w-[540px]">
           <DialogHeader>
             <DialogTitle className="font-headline font-extrabold text-foreground flex items-center gap-2 text-lg">
               <Share2 className="h-5 w-5 text-emerald-600" />
-              Share Material Upload Link with Vendor / سپلائر لنک
+              سنگل سپلائر پورٹل لنک اور پاسورڈ (Universal Link)
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Send a personalized direct upload link to your vendor/wholesaler. They can use this link on mobile or computer to upload stone photos, sizes, thickness/sutars, and wholesale rates without complicated logins.
+              سب سپلائرز کے لیے ایک ہی لنک ہے — بس سپلائر منتخب کریں اور اسے لنک + اس کا الگ پاسورڈ بھیج دیں۔
             </DialogDescription>
           </DialogHeader>
 
           {suppliers.length === 0 ? (
             <div className="text-center py-8 space-y-3">
-              <p className="text-xs text-muted-foreground">No suppliers registered yet. Please add a supplier first.</p>
+              <p className="text-xs text-muted-foreground">ابھی کوئی سپلائر رجسٹر نہیں ہے۔ پہلے سپلائر شامل کریں۔</p>
               <Button 
                 onClick={() => {
                   setIsShareModalOpen(false);
@@ -2462,13 +2907,13 @@ export default function ManageStockPage() {
             </div>
           ) : (() => {
             const activeSupplier = suppliers.find(s => s.id === shareTargetSupplierId) || suppliers[0];
-            const currentUrl = activeSupplier ? getVendorShareUrl(activeSupplier.id, shareTargetCategory, activeSupplier.accessPassword) : '';
+            const universalUrl = getUniversalVendorUrl();
 
             return (
               <div className="space-y-4 py-2">
                 {/* 1. Select Supplier */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">1. Select Registered Vendor *</Label>
+                  <Label className="text-xs font-bold">1. سپلائر منتخب کریں (Select Vendor) *</Label>
                   <Select 
                     value={activeSupplier?.id || ''} 
                     onValueChange={(val) => setShareTargetSupplierId(val)}
@@ -2487,124 +2932,71 @@ export default function ManageStockPage() {
                   </Select>
                 </div>
 
-                {/* 2. Optional Target Category */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">2. Pre-selected Category (Optional Focus)</Label>
-                  <Select 
-                    value={shareTargetCategory} 
-                    onValueChange={setShareTargetCategory}
-                  >
-                    <SelectTrigger className="h-9 text-xs font-semibold">
-                      <SelectValue placeholder="Select Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="All">All Categories (General Portal)</SelectItem>
-                      {dynamicCategories.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>{cat.labelEn} ({cat.labelUr})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Universal Link & Password Box (Recommended) */}
-                <div className="space-y-2 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
-                  <div className="flex items-center justify-between">
+                {/* 2. Single Universal Link & Selected Supplier's Password */}
+                <div className="space-y-2.5 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <Label className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                       <KeyRound className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <span>سنگل پورٹل لنک اور خفیہ پاسورڈ (Universal Portal Link & PIN)</span>
+                      <span>سنگل پورٹل لنک (سب کے لیے ایک ہی لنک)</span>
                     </Label>
-                    <span className="text-[10px] font-mono font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded border border-amber-500/30">
+                    <span className="text-xs font-mono font-black bg-amber-500/20 text-amber-900 dark:text-amber-200 px-2.5 py-0.5 rounded border border-amber-500/40 tracking-widest">
                       PIN: {activeSupplier?.accessPassword || '7861'}
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-muted-foreground">
-                    یہ ایک ہی لنک تمام سپلائرز کو بھیجا جا سکتا ہے۔ ہر سپلائر اپنا خفیہ پاسورڈ درج کر کے اپنا پورٹل کھول سکے گا:
-                  </p>
-
                   <div className="flex items-center gap-2">
                     <Input 
                       readOnly 
-                      value={`${getPublicOrigin()}/supplier`} 
-                      className="h-9 text-xs font-mono bg-background text-foreground"
+                      value={universalUrl} 
+                      className="h-9 text-xs font-mono font-bold bg-background text-foreground"
                     />
                     <Button 
                       type="button" 
                       onClick={() => activeSupplier && handleCopyUniversalLinkWithPassword(activeSupplier)}
-                      className="h-9 px-3.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 cursor-pointer shadow-xs"
-                      title="کاپی لنک اور پاسورڈ"
+                      className="h-9 px-3.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5 cursor-pointer shadow-sm"
                     >
                       <Copy className="h-3.5 w-3.5" />
-                      Copy Link & PIN
+                      لنک اور پاسورڈ کاپی کریں
                     </Button>
                   </div>
+
+                  {activeSupplier?.phone && (
+                    <p className="text-[11px] text-muted-foreground">
+                      واٹس ایپ / فون: <strong className="text-foreground font-mono">{activeSupplier.phone}</strong>
+                    </p>
+                  )}
                 </div>
 
-                {/* 3. Direct Generated URL Display */}
-                <div className="space-y-1.5 pt-1">
-                  <Label className="text-xs font-bold flex items-center justify-between">
-                    <span>ڈائریکٹ مخصوص لنک (Direct Restricted URL):</span>
-                    {activeSupplier?.phone && (
-                      <span className="text-[10px] text-muted-foreground">
-                        Vendor Phone: <strong>{activeSupplier.phone}</strong>
-                      </span>
-                    )}
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input 
-                      readOnly 
-                      value={currentUrl} 
-                      className="h-9 text-xs font-mono bg-muted/40 text-foreground selection:bg-indigo-500 selection:text-white" 
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={() => activeSupplier && handleCopyVendorLink(activeSupplier, shareTargetCategory)}
-                      className="h-9 px-3 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 gap-1.5 cursor-pointer"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-
-                {/* 4. Action Buttons */}
-                <div className="pt-3 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
+                {/* 3. Action Buttons */}
+                <div className="pt-2 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
                   <Button 
                     type="button"
-                    onClick={() => activeSupplier && handleSendVendorWhatsApp(activeSupplier, shareTargetCategory)}
-                    className="h-10 px-4 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-xs cursor-pointer flex-1"
+                    onClick={() => activeSupplier && handleSendVendorWhatsApp(activeSupplier)}
+                    className="h-10 px-4 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm cursor-pointer flex-1"
                   >
                     <Share2 className="h-4 w-4" />
-                    Share via WhatsApp (1-Click)
+                    واٹس ایپ پر لنک اور پاسورڈ بھیجیں
                   </Button>
                   
-                  {activeSupplier && (
-                    <Link href={`/supplier/${activeSupplier.id}${shareTargetCategory !== 'All' ? `?category=${encodeURIComponent(shareTargetCategory)}` : ''}`} target="_blank">
-                      <Button 
-                        type="button" 
-                        variant="outline"
-                        className="h-10 px-3 text-xs font-bold border-slate-300 dark:border-slate-700 gap-1.5 cursor-pointer"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Preview Portal
-                      </Button>
-                    </Link>
-                  )}
+                  <Link href="/supplier" target="_blank">
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      className="h-10 px-3 text-xs font-bold border-slate-300 dark:border-slate-700 gap-1.5 cursor-pointer"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      پورٹل کھولیں
+                    </Button>
+                  </Link>
                 </div>
 
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-[11px] text-slate-700 dark:text-slate-300 space-y-1">
                   <p className="font-bold text-emerald-800 dark:text-emerald-400 flex items-center gap-1">
-                    <Sparkles className="h-3.5 w-3.5" /> How this works:
+                    <Sparkles className="h-3.5 w-3.5" /> سپلائر پورٹل کیسے کام کرتا ہے:
                   </p>
-                  <p>
-                    1. When the vendor opens the link on WhatsApp, their phone browser directly loads their supplier portal.
-                  </p>
-                  <p>
-                    2. They can take photos of stone slabs/tiles with their mobile camera, type their price per square foot or unit, and tap <strong>"Submit Stone Proposal"</strong>.
-                  </p>
-                  <p>
-                    3. Their proposal arrives in your <strong>Pending Proposals</strong> alert box above for you to review and add to inventory with one click.
-                  </p>
+                  <p>1. سپلائر اس ایک ہی لنک پر جا کر اپنا مخصوص پاسورڈ لگائے گا تو اس کا اپنا پورٹل کھل جائے گا۔</p>
+                  <p>2. پہلی بار وہ اپنی فیکٹری کا نام، تصویر، فون نمبر اور ایڈریس درج کرے گا۔</p>
+                  <p>3. اس کے بعد اپنے مٹیریل، ریٹ اور تصویر شامل کر کے سبمٹ کرے گا تو ریکویسٹ سیدھی آپ کے ایڈمن پینل میں آ جائے گی۔</p>
                 </div>
               </div>
             );
@@ -3020,7 +3412,7 @@ export default function ManageStockPage() {
   );
 }
 
-// Separate component helper to manage the local tab states of each row cleanly and prevent full dashboard re-renders
+// Compact visual Stock Card with overlaid live App Rate and per-supplier active rate + +/- percentage rows
 function RowComponent({
   row,
   currentRates,
@@ -3034,11 +3426,10 @@ function RowComponent({
   handleFixingMaterialVisibilityToggle,
   handleVendorRateChange,
   handleDeleteVendorRate,
-  categories,
   onEditSale
 }: {
   row: any;
-  currentRates: { supplierName: string; rate: number; supplierId: string }[];
+  currentRates: { supplierName: string; rate: number; supplierId: string; rateMaterialId: string }[];
   suppliers: Supplier[];
   getStatusBadgeClass: any;
   handleMarbleStockStatusChange: any;
@@ -3053,465 +3444,523 @@ function RowComponent({
   onEditSale?: (row: any) => void;
 }) {
   const { toast } = useToast();
+  const { openGallery } = useFullscreenImage();
 
-  // Local tab indicator state within this specific product row
-  // Options: 'compare' (Compare All), or any specific supplierId
-  const [activeTab, setActiveTab] = useState<string>('compare');
-  const [localCostInput, setLocalCostInput] = useState<string>('');
-  const [activeVendorShareCategory, setActiveVendorShareCategory] = useState<string>('All');
+  // Controlled App Retail Price input synced with upstream updates
+  const [appPriceInput, setAppPriceInput] = useState<string>(String(row.price ?? 0));
+  useEffect(() => {
+    setAppPriceInput(String(row.price ?? 0));
+  }, [row.price]);
 
-  // Rate dialog state for configuring supplier rate via profit & app rate
+  // Inline quick-edit state for an active supplier row
+  const [expandedSupplierId, setExpandedSupplierId] = useState<string | null>(null);
+  const [inlineCostInput, setInlineCostInput] = useState<string>('');
+
+  // Link/Configure Wholesaler Rate modal state
   const [isRateDialogOpen, setIsRateDialogOpen] = useState<boolean>(false);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [dialogAppRate, setDialogAppRate] = useState<string>('0');
   const [dialogProfit, setDialogProfit] = useState<string>('0');
 
-  // Update cost text state whenever the active vendor tab changes
-  useEffect(() => {
-    if (activeTab !== 'compare') {
-      const match = currentRates.find(r => r.supplierId === activeTab);
-      setLocalCostInput(match ? String(match.rate) : '0');
+  // Compute live customer-facing App Rate (accounting for active sale/discount)
+  const hasSale = Boolean(row.onSale || (row.discount && row.discount > 0));
+  const basePrice = Number(row.price || 0);
+  const effectiveAppPrice = (() => {
+    if (!hasSale || !row.discount || row.discount <= 0 || basePrice <= 0) return basePrice;
+    if (row.discountType === 'fixed') {
+      return Math.max(1, Math.round(basePrice - row.discount));
     }
-  }, [activeTab, currentRates]);
+    return Math.max(1, Math.round(basePrice * (1 - row.discount / 100)));
+  })();
 
-  // Find currently active vendor object if a vendor tab is selected
-  const activeVendor = suppliers.find(s => s.id === activeTab);
-  const activeVendorRate = currentRates.find(r => r.supplierId === activeTab);
+  const commitAppPrice = () => {
+    const val = Number(appPriceInput);
+    if (!Number.isNaN(val) && val >= 0 && val !== row.price) {
+      if (row.type === 'marble') {
+        handleMarblePriceUpdate(row.productId, row.variantId || '', val);
+      } else {
+        handleFixingMaterialPriceUpdate(row.productId, val);
+      }
+    } else if (Number.isNaN(val) || val < 0) {
+      setAppPriceInput(String(row.price ?? 0));
+    }
+  };
 
-  // Compute margins for current active supplier
-  const cost = activeVendorRate ? activeVendorRate.rate : 0;
-  const profit = row.price - cost;
-  const marginPct = row.price > 0 ? (profit / row.price) * 100 : 0;
+  const openLinkSupplierModal = () => {
+    const activeSuppliers = suppliers.filter(s => s.status !== 'inactive');
+    const firstUnlinked = activeSuppliers.find(s => !currentRates.some(r => r.supplierId === s.id));
+    const defaultSup = firstUnlinked || activeSuppliers[0] || suppliers[0];
+    setSelectedSupplierId(defaultSup ? defaultSup.id : '');
+    setDialogAppRate(String(effectiveAppPrice || basePrice || 0));
+    setDialogProfit('0');
+    setIsRateDialogOpen(true);
+  };
 
-  // Calculated cost price to link to the supplier based on app's rate and profit
+  const selectedVendor = suppliers.find(s => s.id === selectedSupplierId);
   const calculatedCost = Math.max(0, Number(dialogAppRate || 0) - Number(dialogProfit || 0));
 
+  const formatMarkupPct = (supplierRate: number) => {
+    if (!supplierRate || supplierRate <= 0) return { label: '—', tone: 'neutral' as const };
+    const diffPct = ((effectiveAppPrice - supplierRate) / supplierRate) * 100;
+    const rounded = Number(diffPct.toFixed(1));
+    if (Math.abs(rounded) < 0.05) {
+      return { label: '0%', tone: 'neutral' as const };
+    }
+    if (rounded > 0) {
+      return { label: `+${rounded}%`, tone: 'positive' as const };
+    }
+    return { label: `${rounded}%`, tone: 'negative' as const };
+  };
+
+  const handleOpenPhoto = () => {
+    const gallery = buildProductGallery(row.imageUrl, row.baseName || row.name, row.gallery);
+    if (gallery.length > 0) {
+      openGallery(gallery, 0);
+    }
+  };
+
+  const statusBadgeMeta = (() => {
+    switch (row.availability) {
+      case 'in_stock':
+        return { label: 'In Stock', className: 'bg-emerald-600/90 text-white' };
+      case 'out_of_stock':
+        return { label: 'Out of Stock', className: 'bg-red-600/90 text-white' };
+      case 'limited_stock':
+        return { label: 'Limited', className: 'bg-amber-600/90 text-white' };
+      case 'incoming':
+        return { label: 'Incoming', className: 'bg-sky-600/90 text-white' };
+      case 'coming_soon':
+        return { label: 'Soon', className: 'bg-violet-600/90 text-white' };
+      default:
+        return { label: 'In Stock', className: 'bg-emerald-600/90 text-white' };
+    }
+  })();
+
+  const lowestSupplierRate = currentRates.length > 1
+    ? Math.min(...currentRates.map(r => r.rate))
+    : null;
+
   return (
-    <Card id={`row-${row.rowId}`} className="border border-border/80 shadow-sm overflow-hidden hover:border-primary/30 transition-all duration-200 bg-card">
-      <CardContent className="p-3 md:p-4 space-y-3">
-        
-        {/* 1. UPPER ROW: Image, Name, Stock, Price, Sale/Discount, Visibility */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
-          {/* Col A: Image and Product Label */}
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="relative w-11 h-11 rounded-lg overflow-hidden border border-border/60 shrink-0 bg-muted">
-              <Image 
-                src={row.imageUrl} 
-                alt={row.name} 
-                fill
-                sizes="44px"
-                className="object-cover"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                <Badge variant="outline" className="text-[8px] uppercase tracking-wider py-0 px-1 bg-muted/50 font-bold text-muted-foreground block w-max">
-                  {row.type === 'marble' ? 'Marble & Granite' : row.type === 'ceramic' ? 'Ceramic tile' : 'Chemical and tool'}
-                </Badge>
-                {(row.onSale || (row.discount && row.discount > 0)) && (
-                  <Badge className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-[8px] py-0 px-1.5 rounded-full flex items-center gap-0.5 shadow-xs">
-                    <Flame className="h-2.5 w-2.5 fill-amber-300 text-amber-200" />
-                    <span>
-                      {formatSaleBadgeText({
-                        discount: row.discount,
-                        discountType: row.discountType,
-                        saleBadgeText: row.saleBadgeText
-                      })}
-                    </span>
-                  </Badge>
-                )}
-                {row.onSale && row.heroHighlightOnSale && (
-                  <Badge variant="outline" className="text-[8px] py-0 px-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-bold flex items-center gap-0.5">
-                    <Sparkles className="h-2 w-2" />
-                    <span>Hero Banner</span>
-                  </Badge>
-                )}
-              </div>
-              <h4 className="font-headline text-xs md:text-sm font-extrabold text-foreground truncate max-w-[280px] md:max-w-[420px]">
-                {row.name}
-              </h4>
-            </div>
-          </div>
+    <Card
+      id={`row-${row.rowId}`}
+      className={cn(
+        "admin-stock-table-row border border-border/80 rounded-xl overflow-hidden bg-card flex flex-col transition-colors duration-150 hover:border-primary/40 shadow-sm",
+        row.isHidden && "opacity-75"
+      )}
+    >
+      {/* 1. COMPACT FULL-BLEED PHOTO HEADER WITH LIVE APP RATE & STOCK STATUS OVERLAY */}
+      <div
+        onClick={handleOpenPhoto}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleOpenPhoto();
+          }
+        }}
+        title="Click to view full-size image"
+        className="relative h-32 w-full overflow-hidden bg-muted group cursor-pointer shrink-0 select-none"
+      >
+        <Image
+          src={row.imageUrl}
+          alt={row.name}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          referrerPolicy="no-referrer"
+          unoptimized={typeof row.imageUrl === 'string' && row.imageUrl.startsWith('data:')}
+        />
 
-          {/* Col B: AVAILABILITY DROPDOWN MENU */}
-          <div className="flex flex-col gap-0.5 w-full md:w-44 shrink-0">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Availability Status</span>
-            <Select 
-              value={row.availability}
-              onValueChange={(val) => {
-                if (row.type === 'marble') {
-                  handleMarbleStockStatusChange(row.productId, val);
-                } else {
-                  handleFixingMaterialStockStatusChange(row.productId, val);
-                }
-              }}
-            >
-              <SelectTrigger className={`h-8 text-xs font-bold px-2.5 border-border/80 ${getStatusBadgeClass(row.availability)}`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="in_stock" className="text-xs font-bold">Available (Yes)</SelectItem>
-                <SelectItem value="out_of_stock" className="text-xs font-bold">No (Out of stock)</SelectItem>
-                <SelectItem value="incoming" className="text-xs font-bold">Incoming stock</SelectItem>
-                <SelectItem value="limited_stock" className="text-xs font-bold">Limited stock</SelectItem>
-                <SelectItem value="coming_soon" className="text-xs font-bold">Coming soon</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Col C: MANAGEABLE RETAIL SELLING PRICE */}
-          <div className="flex flex-col gap-0.5 w-full md:w-36 shrink-0">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Retail Price (PKR)</span>
-            <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-[10px] text-muted-foreground font-mono font-bold">PKR</span>
-              <Input 
-                type="number"
-                defaultValue={row.price}
-                onBlur={(e) => {
-                  const val = Number(e.target.value);
-                  if (val !== row.price) {
-                    if (row.type === 'marble') {
-                      handleMarblePriceUpdate(row.productId, row.variantId || '', val);
-                    } else {
-                      handleFixingMaterialPriceUpdate(row.productId, val);
-                    }
-                  }
-                }}
-                className="h-8 w-full pl-11 pr-2 text-right font-extrabold text-xs border-border/80 bg-background"
-              />
-            </div>
-          </div>
-
-          {/* Col D: SALE & DISCOUNT STATUS / BUTTON */}
-          <div className="flex flex-col gap-0.5 w-full md:w-36 shrink-0">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <Flame className="h-2.5 w-2.5 text-amber-500" />
-              Sale & Discount
+        {/* Top Row Over Image: Stock Status / Sale Flag & Storefront Visibility Toggle */}
+        <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-1.5 z-10">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className={cn(
+              "inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide shadow-sm backdrop-blur-sm",
+              statusBadgeMeta.className
+            )}>
+              {statusBadgeMeta.label}
             </span>
-            <button
-              type="button"
-              onClick={() => onEditSale && onEditSale(row)}
-              className={cn(
-                "h-8 px-2.5 rounded-md text-xs font-extrabold flex items-center justify-between border transition-all cursor-pointer",
-                (row.onSale || (row.discount && row.discount > 0))
-                  ? "bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30 shadow-xs"
-                  : "bg-muted/40 hover:bg-muted text-muted-foreground border-border/60 hover:text-foreground"
-              )}
-              title="Configure product sale and discount"
-            >
-              {(row.onSale || (row.discount && row.discount > 0)) ? (
-                <>
-                  <span className="flex items-center gap-1 truncate">
-                    <Flame className="h-3 w-3 fill-red-500 text-red-500 shrink-0 animate-pulse" />
-                    <span>{row.discountType === 'fixed' ? `Rs ${row.discount}` : `${row.discount}%`} OFF</span>
-                  </span>
-                  <Edit className="h-3 w-3 opacity-60 ml-1 shrink-0" />
-                </>
-              ) : (
-                <>
-                  <span className="text-[11px] font-medium text-muted-foreground">+ Add Sale</span>
-                  <Tag className="h-3 w-3 opacity-40 shrink-0" />
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Col E: STOREFRONT VISIBILITY TOGGLER */}
-          <div className="flex flex-col gap-0.5 shrink-0">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Storefront</span>
-            <div className="flex items-center gap-2 h-8">
-              <Switch 
-                checked={!row.isHidden}
-                onCheckedChange={() => {
-                  if (row.type === 'marble') {
-                    handleMarbleVisibilityToggle(row.productId, row.isHidden);
-                  } else {
-                    handleFixingMaterialVisibilityToggle(row.productId, row.isHidden);
-                  }
-                }}
-                className="scale-75"
-              />
-              <span className="text-xs font-bold text-foreground">
-                {row.isHidden ? 'Hidden' : 'Active'}
+            {hasSale && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-red-600/95 px-1.5 py-0.5 text-[9px] font-extrabold text-white shadow-sm">
+                <Flame className="h-2.5 w-2.5 fill-amber-300 text-amber-200 shrink-0" />
+                {formatSaleBadgeText({
+                  discount: row.discount,
+                  discountType: row.discountType,
+                  saleBadgeText: row.saleBadgeText
+                })}
               </span>
-            </div>
-          </div>
-
-        </div>
-
-        {/* 2. LOWER ROW: COMPACT VENDOR TABS PANEL */}
-        <div className="bg-muted/30 border border-border/40 rounded-lg p-2.5 space-y-2.5">
-          
-          {/* Tab Selector Strip */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/20 pb-1.5">
-            <div className="flex flex-wrap items-center gap-1">
-              {/* Tab: Compare All */}
-              <button
-                onClick={() => setActiveTab('compare')}
-                className={`px-2 py-1 rounded text-[10px] font-extrabold transition-all ${
-                  activeTab === 'compare' 
-                    ? 'bg-primary text-primary-foreground shadow-xs' 
-                    : 'bg-background hover:bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                📊 Compare All
-              </button>
-
-              {/* Vendor Tabs */}
-              {suppliers.map(sup => {
-                const isLinked = currentRates.some(r => r.supplierId === sup.id);
-                return (
-                  <button
-                    key={sup.id}
-                    onClick={() => setActiveTab(sup.id)}
-                    className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 ${
-                      activeTab === sup.id 
-                        ? 'bg-indigo-600 text-white shadow-xs' 
-                        : isLinked 
-                          ? 'bg-indigo-50/50 hover:bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300' 
-                          : 'bg-background hover:bg-muted text-muted-foreground hover:text-foreground border border-dashed border-border/80'
-                    }`}
-                  >
-                    {sup.name}
-                    {isLinked && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick action to associate a contract if not already tab-active */}
-            {activeTab !== 'compare' && !activeVendorRate && (
-              <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">
-                Not linked yet
-              </Badge>
             )}
           </div>
 
-          {/* Tab Content Panels */}
-          {activeTab === 'compare' ? (
-            /* COMPARISON VIEW PANEL */
-            <div className="space-y-1.5">
-              {currentRates.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground italic pl-1">
-                  No purchase cost rates registered yet for this size. Click any Vendor Tab above to instantly set a contract price!
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {currentRates.map(r => {
-                    const localProfit = row.price - r.rate;
-                    const localMargin = row.price > 0 ? (localProfit / row.price) * 100 : 0;
-                    
-                    return (
-                      <div 
-                        key={r.supplierId} 
-                        onClick={() => setActiveTab(r.supplierId)}
-                        className="p-1.5 rounded bg-background border border-border/50 hover:border-indigo-400 cursor-pointer transition-all flex flex-col justify-between"
-                      >
-                        <div className="flex justify-between items-center gap-1">
-                          <span className="text-[9px] font-extrabold text-foreground truncate">{r.supplierName}</span>
-                          <span className="text-[8px] text-muted-foreground font-mono shrink-0">PKR {r.rate.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-1 mt-1 border-t border-border/20">
-                          <span className="text-[8px] font-medium text-muted-foreground">Margin:</span>
-                          <Badge 
-                            variant="outline" 
-                            className={`text-[8px] h-3.5 py-0 px-1 font-bold shrink-0 ${
-                              localMargin < 0 
-                                ? 'bg-red-50 text-red-700 border-red-200' 
-                                : localMargin < 15 
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}
-                          >
-                            {localMargin.toFixed(0)}%
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : (
-            /* SPECIFIC SUPPLIER CONTRACT RATE DETAILS (Directly adjustable inside) */
-            <div className="bg-background border border-border/50 rounded p-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              
-              <div className="flex items-center gap-2 min-w-0">
-                <User className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold text-foreground flex items-center gap-1.5 flex-wrap">
-                    {activeVendor?.name} Rate Contract
-                    {activeVendor && (
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Select value={activeVendorShareCategory} onValueChange={setActiveVendorShareCategory}>
-                          <SelectTrigger className="h-5 text-[8px] w-24 py-0 px-1.5 bg-background font-bold border-border/60">
-                            <SelectValue placeholder="Category" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="All" className="text-[10px]">All Categories</SelectItem>
-                            {(categories || APP_PRODUCT_CATEGORIES).map(cat => (
-                              <SelectItem key={cat.id} value={cat.id} className="text-[10px]">{cat.labelEn}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <button
-                          type="button"
-                          title="Copy Secure Vendor Portal Link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const queryParam = activeVendorShareCategory !== 'All' ? `?category=${encodeURIComponent(activeVendorShareCategory)}` : '';
-                            const portalUrl = `${getPublicOrigin()}/supplier/${activeVendor.id}${queryParam}`;
-                            navigator.clipboard.writeText(portalUrl);
-                            toast({
-                              title: "Link Copied",
-                              description: `Secure portal link for ${activeVendor.name} (${activeVendorShareCategory}) copied!`
-                            });
-                          }}
-                          className="p-1 rounded bg-muted/60 hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-950/40 text-muted-foreground transition-all shrink-0"
-                        >
-                          <Share2 className="h-2.5 w-2.5" />
-                        </button>
-                      </div>
-                    )}
-                  </span>
-                  <span className="text-[8px] text-muted-foreground block font-medium">
-                    {activeVendor?.phone || 'No phone'} | {activeVendor?.address || 'Quarry Location'}
-                  </span>
-                </div>
-              </div>
-
-              {activeVendorRate ? (
-                /* Edit linked rate cost directly */
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-muted-foreground font-bold font-mono">Cost: PKR</span>
-                    <Input 
-                      type="number"
-                      value={localCostInput}
-                      onChange={(e) => setLocalCostInput(e.target.value)}
-                      onBlur={() => {
-                        const val = Number(localCostInput);
-                        if (val !== activeVendorRate.rate) {
-                          handleVendorRateChange(activeTab, row.rowId, val);
-                        }
-                      }}
-                      className="h-7 w-20 px-1 text-right font-extrabold text-[11px] border-border/80"
-                    />
-                  </div>
-
-                  {/* Profit margin feedback badge */}
-                  <div className="text-right shrink-0">
-                    <Badge 
-                      variant="outline" 
-                      className={`text-[9px] py-0.5 px-1.5 font-bold ${
-                        marginPct < 0 
-                          ? 'bg-red-50 text-red-700 border-red-200' 
-                          : marginPct < 15 
-                            ? 'bg-amber-50 text-amber-700 border-amber-200' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}
-                    >
-                      {marginPct.toFixed(0)}% margin (PKR {profit.toLocaleString()})
-                    </Badge>
-                  </div>
-
-                  {/* Remove supplier link entirely */}
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      handleDeleteVendorRate(activeTab, row.rowId);
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ) : (
-                /* Supplier is not associated with this format: Link it now! */
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setDialogAppRate(String(row.price || 0));
-                    setDialogProfit('0');
-                    setIsRateDialogOpen(true);
-                  }}
-                  className="h-7 text-[10px] font-extrabold text-indigo-600 border-indigo-200 hover:bg-indigo-50 shrink-0 gap-1"
-                >
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  Link Cost Contract
-                </Button>
-              )}
-
-            </div>
-          )}
-
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 rounded-md bg-black/65 backdrop-blur-sm px-1.5 py-0.5 border border-white/15 shrink-0"
+            title={row.isHidden ? 'Hidden from app storefront' : 'Visible in app storefront'}
+          >
+            <Switch
+              checked={!row.isHidden}
+              onCheckedChange={() => {
+                if (row.type === 'marble') {
+                  handleMarbleVisibilityToggle(row.productId, row.isHidden);
+                } else {
+                  handleFixingMaterialVisibilityToggle(row.productId, row.isHidden);
+                }
+              }}
+              className="scale-[0.65] -mx-1"
+            />
+            <span className={cn(
+              "text-[10px] font-bold tracking-tight",
+              row.isHidden ? "text-white/60" : "text-emerald-300"
+            )}>
+              {row.isHidden ? 'Off' : 'Live'}
+            </span>
+          </div>
         </div>
 
-      </CardContent>
+        {/* Bottom Scrim: Product Title + Variant on Left, Live App Rate on Right */}
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-8 pb-2 px-2.5 flex items-end justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h4 className="font-headline text-xs font-extrabold text-white leading-tight truncate drop-shadow-sm">
+              {row.baseName || row.name}
+            </h4>
+            {row.variantLabel && (
+              <p className="text-[10px] font-medium text-white/80 truncate leading-tight mt-0.5">
+                {row.variantLabel}
+              </p>
+            )}
+          </div>
 
-      {/* Dynamic Wholesaler Rate configuration Dialogue Box */}
+          {/* Live App Rate Overlay */}
+          <div className="text-right shrink-0 pl-1">
+            <span className="block text-[9px] uppercase tracking-wider font-semibold text-white/75 leading-none">
+              App Rate
+            </span>
+            {hasSale && effectiveAppPrice < basePrice ? (
+              <div className="flex flex-col items-end leading-tight mt-0.5">
+                <span className="text-[10px] font-mono tabular-nums line-through text-white/60 leading-none">
+                  Rs {basePrice.toLocaleString()}
+                </span>
+                <span className="text-sm font-black font-mono tabular-nums text-amber-300 leading-tight">
+                  Rs {effectiveAppPrice.toLocaleString()}
+                  <span className="text-[9px] font-semibold text-white/80">/{row.unit || 'sqft'}</span>
+                </span>
+              </div>
+            ) : (
+              <span className="block text-sm font-black font-mono tabular-nums text-white leading-tight mt-0.5">
+                Rs {effectiveAppPrice.toLocaleString()}
+                <span className="text-[9px] font-semibold text-white/80">/{row.unit || 'sqft'}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. ACTIVE SUPPLIERS SECTION: ONE DEDICATED ROW PER ON/ACTIVE SUPPLIER */}
+      <div className="flex-1 flex flex-col">
+        <div className="px-2.5 py-1.5 bg-muted/35 border-b border-border/50 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Active Suppliers ({currentRates.length})
+          </span>
+          <button
+            type="button"
+            onClick={openLinkSupplierModal}
+            className="text-[10px] font-bold text-primary hover:underline flex items-center gap-0.5 cursor-pointer"
+          >
+            <Plus className="h-3 w-3" />
+            Add Rate
+          </button>
+        </div>
+
+        {currentRates.length === 0 ? (
+          <div className="px-2.5 py-3 text-[11px] text-muted-foreground text-center flex-1 flex items-center justify-center">
+            <span>No active supplier ON — click + Add Rate</span>
+          </div>
+        ) : (
+          <div className="divide-y divide-border/50">
+            {currentRates.map((r) => {
+              const pct = formatMarkupPct(r.rate);
+              const isExpanded = expandedSupplierId === r.supplierId;
+              const diffRs = effectiveAppPrice - r.rate;
+
+              return (
+                <div key={r.supplierId} className="text-xs">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (isExpanded) {
+                        setExpandedSupplierId(null);
+                      } else {
+                        setExpandedSupplierId(r.supplierId);
+                        setInlineCostInput(String(r.rate));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (isExpanded) {
+                          setExpandedSupplierId(null);
+                        } else {
+                          setExpandedSupplierId(r.supplierId);
+                          setInlineCostInput(String(r.rate));
+                        }
+                      }
+                    }}
+                    title={`Click to edit ${r.supplierName} cost rate (${diffRs >= 0 ? '+' : ''}Rs ${diffRs.toLocaleString()})`}
+                    className={cn(
+                      "px-2.5 py-1.5 flex items-center justify-between gap-2 cursor-pointer transition-colors hover:bg-muted/35",
+                      isExpanded && "bg-muted/40"
+                    )}
+                  >
+                    <span className="font-semibold text-foreground truncate min-w-0 flex-1 text-[11px] flex items-center gap-1">
+                      <span className="truncate">{r.supplierName}</span>
+                      {lowestSupplierRate !== null && r.rate === lowestSupplierRate && (
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                          Best
+                        </span>
+                      )}
+                    </span>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-mono tabular-nums text-[11px] font-bold text-foreground">
+                        Rs {r.rate.toLocaleString()}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-mono tabular-nums text-[10px] font-extrabold px-1.5 py-0.5 rounded min-w-[48px] text-center leading-tight",
+                          pct.tone === 'positive' && "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+                          pct.tone === 'negative' && "bg-red-500/15 text-red-700 dark:text-red-400",
+                          pct.tone === 'neutral' && "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {pct.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Inline Rate Edit / Unlink Row */}
+                  {isExpanded && (
+                    <div className="px-2.5 py-2 bg-muted/25 border-t border-border/40 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground shrink-0">Rs</span>
+                        <Input
+                          type="number"
+                          value={inlineCostInput}
+                          onChange={(e) => setInlineCostInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = Number(inlineCostInput);
+                              if (!Number.isNaN(val) && val > 0 && val !== r.rate) {
+                                handleVendorRateChange(r.supplierId, r.rateMaterialId, val);
+                              }
+                              setExpandedSupplierId(null);
+                            }
+                          }}
+                          className="h-7 px-1.5 text-right font-mono tabular-nums text-xs font-bold bg-background border-border/80"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 px-2 text-[10px] font-bold shrink-0"
+                          onClick={() => {
+                            const val = Number(inlineCostInput);
+                            if (!Number.isNaN(val) && val > 0 && val !== r.rate) {
+                              handleVendorRateChange(r.supplierId, r.rateMaterialId, val);
+                            }
+                            setExpandedSupplierId(null);
+                          }}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          title="Copy Universal Portal Link & PIN"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                          onClick={() => {
+                            const matchedSup = suppliers.find(s => s.id === r.supplierId);
+                            const pin = matchedSup?.accessPassword || '7861';
+                            const portalUrl = `${getPublicOrigin()}/supplier`;
+                            navigator.clipboard.writeText(`پورٹل لنک: ${portalUrl}\nپاسورڈ / PIN: ${pin}`);
+                            toast({
+                              title: "لنک اور پاسورڈ کاپی ہو گیا",
+                              description: `${r.supplierName} کے لیے سنگل پورٹل لنک اور PIN (${pin}) کاپی ہو گیا۔`
+                            });
+                          }}
+                        >
+                          <Share2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          title="Remove supplier rate"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            handleDeleteVendorRate(r.supplierId, r.rateMaterialId);
+                            setExpandedSupplierId(null);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 3. COMPACT FOOTER CONTROLS: EDIT APP RATE, STOCK STATUS, SALE */}
+      <div className="mt-auto border-t border-border/60 bg-muted/20 p-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 items-center">
+        {/* Inline App Rate Input */}
+        <div className="relative flex items-center" title="Edit App Retail Rate (PKR)">
+          <span className="absolute left-2 text-[10px] text-muted-foreground font-mono font-bold pointer-events-none">
+            Rs
+          </span>
+          <Input
+            type="number"
+            value={appPriceInput}
+            onChange={(e) => setAppPriceInput(e.target.value)}
+            onBlur={commitAppPrice}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                commitAppPrice();
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="h-7 w-full pl-7 pr-1.5 text-right font-mono tabular-nums font-bold text-xs border-border/80 bg-background"
+          />
+        </div>
+
+        {/* Availability Select */}
+        <Select
+          value={row.availability}
+          onValueChange={(val) => {
+            if (row.type === 'marble') {
+              handleMarbleStockStatusChange(row.productId, val);
+            } else {
+              handleFixingMaterialStockStatusChange(row.productId, val);
+            }
+          }}
+        >
+          <SelectTrigger className={`h-7 text-[11px] font-bold px-2 border-border/80 ${getStatusBadgeClass(row.availability)}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="in_stock" className="text-xs font-bold">Available</SelectItem>
+            <SelectItem value="out_of_stock" className="text-xs font-bold">Out of stock</SelectItem>
+            <SelectItem value="incoming" className="text-xs font-bold">Incoming</SelectItem>
+            <SelectItem value="limited_stock" className="text-xs font-bold">Limited</SelectItem>
+            <SelectItem value="coming_soon" className="text-xs font-bold">Coming soon</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Sale & Discount Trigger */}
+        <button
+          type="button"
+          onClick={() => onEditSale && onEditSale(row)}
+          className={cn(
+            "h-7 px-2 rounded-md text-[11px] font-bold flex items-center justify-center gap-1 border transition-colors cursor-pointer shrink-0",
+            hasSale
+              ? "bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-400 border-red-500/30"
+              : "bg-background hover:bg-muted text-muted-foreground border-border/80 hover:text-foreground"
+          )}
+          title="Configure Sale & Discount"
+        >
+          {hasSale ? (
+            <>
+              <Flame className="h-3 w-3 fill-red-500 text-red-500 shrink-0" />
+              <span className="font-mono tabular-nums">
+                {row.discountType === 'fixed' ? `-${row.discount}` : `-${row.discount}%`}
+              </span>
+            </>
+          ) : (
+            <Tag className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </div>
+
+      {/* Dynamic Wholesaler Rate configuration Dialog */}
       <Dialog open={isRateDialogOpen} onOpenChange={setIsRateDialogOpen}>
         <DialogContent className="sm:max-w-[420px] bg-slate-900 border border-slate-800 text-white">
           <DialogHeader>
             <DialogTitle className="font-headline font-extrabold text-white flex items-center gap-1.5">
-              <DollarSign className="h-5 w-5 text-indigo-400 animate-pulse" />
-              Configure Wholesaler Rate
+              <DollarSign className="h-5 w-5 text-indigo-400" />
+              Link Active Supplier Rate
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-400">
-              Set the supplier's cost rate by inputting your target profit and your app's retail rate for <strong className="text-white">"{row.title || row.name}"</strong>.
+              Select a supplier and set their cost rate for <strong className="text-white">&quot;{row.title || row.name}&quot;</strong>.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4 text-xs">
             <div className="space-y-1.5">
-              <Label htmlFor="app-rate" className="text-slate-300 font-bold">Our App's Rate (Retail Selling Price - PKR)</Label>
+              <Label className="text-slate-300 font-bold">Supplier</Label>
+              <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
+                <SelectTrigger className="bg-slate-950 border-slate-800 text-white font-bold">
+                  <SelectValue placeholder="Choose supplier..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map(sup => (
+                    <SelectItem key={sup.id} value={sup.id} className="text-xs font-semibold">
+                      {sup.name}{sup.status === 'inactive' ? ' (Inactive)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor={`app-rate-${row.rowId}`} className="text-slate-300 font-bold">Our App&apos;s Rate (Retail Selling Price - PKR)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-slate-500 font-mono font-bold">PKR</span>
                 <Input
-                  id="app-rate"
+                  id={`app-rate-${row.rowId}`}
                   type="number"
                   placeholder="Enter our retail rate"
                   value={dialogAppRate}
                   onChange={(e) => setDialogAppRate(e.target.value)}
-                  className="pl-12 bg-slate-950 border-slate-800 text-white font-extrabold font-mono focus-visible:ring-indigo-500"
+                  className="pl-12 bg-slate-950 border-slate-800 text-white font-extrabold font-mono tabular-nums focus-visible:ring-indigo-500"
                 />
               </div>
-              <p className="text-[10px] text-slate-500">The customer-facing retail price listed in your showroom app.</p>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="profit-rate" className="text-slate-300 font-bold">Our Profit (PKR)</Label>
+              <Label htmlFor={`profit-rate-${row.rowId}`} className="text-slate-300 font-bold">Our Profit (PKR)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-indigo-400 font-mono font-bold">PKR</span>
                 <Input
-                  id="profit-rate"
+                  id={`profit-rate-${row.rowId}`}
                   type="number"
                   placeholder="Enter your target profit margin"
                   value={dialogProfit}
                   onChange={(e) => setDialogProfit(e.target.value)}
-                  className="pl-12 bg-slate-950 border-slate-800 text-white font-extrabold font-mono focus-visible:ring-indigo-500"
+                  className="pl-12 bg-slate-950 border-slate-800 text-white font-extrabold font-mono tabular-nums focus-visible:ring-indigo-500"
                 />
               </div>
-              <p className="text-[10px] text-slate-500">The amount of markup/profit you want to keep per unit.</p>
             </div>
 
             <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-xl space-y-1.5">
               <div className="flex justify-between items-center text-slate-400">
-                <span>App's Retail Rate:</span>
-                <span className="font-mono font-bold text-slate-200">PKR {Number(dialogAppRate || 0).toLocaleString()}</span>
+                <span>App&apos;s Retail Rate:</span>
+                <span className="font-mono tabular-nums font-bold text-slate-200">PKR {Number(dialogAppRate || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>Minus Profit Margin:</span>
-                <span className="font-mono font-bold text-indigo-400">- PKR {Number(dialogProfit || 0).toLocaleString()}</span>
+                <span>Minus Profit:</span>
+                <span className="font-mono tabular-nums font-bold text-indigo-400">- PKR {Number(dialogProfit || 0).toLocaleString()}</span>
               </div>
               <div className="border-t border-slate-800 my-2 pt-2 flex justify-between items-center text-white">
-                <span className="font-extrabold">Wholesaler Cost Rate:</span>
-                <span className="font-mono font-extrabold text-emerald-400 text-sm">
+                <span className="font-extrabold">Supplier Cost Rate:</span>
+                <span className="font-mono tabular-nums font-extrabold text-emerald-400 text-sm">
                   PKR {calculatedCost.toLocaleString()}
                 </span>
               </div>
@@ -3529,17 +3978,19 @@ function RowComponent({
             </Button>
             <Button
               type="button"
+              disabled={!selectedSupplierId || calculatedCost <= 0}
               onClick={() => {
-                handleVendorRateChange(activeTab, row.rowId, calculatedCost);
+                if (!selectedSupplierId) return;
+                handleVendorRateChange(selectedSupplierId, row.rowId, calculatedCost);
                 setIsRateDialogOpen(false);
                 toast({
                   title: "Contract Rate Connected",
-                  description: `Assigned cost rate of PKR ${calculatedCost.toLocaleString()} (Retail: PKR ${Number(dialogAppRate || 0).toLocaleString()} - Profit: PKR ${Number(dialogProfit || 0).toLocaleString()}) for "${activeVendor?.name}".`,
+                  description: `Assigned cost rate of PKR ${calculatedCost.toLocaleString()} for "${selectedVendor?.name || 'Supplier'}".`,
                 });
               }}
               className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold"
             >
-              Confirm & Link Wholesaler
+              Confirm & Link Supplier
             </Button>
           </DialogFooter>
         </DialogContent>

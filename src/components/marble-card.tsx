@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { Marble } from '@/lib/types';
-import { Calculator, Gem, Truck, Globe, ShoppingCart, Flame, Percent } from 'lucide-react';
+import { Calculator, Gem, Truck, Globe, ShoppingCart, Flame, Percent, Maximize2 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { formatSaleBadgeText } from '@/lib/utils';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 import React from 'react';
 
 interface MarbleCardProps {
@@ -24,6 +25,7 @@ interface MarbleCardProps {
 }
 
 export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick, onDesignClick, itemNumber }: MarbleCardProps) {
+  const { openGallery } = useFullscreenImage();
   const OriginIcon = marble.origin === 'Local' ? Truck : Globe;
   const isPerPiece = ['Vanity', 'Inlay', 'Antique'].includes(marble.materialType);
   
@@ -93,6 +95,21 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
               Click to View Details
             </span>
           </div>
+
+          {/* Quick Fullscreen Gallery Lightbox Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openGallery(buildProductGallery(imageUrl, marble.name, marble.gallery), 0);
+            }}
+            title={`View ${marble.name} full-size gallery`}
+            aria-label={`View ${marble.name} full-size gallery`}
+            className="absolute bottom-3.5 right-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/65 text-white border border-white/15 backdrop-blur-xs shadow-md transition-all hover:bg-primary hover:text-primary-foreground hover:scale-105 cursor-pointer"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
 
           {/* Subtle Hover Overlay */}
           <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />

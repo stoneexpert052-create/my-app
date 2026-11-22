@@ -21,6 +21,8 @@ import {
   Tag,
   QrCode as QrIcon
 } from 'lucide-react';
+import { Icons } from '@/components/icons';
+import { getHomepageConfig } from '@/lib/admin-actions';
 import { Button } from '@/components/ui/button';
 import { CompanyBrochure } from '@/components/company-brochure';
 import { PriceListBrochure } from '@/components/price-list-brochure';
@@ -33,6 +35,7 @@ function PublicBrochureContent() {
   const initialType = searchParams.get('type') === 'price-list' ? 'price-list' : 'company';
 
   const [activeType, setActiveType] = useState<'company' | 'price-list'>(initialType);
+  const [logoUrl, setLogoUrl] = useState<string>(config.logoUrl || '/logo.svg');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const { toast } = useToast();
@@ -45,6 +48,14 @@ function PublicBrochureContent() {
       setActiveType('company');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    getHomepageConfig()
+      .then((cfg) => {
+        if (cfg?.logoUrl) setLogoUrl(cfg.logoUrl);
+      })
+      .catch(() => {});
+  }, []);
 
   const businessPhone = config.businessPhoneNumber || '+92 339 9991052';
   const businessWhatsApp = config.businessWhatsAppNumber || '923399991052';
@@ -177,10 +188,12 @@ function PublicBrochureContent() {
       {/* ================= PUBLIC TOP NAVIGATION BAR (STICKY) ================= */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm print:hidden">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-lg">
-            <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black">
-              SE
-            </div>
+          <Link href="/" className="flex items-center gap-2.5 text-slate-900 dark:text-white font-bold text-lg">
+            <Icons.logo
+              src={logoUrl}
+              alt="Stone Expert Logo"
+              className="h-9 w-9 object-contain rounded-lg p-0.5 bg-slate-900 border border-amber-500/40 shrink-0"
+            />
             <div className="flex flex-col leading-none">
               <span className="font-extrabold text-base">Stone Expert</span>
               <span className="text-[10px] text-muted-foreground">سٹون ایکسپرٹ پاکستان</span>
@@ -197,7 +210,7 @@ function PublicBrochureContent() {
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
               }`}
             >
-              کمپنی تعارف
+              Company Profile / کمپنی تعارف
             </button>
             <button
               onClick={() => setActiveType('price-list')}
@@ -207,7 +220,7 @@ function PublicBrochureContent() {
                   : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
               }`}
             >
-              <span>پرائس لسٹ (مع QR)</span>
+              <span>Price List / پرائس لسٹ (QR)</span>
             </button>
           </div>
 
@@ -294,18 +307,21 @@ function PublicBrochureContent() {
         )}
 
         {/* BOTTOM ACTION BAR FOR USERS */}
-        <div className="mt-8 mb-12 p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center space-y-4 print:hidden">
+        <div className="mt-8 mb-12 p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center space-y-3 print:hidden">
           <h3 className="text-lg font-bold text-foreground">
-            مزید معلومات، کسٹم سائزز، یا آرڈر کے لیے ہم سے رابطہ کریں
+            Contact Us for Custom Sizes &amp; Orders • مزید معلومات، کسٹم سائزز یا آرڈر کے لیے رابطہ کریں
           </h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto">
+            Live photos of all materials, free area calculator, and instant order booking are available 24/7 on our web app.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-xl mx-auto" dir="rtl">
             سٹون ایکسپرٹ کے تمام مٹیریلز کی لائیو تصاویر، فری ایریا کیلکولیٹر اور آرڈر بکنگ ہماری مرکزی ویب ایپ پر 24/7 دستیاب ہے۔
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <Button asChild size="lg" className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2">
               <Link href="/">
                 <Globe className="w-4 h-4" />
-                <span>ویب ایپ اوپن کریں</span>
+                <span>Open Web App / ویب ایپ کھولیں</span>
               </Link>
             </Button>
             <Button 
@@ -315,15 +331,15 @@ function PublicBrochureContent() {
               className="border-emerald-600 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-bold gap-2"
             >
               <Smartphone className="w-4 h-4" />
-              <span>واٹس ایپ پر رابطہ کریں</span>
+              <span>WhatsApp Contact / واٹس ایپ رابطہ</span>
             </Button>
           </div>
         </div>
       </main>
 
       {/* FOOTER */}
-      <footer className="py-4 text-center text-xs text-muted-foreground border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 print:hidden">
-        © {new Date().getFullYear()} Stone Expert Pakistan • Main GT Road, Rawalpindi / Islamabad • {businessPhone}
+      <footer className="py-4 px-4 text-center text-xs text-muted-foreground border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 print:hidden">
+        © {new Date().getFullYear()} Stone Expert (سٹون ایکسپرٹ) • Plot # 375-A, Potohar Road, I-9/3, Islamabad • {businessPhone}
       </footer>
     </div>
   );

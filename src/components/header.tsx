@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
-import { Globe, Search, ChevronDown, ShoppingCart, Mic, Camera, PlusCircle, Send, FileSearch, Package, Phone, Menu, Sun, Moon, LogIn, LogOut, User as UserIcon, LayoutGrid, Calculator, Ruler, ChefHat, Wind, DraftingCompass, Bath, Volume2, VolumeX, HelpCircle, Sparkles, Wrench, Users, Settings, Layers, QrCode, Building2, FileText, Flame, Scissors } from 'lucide-react';
+import { Globe, Search, ChevronDown, ShoppingCart, Mic, Camera, PlusCircle, Send, FileSearch, Package, Phone, Menu, Sun, Moon, LogIn, LogOut, User as UserIcon, LayoutGrid, Calculator, Ruler, ChefHat, Wind, DraftingCompass, Bath, Volume2, VolumeX, HelpCircle, Sparkles, Wrench, Users, Settings, Layers, QrCode, Building2, FileText, Flame, Scissors, Handshake } from 'lucide-react';
 import { DownloadShareDialog } from './download-share-dialog';
 import {
   DropdownMenu,
@@ -91,15 +91,6 @@ const appServices = [
     descriptionUr: 'سیڑھی کے قدموں، اونچائی، سائیڈ پٹی اور مکمل رگڑائی کی لاگت کا حساب لگاتا ہے۔',
     icon: DraftingCompass,
     href: '/order/general-supplies-order?calc=stairs'
-  },
-  {
-    id: 'cutting-optimizer',
-    nameEn: 'Cutting Optimizer & Bookmatch',
-    nameUr: 'سلیب کٹنگ اور بک میچ آپٹیمائزر',
-    descriptionEn: 'optimizes 2D marble slab cutting layouts, bookmatch veins, and floor fixing maps.',
-    descriptionUr: 'ماربل سلیب کی کٹائی، بک میچ رگوں اور فرش کی فٹنگ کا مکمل 2D نقشہ بناتا ہے۔',
-    icon: Scissors,
-    href: '/order/general-supplies-order?calc=cutting-optimizer'
   },
   {
     id: 'tools',
@@ -653,6 +644,15 @@ export function Header() {
                         <span>Company Brochure (بروشر و پی ڈی ایف)</span>
                       </Link>
                     </SheetClose>
+                    <SheetClose asChild>
+                      <Link 
+                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-500 shadow-sm transition-all" 
+                        href="/supplier?tab=partner"
+                      >
+                        <Handshake className="h-5 w-5 text-slate-950 shrink-0" />
+                        <span>{language === 'ur' ? 'ہمارے ساتھ بزنس کریں (Partner With Us)' : 'Partner With Us / Become a Supplier'}</span>
+                      </Link>
+                    </SheetClose>
                     <div className="pt-2 border-t mt-2">
                       <SheetClose asChild>
                         <Link 
@@ -763,13 +763,24 @@ export function Header() {
         </div>
 
 
-        <div className="flex items-center justify-end space-x-1 sm:space-x-2">
+        <div className="flex items-center justify-end space-x-1 sm:space-x-2 shrink-0">
           <nav className="flex items-center gap-1 sm:gap-2">
+             <Button
+               asChild
+               size="sm"
+               className="hidden md:flex items-center gap-1.5 text-xs font-extrabold h-9 px-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-sm whitespace-nowrap shrink-0 transition-colors"
+             >
+               <Link href="/supplier?tab=partner">
+                 <Handshake className="h-4 w-4 shrink-0" />
+                 <span>{language === 'ur' ? 'پارٹنر بنیں' : 'Partner With Us'}</span>
+               </Link>
+             </Button>
+
              <Button
                asChild
                variant="ghost"
                size="sm"
-               className="hidden xl:flex items-center gap-1.5 text-xs font-semibold hover:text-[#dfb96c] hover:bg-amber-500/10 h-9 px-2.5 rounded-full"
+               className="hidden xl:flex items-center gap-1.5 text-xs font-semibold hover:text-[#dfb96c] hover:bg-amber-500/10 h-9 px-2.5 rounded-full whitespace-nowrap shrink-0"
              >
                <Link href="/#representatives-section">
                  <Users className="h-4 w-4 text-amber-500" />

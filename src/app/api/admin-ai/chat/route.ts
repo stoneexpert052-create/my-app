@@ -30,7 +30,8 @@ export interface AdminActionProposal {
     | 'ADD_PRODUCT' 
     | 'DELETE_PRODUCT'
     | 'BULK_SUPPLIER_RATE_UPDATE'
-    | 'APPLY_SUPPLIER_MARKUP';
+    | 'APPLY_SUPPLIER_MARKUP'
+    | 'UPDATE_SALE_RIBBON_STYLE';
   title: string;
   description: string;
   targetId?: string;
@@ -170,6 +171,20 @@ VALID actionType VALUES AND PAYLOAD SHAPES:
     payload: { "itemType": "marble" | "fixing_material", "name": string, "price": number, "category": string, "origin"?: "Local" | "Imported", "description"?: string }
 13. DELETE_PRODUCT:
     payload: { "itemType": "marble" | "fixing_material", "itemId": string }
+14. UPDATE_SALE_RIBBON_STYLE (Use whenever the user asks to style, change colors/gradients, adjust shadows/glow, or set entrance animations on the main header sale ribbon / #main-header-sale-ribbon):
+    payload: {
+      "gradientPreset": "crimson-amber" | "royal-obsidian" | "emerald-gold" | "sunset-copper" | "sapphire-gold" | "ruby-violet" | "custom",
+      "gradientFrom"?: string, // hex color e.g. "#0f172a" (required when gradientPreset is "custom" or user asks for specific colors)
+      "gradientVia"?: string,  // optional middle hex color e.g. "#7c2d12"
+      "gradientTo"?: string,   // hex color e.g. "#d97706"
+      "gradientAngle"?: number, // angle in degrees e.g. 90, 115, 135
+      "shadowLevel": "none" | "soft" | "elevated" | "dramatic" | "glow",
+      "shadowColor"?: string, // optional rgba glow color e.g. "rgba(217, 119, 6, 0.45)"
+      "entranceAnimation": "none" | "slide-down" | "fade-scale" | "spring-drop" | "shimmer-sweep",
+      "shimmerOverlay"?: boolean, // true to enable animated light sweep across the banner
+      "headlineEn"?: string, // optional updated English banner badge text
+      "headlineUr"?: string  // optional updated Urdu banner badge text
+    }
 `;
 
     // Construct multimodal contents

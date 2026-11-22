@@ -180,7 +180,7 @@ export function QrDialog({ isOpen, setIsOpen, order }: QrDialogProps) {
             {/* Footer Brand Line */}
             <div className="text-[8px] text-slate-400 border-t border-slate-100 pt-2 flex justify-between px-2 font-mono">
               <span>STONE EXPERT SYSTEM</span>
-              <span>WWW.STONEEXPERT.COM</span>
+              <span>WWW.STONEEXPERT.NET</span>
             </div>
 
           </div>

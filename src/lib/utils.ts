@@ -9,9 +9,10 @@ export function cn(...inputs: ClassValue[]) {
  * Returns the public app origin. Returns the current window origin so that
  * copied links and shared WhatsApp links always open directly on the active site.
  */
-export const OFFICIAL_CARD_QR_URL = 'https://stoneexpert052.ai.studio';
+export const OFFICIAL_CARD_QR_URL = 'https://stoneexpert.net';
 export const OFFICIAL_CARD_QR_OPTIONS = {
-  errorCorrectionLevel: 'M' as const,
+  version: 3,
+  errorCorrectionLevel: 'H' as const,
   maskPattern: 2 as const,
 };
 

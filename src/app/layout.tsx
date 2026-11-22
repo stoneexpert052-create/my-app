@@ -3,9 +3,13 @@ import './globals.css';
 import { AppProviders } from '@/components/app-providers';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://stoneexpert.net'),
   title: 'Stone Expert - Premium Marble & Granite in Rawalpindi/Islamabad',
   description: 'Your one-stop shop for premium Pakistani and imported marble, granite, and construction materials. Expert fixing and polishing services in Rawalpindi and Islamabad. Get instant quotations for your home construction.',
   keywords: 'Marble Rawalpindi, Granite Islamabad, Stone Expert Pindi, Construction Materials Rawalpindi, Kitchen Countertops Islamabad, Flooring Marble Pakistan, Ziarat White Rawalpindi, Best Marble Shop Islamabad',
+  alternates: {
+    canonical: 'https://stoneexpert.net',
+  },
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
@@ -20,12 +24,17 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'Stone Expert - Rawalpindi & Islamabad',
-    description: 'Calculate your marble and granite costs instantly. Serving the twin cities with premium quality.',
+    title: 'Stone Expert - Premium Marble & Granite in Islamabad & Rawalpindi',
+    description: 'Calculate your marble and granite costs instantly. Serving Islamabad, Rawalpindi and all of Pakistan from I-9/3 Islamabad.',
     url: 'https://stoneexpert.net',
     siteName: 'Stone Expert',
     locale: 'en_PK',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Stone Expert - Premium Marble & Granite in Islamabad & Rawalpindi',
+    description: 'Calculate your marble and granite costs instantly. Official factory rates from Plot # 375-A, Potohar Road, I-9/3, Islamabad.',
   },
 };
 
@@ -146,20 +155,20 @@ export default function RootLayout({
               image: 'https://stoneexpert.net/logo.svg',
               '@id': 'https://stoneexpert.net',
               url: 'https://stoneexpert.net',
-              telephone: '+92-300-1234567',
+              telephone: '+92-300-3634052',
               priceRange: '$$',
               address: {
                 '@type': 'PostalAddress',
-                streetAddress: 'Main Murree Road / IJP Road',
-                addressLocality: 'Rawalpindi',
-                addressRegion: 'Punjab / Islamabad Capital Territory',
-                postalCode: '46000',
+                streetAddress: 'Plot # 375-A, Potohar Road, I-9/3',
+                addressLocality: 'Islamabad',
+                addressRegion: 'Islamabad Capital Territory',
+                postalCode: '44000',
                 addressCountry: 'PK',
               },
               geo: {
                 '@type': 'GeoCoordinates',
-                latitude: 33.597,
-                longitude: 73.0479,
+                latitude: 33.6625,
+                longitude: 73.0518,
               },
               openingHoursSpecification: {
                 '@type': 'OpeningHoursSpecification',

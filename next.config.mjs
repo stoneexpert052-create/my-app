@@ -28,7 +28,7 @@ const nextConfig = {
   experimental: {
     cpus: 1,
     workerThreads: false,
-    optimizePackageImports: ['lucide-react', 'framer-motion', 'recharts'],
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'motion', 'recharts', 'date-fns'],
     serverActions: {
       bodySizeLimit: '4.5mb',
     },

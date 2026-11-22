@@ -57,7 +57,8 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  CheckCheck
+  CheckCheck,
+  Scissors
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -871,7 +872,7 @@ export default function AdminSupplierDetailPage() {
               <div className="space-y-1 pt-3 border-t border-border/40">
                 <span className="text-muted-foreground text-[10px] uppercase font-bold tracking-wider block">Materials Supplied</span>
                 <div className="flex flex-wrap gap-1 pt-1">
-                  {supplier.materialsSupplied && supplier.materialsSupplied.length > 0 ? (
+                  {Array.isArray(supplier.materialsSupplied) && supplier.materialsSupplied.length > 0 ? (
                     supplier.materialsSupplied.map((m) => (
                       <Badge key={m} variant="secondary" className="text-[10px] font-semibold capitalize">
                         {m}
@@ -951,6 +952,42 @@ export default function AdminSupplierDetailPage() {
                 <p className="text-[10px] text-slate-400 leading-tight">
                   سپلائر یہ پاسورڈ لگا کر اپنا پورٹل کھولے گا۔
                 </p>
+              </div>
+
+              {/* 1b. Cutting Optimizer Tool Permission Toggle */}
+              <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1.5">
+                    <Scissors className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>کٹنگ آپٹیمائزر رسائی (Cutting Optimizer)</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 block">
+                    صرف مخصوص سپلائر / خاص لوگوں کے لیے آن رکھیں
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={async () => {
+                    const nextVal = supplier.allowCuttingOptimizer === false;
+                    const updated: Supplier = { ...supplier, allowCuttingOptimizer: nextVal };
+                    const res = await saveSupplier(updated);
+                    if (res.success) {
+                      setSupplier(updated);
+                      toast({
+                        title: nextVal ? 'کٹنگ آپٹیمائزر آن ہو گیا ✂️' : 'کٹنگ آپٹیمائزر بند کر دیا گیا 🔒',
+                        description: `${supplier.name} کے پورٹل میں کٹنگ آپٹیمائزر اب ${nextVal ? 'فعال' : 'بند'} ہے۔`
+                      });
+                    }
+                  }}
+                  className={`h-8 text-[11px] font-black px-3 shrink-0 cursor-pointer ${
+                    supplier.allowCuttingOptimizer !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                  }`}
+                >
+                  {supplier.allowCuttingOptimizer !== false ? 'ON / آن ✓' : 'OFF / بند'}
+                </Button>
               </div>
 
               {/* 2. Universal Portal Link */}
@@ -1360,235 +1397,203 @@ export default function AdminSupplierDetailPage() {
                   </p>
                 </div>
               ) : (
-                <div className="border border-border/60 rounded-xl overflow-hidden divide-y divide-border/45 bg-muted/5">
+                <div className="admin-stock-grid grid grid-cols-[repeat(auto-fill,minmax(265px,1fr))] gap-3 items-stretch">
                   {supplier.rates.map((rate) => {
                     const hasPendingForThis = pendingRequests.some(req => req.materialId === rate.materialId);
                     const compRate = getComparisonRate(rate.materialId);
                     const isPaused = rate.status === 'paused';
+                    const liveSellingVal = compRate !== null ? Number(editedProductRates[rate.materialId] || compRate) : 0;
+                    const markupPct = rate.rate > 0 && compRate !== null
+                      ? Number((((liveSellingVal - rate.rate) / rate.rate) * 100).toFixed(1))
+                      : null;
 
                     return (
-                      <div key={rate.id} className={`p-4 bg-card transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-semibold text-slate-300 ${isPaused ? 'bg-rose-950/10 border-l-4 border-l-rose-500' : 'hover:bg-muted/5'}`}>
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <img 
-                            src={getMaterialImage(rate.materialId, rate.materialName)} 
-                            alt={rate.materialName} 
-                            className="h-10 w-10 object-cover rounded-lg border border-border/80 shrink-0"
+                      <div
+                        key={rate.id}
+                        className={`admin-stock-table-row rounded-xl border overflow-hidden bg-card flex flex-col transition-colors ${
+                          isPaused ? 'border-rose-500/40 opacity-80' : 'border-border/80 hover:border-primary/40'
+                        }`}
+                      >
+                        {/* Compact Thumbnail Header with App Selling Rate & Status */}
+                        <div className="relative h-28 w-full overflow-hidden bg-muted shrink-0">
+                          <img
+                            src={getMaterialImage(rate.materialId, rate.materialName)}
+                            alt={rate.materialName}
+                            className="h-full w-full object-cover"
                             referrerPolicy="no-referrer"
                           />
-                          <div className="space-y-1.5 min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`font-extrabold text-foreground text-sm truncate max-w-[320px] ${isPaused ? 'text-slate-400 line-through' : ''}`}>
-                                {rate.materialName}
+
+                          <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-1.5">
+                            <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide shadow-sm ${
+                              isPaused ? 'bg-rose-600/95 text-white' : 'bg-emerald-600/95 text-white'
+                            }`}>
+                              {isPaused ? 'Paused' : 'Active'}
+                            </span>
+                            {hasPendingForThis && (
+                              <span className="inline-flex items-center rounded bg-amber-500/95 text-slate-950 px-1.5 py-0.5 text-[9px] font-extrabold uppercase shadow-sm">
+                                Pending Req
                               </span>
-                              {isPaused ? (
-                                <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-bold uppercase px-1.5 h-4.5 rounded">
-                                  🔴 Paused / Cancelled
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold uppercase px-1.5 h-4.5 rounded">
-                                  🟢 Active
-                                </Badge>
-                              )}
-                              {hasPendingForThis && (
-                                <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[9px] h-4 py-0 font-bold uppercase">
-                                  Rate request pending
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-x-3 gap-y-1 text-[10px] text-slate-400 font-medium">
-                              <span className="flex items-center gap-1">
-                                <Package className="h-3 w-3 text-slate-400" />
-                                ID: <strong className="text-slate-300">{rate.materialId}</strong>
-                              </span>
-                              <span>•</span>
-                              <span>
-                                Last Updated: <strong>{rate.lastUpdated ? new Date(rate.lastUpdated).toLocaleDateString() : 'Never'}</strong>
-                              </span>
-                            </div>
+                            )}
+                          </div>
+
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-7 pb-2 px-2.5 flex items-end justify-between gap-2">
+                            <span className={`font-headline text-xs font-extrabold text-white truncate flex-1 ${isPaused ? 'line-through text-white/65' : ''}`}>
+                              {rate.materialName}
+                            </span>
+                            {compRate !== null && (
+                              <div className="text-right shrink-0">
+                                <span className="block text-[9px] uppercase tracking-wider text-white/75 leading-none">App Rate</span>
+                                <span className="text-sm font-black font-mono tabular-nums text-white leading-tight">
+                                  Rs {liveSellingVal.toLocaleString()}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        {/* Direct Adjust Input & Save Action */}
-                        <div className="flex flex-col xl:flex-row xl:items-center gap-4 shrink-0 w-full xl:w-auto mt-4 xl:mt-0">
-                          
-                          {/* BLOCK 1: SUPPLIER COST RATE */}
-                          <div className="flex flex-col bg-slate-900/60 border border-slate-800 p-3 rounded-xl space-y-2 min-w-[200px] flex-1 xl:flex-none">
-                            <span className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-wider block">Supplier Cost Rate</span>
+                        {/* Rate Comparison & Markup Row */}
+                        <div className="p-2.5 space-y-2.5 flex-1 flex flex-col text-xs">
+                          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                            <span className="text-[11px] font-semibold text-muted-foreground truncate">
+                              {supplier.name}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="font-mono tabular-nums text-xs font-bold text-foreground">
+                                Rs {Number(editedRates[rate.id] || rate.rate).toLocaleString()}
+                              </span>
+                              {markupPct !== null && (
+                                <span className={`font-mono tabular-nums text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
+                                  markupPct > 0
+                                    ? 'bg-emerald-500/15 text-emerald-400'
+                                    : markupPct < 0
+                                      ? 'bg-red-500/15 text-red-400'
+                                      : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  {markupPct > 0 ? `+${markupPct}%` : `${markupPct}%`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Supplier Cost Input */}
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">Supplier Cost</span>
                             <div className="flex items-center gap-1.5">
                               <div className="relative flex-1">
-                                <Input 
-                                  type="number" 
+                                <Input
+                                  type="number"
                                   disabled={isPaused}
-                                  className="w-full h-8 text-xs font-bold text-right pr-6 font-mono bg-slate-950 border-slate-800 text-white"
+                                  className="w-full h-7 text-xs font-bold text-right pr-7 font-mono tabular-nums bg-background border-border/80"
                                   value={editedRates[rate.id] || ''}
                                   onChange={(e) => setEditedRates({ ...editedRates, [rate.id]: e.target.value })}
                                   placeholder="Cost"
                                 />
-                                <span className="absolute right-1.5 top-2 text-[8px] text-slate-500 font-bold font-mono">PKR</span>
+                                <span className="absolute right-1.5 top-1.5 text-[9px] text-muted-foreground font-mono font-bold">Rs</span>
                               </div>
                               <Button
                                 disabled={isPaused || savingRateId !== null}
                                 onClick={() => handleDirectRateSave(rate)}
                                 size="sm"
-                                className="h-8 text-[11px] font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 px-2.5"
+                                className="h-7 text-[10px] font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 px-2"
                               >
-                                {savingRateId === rate.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  "Save"
-                                )}
+                                {savingRateId === rate.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
                               </Button>
                             </div>
-                            <span className="text-[8px] text-slate-500 font-bold font-mono">Wholesale Price (Base Cost)</span>
                           </div>
 
-                          {/* BLOCK 2: OUR PRODUCT SELLING PRICE */}
-                          <div className={compRate !== null ? "flex flex-col bg-teal-500/5 border border-teal-500/10 p-3 rounded-xl space-y-2 min-w-[310px] flex-1 xl:flex-none" : "hidden"}>
-                            {compRate !== null && (
-                              <>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[10px] text-teal-400 font-extrabold uppercase tracking-wider">
-                                    Our Selling Price (Product Rate)
-                                  </span>
-                                  {rate.rate > 0 && (
-                                    <Badge variant="outline" className="text-[9px] h-4.5 bg-teal-500/10 text-teal-400 border-teal-500/20 font-mono font-black">
-                                      Margin: {rate.rate > 0 ? Math.round(((Number(editedProductRates[rate.materialId] || compRate) - rate.rate) / rate.rate) * 100) : 0}%
-                                    </Badge>
-                                  )}
+                          {/* App Selling Price Editor & Quick Markup */}
+                          {compRate !== null && (
+                            <div className="space-y-1.5 pt-1 border-t border-border/40">
+                              <span className="text-[10px] text-teal-400 font-bold uppercase tracking-wider block">App Selling Rate</span>
+                              <div className="flex items-center gap-1">
+                                <div className="relative flex-1">
+                                  <Input
+                                    type="number"
+                                    disabled={isPaused}
+                                    className="w-full h-7 text-xs font-bold text-right pr-7 font-mono tabular-nums bg-background border-border/80"
+                                    value={editedProductRates[rate.materialId] || ''}
+                                    onChange={(e) => setEditedProductRates({ ...editedProductRates, [rate.materialId]: e.target.value })}
+                                    placeholder="Price"
+                                  />
+                                  <span className="absolute right-1.5 top-1.5 text-[9px] text-muted-foreground font-mono font-bold">Rs</span>
                                 </div>
+                                <Button
+                                  disabled={isPaused || updatingProductId !== null}
+                                  onClick={() => {
+                                    const val = Number(editedProductRates[rate.materialId]);
+                                    if (isNaN(val) || val <= 0) {
+                                      toast({
+                                        title: "Invalid Price",
+                                        description: "Please enter a valid positive number for the product selling price.",
+                                        variant: "destructive"
+                                      });
+                                      return;
+                                    }
+                                    handleUpdateProductRate(rate.materialId, val);
+                                  }}
+                                  size="sm"
+                                  className="h-7 text-[10px] font-extrabold bg-teal-600 hover:bg-teal-700 text-white shrink-0 px-2"
+                                >
+                                  {updatingProductId === rate.materialId ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                                </Button>
+                              </div>
 
-                                <div className="flex items-center gap-1.5">
-                                  {/* Minus Step */}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={isPaused || updatingProductId !== null}
-                                    onClick={() => {
-                                      const currentVal = Number(editedProductRates[rate.materialId] || compRate || 0);
-                                      const newVal = Math.max(0, currentVal - 50);
-                                      setEditedProductRates(prev => ({ ...prev, [rate.materialId]: String(newVal) }));
-                                    }}
-                                    className="h-8 w-8 p-0 border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-850"
-                                    title="Decrease by 50 PKR"
-                                  >
-                                    -
-                                  </Button>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                {[5, 10, 15, 20].map((pct) => {
+                                  const calculatedPrice = Math.round(rate.rate * (1 + pct / 100));
+                                  return (
+                                    <Button
+                                      key={pct}
+                                      type="button"
+                                      disabled={isPaused || updatingProductId !== null}
+                                      onClick={() => {
+                                        setEditedProductRates(prev => ({ ...prev, [rate.materialId]: String(calculatedPrice) }));
+                                        handleUpdateProductRate(rate.materialId, calculatedPrice);
+                                      }}
+                                      variant="outline"
+                                      className="h-5 text-[9px] font-bold px-1.5 py-0 border-border/70 text-teal-400 hover:bg-teal-600/20"
+                                      title={`Set to PKR ${calculatedPrice} (+${pct}% markup)`}
+                                    >
+                                      +{pct}%
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
 
-                                  {/* Input field */}
-                                  <div className="relative flex-1">
-                                    <Input 
-                                      type="number" 
-                                      disabled={isPaused}
-                                      className="w-full h-8 text-xs font-bold text-right pr-6 font-mono bg-slate-950 border-slate-800 text-white"
-                                      value={editedProductRates[rate.materialId] || ''}
-                                      onChange={(e) => setEditedProductRates({ ...editedProductRates, [rate.materialId]: e.target.value })}
-                                      placeholder="Price"
-                                    />
-                                    <span className="absolute right-1.5 top-2 text-[8px] text-slate-500 font-bold font-mono">PKR</span>
-                                  </div>
-
-                                  {/* Plus Step */}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={isPaused || updatingProductId !== null}
-                                    onClick={() => {
-                                      const currentVal = Number(editedProductRates[rate.materialId] || compRate || 0);
-                                      const newVal = currentVal + 50;
-                                      setEditedProductRates(prev => ({ ...prev, [rate.materialId]: String(newVal) }));
-                                    }}
-                                    className="h-8 w-8 p-0 border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-850"
-                                    title="Increase by 50 PKR"
-                                  >
-                                    +
-                                  </Button>
-
-                                  <Button
-                                    disabled={isPaused || updatingProductId !== null}
-                                    onClick={() => {
-                                      const val = Number(editedProductRates[rate.materialId]);
-                                      if (isNaN(val) || val <= 0) {
-                                        toast({
-                                          title: "Invalid Price",
-                                          description: "Please enter a valid positive number for the product selling price.",
-                                          variant: "destructive"
-                                        });
-                                        return;
-                                      }
-                                      handleUpdateProductRate(rate.materialId, val);
-                                    }}
-                                    size="sm"
-                                    className="h-8 text-[11px] font-extrabold bg-teal-600 hover:bg-teal-700 text-white shrink-0 px-2.5"
-                                  >
-                                    {updatingProductId === rate.materialId ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      "Save"
-                                    )}
-                                  </Button>
-                                </div>
-
-                                {/* Direct Preset Margin Buttons */}
-                                <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                  <span className="text-[9px] text-slate-400 font-bold mr-1">Markup over cost:</span>
-                                  {[5, 10, 15, 20].map((pct) => {
-                                    const calculatedPrice = Math.round(rate.rate * (1 + pct / 100));
-                                    return (
-                                      <Button
-                                        key={pct}
-                                        type="button"
-                                        disabled={isPaused || updatingProductId !== null}
-                                        onClick={() => {
-                                          setEditedProductRates(prev => ({ ...prev, [rate.materialId]: String(calculatedPrice) }));
-                                          handleUpdateProductRate(rate.materialId, calculatedPrice);
-                                        }}
-                                        variant="outline"
-                                        className="h-5.5 text-[9px] font-black px-1.5 py-0 bg-slate-900 border-slate-800 text-teal-400 hover:text-white hover:bg-teal-600/20"
-                                        title={`Set to PKR ${calculatedPrice} (+${pct}% markup)`}
-                                      >
-                                        +{pct}%
-                                      </Button>
-                                    );
-                                  })}
-                                </div>
-                              </>
-                            )}
+                          {/* Footer Actions */}
+                          <div className="mt-auto pt-2 border-t border-border/50 flex items-center justify-between gap-1.5">
+                            <span className="text-[9px] text-muted-foreground truncate">
+                              {rate.lastUpdated ? new Date(rate.lastUpdated).toLocaleDateString() : 'Never'}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleTogglePauseRate(rate)}
+                                className={`h-6 text-[10px] font-bold gap-1 px-2 border-border ${
+                                  isPaused
+                                    ? 'text-emerald-400 hover:bg-emerald-950/20 border-emerald-500/20'
+                                    : 'text-amber-400 hover:bg-amber-950/20 border-amber-500/20'
+                                }`}
+                              >
+                                {isPaused ? <Play className="h-2.5 w-2.5" /> : <Pause className="h-2.5 w-2.5" />}
+                                <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleDeleteRate(rate)}
+                                className="h-6 w-6 p-0 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 shrink-0"
+                                title="Remove product link"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-
-                          {/* ACTION BUTTONS FOR RECORD */}
-                          <div className="flex items-center gap-1.5 xl:self-center self-end pt-2 xl:pt-0">
-                            {/* Pause/Resume Toggle Button */}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleTogglePauseRate(rate)}
-                              className={`h-8 text-[10px] font-bold gap-1 px-2.5 border-border ${
-                                isPaused 
-                                  ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/20 border-emerald-500/20' 
-                                  : 'text-amber-400 hover:text-amber-300 hover:bg-amber-950/20 border-amber-500/20'
-                              }`}
-                              title={isPaused ? "Resume this material's contract" : "Pause / cancel this material's contract"}
-                            >
-                              {isPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-                              <span>{isPaused ? 'Resume' : 'Pause'}</span>
-                            </Button>
-
-                            {/* Delete Product Link Button */}
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteRate(rate)}
-                              className="h-8 w-8 p-0 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 shrink-0 flex items-center justify-center"
-                              title="Permanently delete and remove this product link"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-
                         </div>
                       </div>
                     );

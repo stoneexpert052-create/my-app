@@ -1534,6 +1534,42 @@ export async function getHomepageConfig() {
   }
 }
 
+export async function saveSaleRibbonStyle(style: Record<string, any>): Promise<{ success: boolean; saleRibbonStyle?: Record<string, any>; error?: string }> {
+  const merged = {
+    ...style,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('stone_expert_sale_ribbon_style', JSON.stringify(merged));
+    } catch (e) {}
+  }
+
+  if (inMemoryCache.homepageConfig?.data) {
+    inMemoryCache.homepageConfig = {
+      data: { ...inMemoryCache.homepageConfig.data, saleRibbonStyle: merged },
+      timestamp: Date.now()
+    };
+  }
+
+  broadcastAppUpdate('sale_ribbon_style_updated', merged);
+
+  const db = getDb();
+  if (!db) return { success: true, saleRibbonStyle: merged };
+  try {
+    await setDoc(
+      doc(db, 'config', 'homepage'),
+      { saleRibbonStyle: merged, updatedAt: new Date().toISOString() },
+      { merge: true }
+    );
+    return { success: true, saleRibbonStyle: merged };
+  } catch (e: any) {
+    console.error("Error saving sale ribbon style:", e);
+    return { success: false, error: e?.message || "Failed to save sale ribbon style" };
+  }
+}
+
 export async function getCostsConfig() {
   const now = Date.now();
   if (inMemoryCache.costsConfig && (now - inMemoryCache.costsConfig.timestamp < 30000)) {
@@ -1991,6 +2027,8 @@ export interface SupplierRate {
   materialType: 'marble' | 'fixing_material' | string;
   categoryGroup?: string; // e.g. 'Imported Granite', 'Local Granites 24"', 'Local Marble 24"', 'Silbata', 'Ice White Series', 'Artificial Marble\'s', 'Natural Marble\'s'
   isHighlighted?: boolean; // Yellow highlighted row in printed sheet
+  thickness?: string; // e.g. '4-Sutar', '5-Sutar', '6-Sutar', '8-Sutar', '12mm', '15mm', '18mm', '20mm'
+  imageUrl?: string; // Optional supplier-uploaded preview image for this material
   rate: number; // Cost price from supplier
   previousRate?: number;
   lastUpdated?: string;
@@ -2038,10 +2076,13 @@ export interface Supplier {
   phone: string;
   address: string;
   email?: string;
+  factoryImageUrl?: string; // Uploaded factory/showroom image from onboarding
+  profileCompleted?: boolean; // Whether supplier has completed first-time factory setup
   status: 'active' | 'inactive';
   materialsSupplied: string[];
   allowedCategories?: string[]; // Restricted category IDs allowed for this supplier
   accessPassword?: string; // Secret access PIN or password for vendor portal
+  allowCuttingOptimizer?: boolean; // Whether this supplier / special partner can access Cutting Optimizer Pro in their portal (default: true)
   sheetVersion?: string; // Official printed rate sheet version e.g. '21-10-2026'
   rates: SupplierRate[];
   createdAt?: string;
@@ -2131,9 +2172,57 @@ function getDefaultAlMajeedSupplier(): Supplier {
 
 let inMemorySuppliersCache: { data: Supplier[]; timestamp: number } | null = null;
 
+function normalizeStringArray(val: unknown): string[] {
+  if (Array.isArray(val)) {
+    return val
+      .map(item => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+      .filter(Boolean);
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return [];
+    return trimmed
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+  }
+  if (val && typeof val === 'object') {
+    return Object.values(val as Record<string, unknown>)
+      .map(item => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+      .filter(Boolean);
+  }
+  return [];
+}
+
+export function normalizeSupplierRecord(raw: any): Supplier {
+  const allowedArr =
+    raw?.allowedCategories !== undefined && raw?.allowedCategories !== null
+      ? normalizeStringArray(raw.allowedCategories)
+      : undefined;
+  const materialsArr = normalizeStringArray(raw?.materialsSupplied);
+  const ratesArr = Array.isArray(raw?.rates)
+    ? raw.rates
+    : raw?.rates && typeof raw.rates === 'object'
+      ? Object.values(raw.rates)
+      : [];
+
+  return {
+    ...raw,
+    id: String(raw?.id || ''),
+    name: String(raw?.name || ''),
+    contactPerson: String(raw?.contactPerson || ''),
+    phone: String(raw?.phone || ''),
+    address: String(raw?.address || ''),
+    status: raw?.status === 'inactive' ? 'inactive' : 'active',
+    materialsSupplied: materialsArr,
+    ...(allowedArr !== undefined ? { allowedCategories: allowedArr } : {}),
+    rates: ratesArr as SupplierRate[],
+  } as Supplier;
+}
+
 function readCachedSuppliers(): Supplier[] {
   if (inMemorySuppliersCache && inMemorySuppliersCache.data.length > 0) {
-    return inMemorySuppliersCache.data;
+    return inMemorySuppliersCache.data.map(normalizeSupplierRecord);
   }
   if (typeof window !== 'undefined') {
     try {
@@ -2141,7 +2230,7 @@ function readCachedSuppliers(): Supplier[] {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map(normalizeSupplierRecord);
         }
       }
     } catch (e) {}
@@ -2188,7 +2277,7 @@ export async function getSuppliers(): Promise<Supplier[]> {
   try {
     const colRef = collection(db, 'suppliers');
     const snapshot = await withFastTimeout(getDocs(colRef), 3200);
-    const suppliers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
+    const suppliers = snapshot.docs.map(doc => normalizeSupplierRecord({ id: doc.id, ...doc.data() }));
     
     // Auto-seed or update Al Majeed Marble & Granite Factory
     const alMajeedIndex = suppliers.findIndex(s => (s.name || '').toLowerCase().includes("al majeed") || s.id === 'al-majeed-marble-granite-factory');
@@ -2482,11 +2571,21 @@ export async function applySupplierMarkupToApp(
 
 export async function saveSupplier(supplierData: Partial<Supplier>): Promise<{ success: boolean; supplier?: Supplier; error?: string }> {
   const id = supplierData.id || `SUP-${Date.now()}`;
-  const cleanData = JSON.parse(JSON.stringify({
+  const normalizedPayload: Record<string, any> = {
     ...supplierData,
     id,
     updatedAt: new Date().toISOString(),
-  }));
+  };
+  if (supplierData.allowedCategories !== undefined) {
+    normalizedPayload.allowedCategories = normalizeStringArray(supplierData.allowedCategories);
+  }
+  if (supplierData.materialsSupplied !== undefined) {
+    normalizedPayload.materialsSupplied = normalizeStringArray(supplierData.materialsSupplied);
+  }
+  if (supplierData.rates !== undefined && !Array.isArray(supplierData.rates)) {
+    normalizedPayload.rates = [];
+  }
+  const cleanData = JSON.parse(JSON.stringify(normalizedPayload));
 
   // Optimistically update local supplier cache immediately
   try {
@@ -2520,7 +2619,9 @@ export async function createQuickSupplier(data: {
   phone: string;
   contactPerson?: string;
   address?: string;
+  accessPassword?: string;
   allowedCategories: string[];
+  allowCuttingOptimizer?: boolean;
 }): Promise<{ success: boolean; supplier?: Supplier; shareUrl?: string; error?: string }> {
   const db = getDb();
   if (!db) return { success: false, error: "Database not connected" };
@@ -2536,20 +2637,37 @@ export async function createQuickSupplier(data: {
     const cleanPhone = data.phone.trim();
     const id = `sup-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')}-${Date.now().toString().slice(-4)}`;
 
+    // Ensure unique password across existing suppliers
+    const existingSuppliers = await getSuppliers().catch(() => []);
+    const usedPins = new Set(
+      existingSuppliers.map(s => (s.accessPassword || '').trim().toLowerCase()).filter(Boolean)
+    );
+
     const digits = cleanPhone.replace(/[^0-9]/g, '');
-    const defaultPin = digits.length >= 4 ? digits.slice(-4) : `${Math.floor(1000 + Math.random() * 9000)}`;
+    let chosenPin = (data.accessPassword || '').trim();
+    if (!chosenPin) {
+      chosenPin = digits.length >= 4 ? digits.slice(-4) : `${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+    let attempts = 0;
+    while (usedPins.has(chosenPin.toLowerCase()) && attempts < 20) {
+      chosenPin = `${Math.floor(1000 + Math.random() * 9000)}`;
+      attempts++;
+    }
 
     const newSupplier: Supplier = {
       id,
       name: cleanName,
-      contactPerson: data.contactPerson?.trim() || cleanName,
+      contactPerson: data.contactPerson?.trim() || '',
       phone: cleanPhone,
-      address: data.address?.trim() || 'Wholesaler / Factory Partner',
+      address: data.address?.trim() || '',
       email: '',
+      factoryImageUrl: '',
+      profileCompleted: false,
       status: 'active',
       materialsSupplied: data.allowedCategories.length > 0 ? data.allowedCategories : ['Marble', 'Granite'],
       allowedCategories: data.allowedCategories.length > 0 ? data.allowedCategories : ['All'],
-      accessPassword: defaultPin,
+      accessPassword: chosenPin,
+      allowCuttingOptimizer: data.allowCuttingOptimizer !== false,
       rates: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -2869,12 +2987,12 @@ export async function getSupplierById(id: string): Promise<Supplier | null> {
       const docRef = doc(db, 'suppliers', cleanId);
       const snap = await withFastTimeout(getDoc(docRef), 2800);
       if (snap.exists()) {
-        let sup = { id: snap.id, ...snap.data() } as Supplier;
+        let sup = normalizeSupplierRecord({ id: snap.id, ...snap.data() });
         if (sup.id === 'al-majeed-marble-granite-factory' || (sup.name || '').toLowerCase().includes('al majeed')) {
           const { supplier: enriched, needsSave } = enrichAlMajeedSupplierData(sup);
-          sup = enriched;
+          sup = normalizeSupplierRecord(enriched);
           if (needsSave) {
-            saveSupplier(enriched).catch(() => {});
+            saveSupplier(sup).catch(() => {});
           }
         }
         return sup;
@@ -2969,7 +3087,17 @@ export async function getSupplierProposals(limitCount: number = 50): Promise<Sup
   }
 }
 
-export async function approveSupplierProposal(proposalId: string) {
+export async function approveSupplierProposal(
+  proposalId: string,
+  customSellingPrice?: number
+): Promise<{
+  success: boolean;
+  isNewProduct?: boolean;
+  productName?: string;
+  marbleId?: string;
+  sellingPrice?: number;
+  error?: string;
+}> {
   const db = getDb();
   if (!db) return { success: false, error: "Database not connected" };
   try {
@@ -2982,45 +3110,72 @@ export async function approveSupplierProposal(proposalId: string) {
     // 2. Load marbles to find match or create new
     const colRef = collection(db, 'marbles');
     const snapshot = await getDocs(colRef);
-    const marbles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Marble));
-    
-    const propName = proposal.productName || '';
-    let targetMarble = marbles.find(m => {
-      const mName = m.name || '';
-      return mName.toLowerCase() === propName.toLowerCase();
-    });
+    const marbles = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Marble));
+
+    const propName = (proposal.productName || '').trim();
+    const normalizedPropName = propName.toLowerCase();
+    const targetMarble = marbles.find(m => (m.name || '').trim().toLowerCase() === normalizedPropName);
+
     let marbleId = '';
     let variantId = '';
-    
+    let isNewProduct = false;
+    const defaultSellingPrice =
+      typeof customSellingPrice === 'number' && !Number.isNaN(customSellingPrice) && customSellingPrice > 0
+        ? Math.round(customSellingPrice)
+        : Math.round(proposal.rate * 1.2);
+    let finalSellingPrice = defaultSellingPrice;
+
     if (targetMarble) {
+      // Existing product stays intact — only link rate (or add missing size variant)
       marbleId = targetMarble.id;
-      // Find matching variant by size/thickness
-      const existingVar = targetMarble.variants?.find(v => v.size === proposal.size && v.thickness === proposal.thickness);
-      if (existingVar) {
+      const propSize = (proposal.size || '').trim().toLowerCase();
+      const propThickness = (proposal.thickness || '').trim().toLowerCase();
+      const existingVar = targetMarble.variants?.find(v => {
+        const vSize = (v.size || '').trim().toLowerCase();
+        const vThick = (v.thickness || '').trim().toLowerCase();
+        return vSize === propSize && (!propThickness || vThick === propThickness);
+      }) || targetMarble.variants?.find(v => (v.size || '').trim().toLowerCase() === propSize) || targetMarble.variants?.[0];
+
+      if (existingVar && (!propSize || (existingVar.size || '').trim().toLowerCase() === propSize || targetMarble.variants?.length === 1)) {
         variantId = existingVar.id;
+        finalSellingPrice = existingVar.price || defaultSellingPrice;
+        // Only update selling price if admin explicitly entered a custom rate
+        if (
+          typeof customSellingPrice === 'number' &&
+          !Number.isNaN(customSellingPrice) &&
+          customSellingPrice > 0 &&
+          Math.round(customSellingPrice) !== existingVar.price
+        ) {
+          finalSellingPrice = Math.round(customSellingPrice);
+          const updatedVariants = (targetMarble.variants || []).map(v =>
+            v.id === variantId ? { ...v, price: finalSellingPrice } : v
+          );
+          await updateDoc(doc(db, 'marbles', marbleId), { variants: updatedVariants });
+        }
       } else {
-        // Create new variant
-        const safePropNameLower = propName.toLowerCase().replace(/\s+/g, '-');
+        // Add new size/thickness variant to existing product without touching existing variants
+        const safePropNameLower = propName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         variantId = `variant-${safePropNameLower}-${Date.now()}`;
         const newVariant = {
           id: variantId,
           thickness: proposal.thickness || '6-Sutar',
-          size: proposal.size || 'Tiles (12" x 24")',
-          price: Math.round(proposal.rate * 1.3) // Standard markup (30%)
+          size: proposal.size || '24"',
+          price: defaultSellingPrice
         };
         const updatedVariants = [...(targetMarble.variants || []), newVariant];
         await updateDoc(doc(db, 'marbles', marbleId), { variants: updatedVariants });
       }
     } else {
-      // Create a brand new marble in Firestore
-      const safePropNameLower = propName.toLowerCase().replace(/\s+/g, '-');
+      // Brand-new product — automatically create in app catalog with supplier's photo & admin's rate
+      isNewProduct = true;
+      const safePropNameLower = propName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       variantId = `variant-${safePropNameLower}-${Date.now()}`;
       const newMarble = {
-        name: proposal.productName,
-        materialType: proposal.materialType,
-        origin: proposal.origin,
-        description: proposal.description || `Offered by ${proposal.supplierName}`,
-        imageUrl: proposal.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(proposal.productName)}`,
+        name: propName,
+        materialType: proposal.materialType || 'Local Marble',
+        origin: proposal.origin || 'Local',
+        description: proposal.description || `Supplied by ${proposal.supplierName}`,
+        imageUrl: proposal.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(propName)}`,
         imageHint: 'marble texture',
         uses: 'Flooring, Stairs, Kitchen Countertops, Wall Facade',
         characteristics: 'Durable, premium look, supplied live',
@@ -3028,60 +3183,102 @@ export async function approveSupplierProposal(proposalId: string) {
           {
             id: variantId,
             thickness: proposal.thickness || '6-Sutar',
-            size: proposal.size || 'Tiles (12" x 24")',
-            price: Math.round(proposal.rate * 1.3)
+            size: proposal.size || '24"',
+            price: defaultSellingPrice
           }
         ],
         gallery: [],
         isHidden: false,
+        stockStatus: 'in_stock',
+        inStock: true,
+        isNewFromSupplier: true,
         createdAt: new Date().toISOString()
       };
       const newDocRef = await addDoc(collection(db, 'marbles'), newMarble);
       marbleId = newDocRef.id;
     }
 
-    // 3. Link rate to supplier
+    // 3. Link active rate to supplier
     const supRef = doc(db, 'suppliers', proposal.supplierId);
     const supSnap = await getDoc(supRef);
     if (supSnap.exists()) {
       const supplier = { id: supSnap.id, ...supSnap.data() } as Supplier;
       const targetId = `${marbleId}_${variantId}`;
       const existingRateIdx = (supplier.rates || []).findIndex(r => r.materialId === targetId);
-      
+
       const newRate: SupplierRate = {
         id: `rate-${proposal.supplierId}-${Date.now()}`,
         materialId: targetId,
-        materialName: `${proposal.productName} - ${proposal.size} (${proposal.thickness})`,
-        materialType: 'marble',
+        materialName: `${propName}${proposal.size ? ` - ${proposal.size}` : ''}${proposal.thickness ? ` (${proposal.thickness})` : ''}`,
+        materialType: proposal.materialType || 'marble',
+        thickness: proposal.thickness || undefined,
+        imageUrl: proposal.imageUrl && !proposal.imageUrl.includes('placehold.co') ? proposal.imageUrl : undefined,
         rate: proposal.rate,
+        status: 'active',
+        unit: proposal.unit || 'Square feet',
         lastUpdated: new Date().toISOString()
       };
 
-      let updatedRates = [...(supplier.rates || [])];
+      const updatedRates = [...(supplier.rates || [])];
       if (existingRateIdx > -1) {
         updatedRates[existingRateIdx] = newRate;
       } else {
         updatedRates.push(newRate);
       }
 
-      // Ensure 'marble' is in materialsSupplied
       const materials = new Set(supplier.materialsSupplied || []);
-      materials.add('marble');
+      materials.add(proposal.materialType || 'marble');
 
-      await updateDoc(supRef, { 
+      await updateDoc(supRef, {
         rates: updatedRates,
         materialsSupplied: Array.from(materials),
         updatedAt: new Date().toISOString()
       });
+
+      // Also persist the supplier's real stock photo into supplier_rate_photos gallery
+      if (proposal.imageUrl && !proposal.imageUrl.includes('placehold.co')) {
+        const sizeRaw = (proposal.size || '').toLowerCase();
+        const inferredSlot = sizeRaw.includes('12x24') || sizeRaw.includes('12"x24') || sizeRaw.includes('12×24')
+          ? '12x24'
+          : sizeRaw.includes('12x12') || sizeRaw.includes('12"x12') || sizeRaw.includes('12×12')
+          ? '12x12'
+          : sizeRaw.includes('24')
+          ? '24"'
+          : sizeRaw.includes('36')
+          ? '36"'
+          : sizeRaw.includes('48')
+          ? '48"'
+          : sizeRaw.includes('52')
+          ? '52"'
+          : sizeRaw.includes('gangsaw') || sizeRaw.includes('slab')
+          ? 'Gangsaw'
+          : 'Standard';
+        await addSupplierRatePhoto({
+          supplierId: proposal.supplierId,
+          supplierName: proposal.supplierName || supplier.name || 'Supplier',
+          materialId: targetId,
+          baseName: propName,
+          sizeSlot: inferredSlot,
+          thickness: proposal.thickness || undefined,
+          imageUrl: proposal.imageUrl,
+          uploadedBy: 'supplier'
+        }).catch(() => {});
+      }
     }
 
     // 4. Update proposal status
-    await updateDoc(propRef, { 
-      status: 'approved', 
-      resolvedAt: new Date().toISOString() 
+    await updateDoc(propRef, {
+      status: 'approved',
+      resolvedAt: new Date().toISOString()
     });
 
-    return { success: true };
+    return {
+      success: true,
+      isNewProduct,
+      productName: targetMarble ? targetMarble.name : propName,
+      marbleId,
+      sellingPrice: finalSellingPrice
+    };
   } catch (error: any) {
     console.error("Error approving proposal:", error);
     return { success: false, error: error.message };
@@ -4613,6 +4810,288 @@ export async function toggleRepresentativeStatus(id: string, isActive: boolean):
   } catch (err: any) {
     console.error('Error updating representative status:', err);
     return { success: true };
+  }
+}
+
+// ============================================================================
+// SUPPLIER RATE CELL MULTI-PHOTO GALLERY (stored separately to stay under 1MB)
+// ============================================================================
+
+export interface SupplierRatePhoto {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  materialId?: string;
+  baseName: string;
+  sizeSlot: string;
+  thickness?: string;
+  imageUrl: string;
+  uploadedBy: 'supplier' | 'admin';
+  createdAt: string;
+}
+
+export async function getSupplierRatePhotos(supplierId: string): Promise<SupplierRatePhoto[]> {
+  if (!supplierId) return [];
+  const db = getDb();
+  if (!db) return [];
+  try {
+    const q = query(
+      collection(db, 'supplier_rate_photos'),
+      where('supplierId', '==', supplierId)
+    );
+    const snap = await withFastTimeout(getDocs(q), 5000);
+    const list: SupplierRatePhoto[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as Omit<SupplierRatePhoto, 'id'>;
+      list.push({ id: docSnap.id, ...data });
+    });
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    return list;
+  } catch (err) {
+    console.error('Error fetching supplier rate photos:', err);
+    return [];
+  }
+}
+
+export async function addSupplierRatePhoto(data: {
+  supplierId: string;
+  supplierName: string;
+  materialId?: string;
+  baseName: string;
+  sizeSlot: string;
+  thickness?: string;
+  imageUrl: string;
+  uploadedBy: 'supplier' | 'admin';
+}): Promise<{ success: boolean; photo?: SupplierRatePhoto; error?: string }> {
+  const db = getDb();
+  if (!db) return { success: false, error: 'Database not connected' };
+  try {
+    const id = `srp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const photo: SupplierRatePhoto = {
+      id,
+      supplierId: data.supplierId,
+      supplierName: data.supplierName,
+      materialId: data.materialId || '',
+      baseName: data.baseName.trim(),
+      sizeSlot: data.sizeSlot,
+      ...(data.thickness ? { thickness: data.thickness } : {}),
+      imageUrl: data.imageUrl,
+      uploadedBy: data.uploadedBy,
+      createdAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, 'supplier_rate_photos', id), photo);
+    return { success: true, photo };
+  } catch (err: any) {
+    console.error('Error saving supplier rate photo:', err);
+    return { success: false, error: err?.message || 'Failed to upload photo' };
+  }
+}
+
+export async function deleteSupplierRatePhoto(photoId: string): Promise<{ success: boolean; error?: string }> {
+  const db = getDb();
+  if (!db) return { success: false, error: 'Database not connected' };
+  try {
+    await deleteDoc(doc(db, 'supplier_rate_photos', photoId));
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error deleting supplier rate photo:', err);
+    return { success: false, error: err?.message || 'Failed to delete photo' };
+  }
+}
+
+/**
+ * Allows Admin to optionally apply any supplier-uploaded material photo directly
+ * to the matching Marble product in the live storefront (either as main image or in gallery).
+ */
+export async function applySupplierPhotoToAppProduct(
+  baseName: string,
+  imageUrl: string,
+  mode: 'main' | 'gallery'
+): Promise<{ success: boolean; marbleName?: string; error?: string }> {
+  const db = getDb();
+  if (!db) return { success: false, error: 'Database not connected' };
+  try {
+    const cleanTarget = (baseName || '').trim().toLowerCase();
+    if (!cleanTarget) return { success: false, error: 'Material name is empty' };
+
+    const allMarbles = await getMarbles();
+    let matched = allMarbles.find(m => (m.name || '').trim().toLowerCase() === cleanTarget);
+    if (!matched) {
+      matched = allMarbles.find(m => {
+        const mName = (m.name || '').trim().toLowerCase();
+        return mName.includes(cleanTarget) || cleanTarget.includes(mName);
+      });
+    }
+
+    if (!matched) {
+      return {
+        success: false,
+        error: `ایپ میں "${baseName}" کے نام سے کوئی پروڈکٹ نہیں ملا۔ پہلے یہ پروڈکٹ ایپ میں شامل کریں یا اسے پورٹل میں محفوظ رہنے دیں۔`
+      };
+    }
+
+    if (mode === 'main') {
+      const existingGallery = Array.isArray(matched.gallery) ? [...matched.gallery] : [];
+      if (matched.imageUrl && !existingGallery.includes(matched.imageUrl)) {
+        existingGallery.unshift(matched.imageUrl);
+      }
+      await updateMarbleDetails(matched.id, {
+        imageUrl,
+        gallery: existingGallery
+      });
+    } else {
+      const existingGallery = Array.isArray(matched.gallery) ? [...matched.gallery] : [];
+      if (!existingGallery.includes(imageUrl)) {
+        existingGallery.push(imageUrl);
+      }
+      await updateMarbleDetails(matched.id, {
+        gallery: existingGallery
+      });
+    }
+
+    return { success: true, marbleName: matched.name };
+  } catch (err: any) {
+    console.error('Error applying supplier photo to app product:', err);
+    return { success: false, error: err?.message || 'Failed to apply photo to app product' };
+  }
+}
+
+// ============================================================================
+// PARTNER WITH US / BECOME A SUPPLIER APPLICATIONS
+// ============================================================================
+
+export interface SupplierApplication {
+  id: string;
+  factoryName: string;
+  contactPerson: string;
+  phone: string;
+  city: string;
+  address: string;
+  categories: string[];
+  factoryImageUrl?: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  approvedSupplierId?: string;
+  issuedPin?: string;
+}
+
+export async function submitSupplierApplication(data: {
+  factoryName: string;
+  contactPerson: string;
+  phone: string;
+  city: string;
+  address: string;
+  categories: string[];
+  factoryImageUrl?: string;
+  notes?: string;
+}): Promise<{ success: boolean; application?: SupplierApplication; error?: string }> {
+  const db = getDb();
+  if (!db) return { success: false, error: 'Database not connected' };
+  try {
+    if (!data.factoryName.trim() || !data.phone.trim()) {
+      return { success: false, error: 'فیکٹری کا نام اور فون نمبر درج کرنا ضروری ہے۔' };
+    }
+    const id = `app-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const application: SupplierApplication = {
+      id,
+      factoryName: data.factoryName.trim(),
+      contactPerson: data.contactPerson.trim(),
+      phone: data.phone.trim(),
+      city: data.city.trim(),
+      address: data.address.trim(),
+      categories: data.categories.length > 0 ? data.categories : ['Marble', 'Granite'],
+      factoryImageUrl: data.factoryImageUrl || '',
+      notes: data.notes?.trim() || '',
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    await setDoc(doc(db, 'supplier_applications', id), application);
+    return { success: true, application };
+  } catch (err: any) {
+    console.error('Error submitting supplier application:', err);
+    return { success: false, error: err?.message || 'درخواست بھیجنے میں مسئلہ پیش آیا۔' };
+  }
+}
+
+export async function getSupplierApplications(): Promise<SupplierApplication[]> {
+  const db = getDb();
+  if (!db) return [];
+  try {
+    const snap = await withFastTimeout(getDocs(collection(db, 'supplier_applications')), 5000);
+    const list: SupplierApplication[] = [];
+    snap.forEach((docSnap) => {
+      const data = docSnap.data() as Omit<SupplierApplication, 'id'>;
+      list.push({ id: docSnap.id, ...data });
+    });
+    list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    return list;
+  } catch (err) {
+    console.error('Error loading supplier applications:', err);
+    return [];
+  }
+}
+
+export async function approveSupplierApplication(
+  applicationId: string,
+  customPin?: string
+): Promise<{ success: boolean; supplier?: Supplier; error?: string }> {
+  const db = getDb();
+  if (!db) return { success: false, error: 'Database not connected' };
+  try {
+    const appSnap = await getDoc(doc(db, 'supplier_applications', applicationId));
+    if (!appSnap.exists()) {
+      return { success: false, error: 'Application not found' };
+    }
+    const appData = appSnap.data() as SupplierApplication;
+    const fullAddress = [appData.address, appData.city].filter(Boolean).join(', ');
+
+    const createRes = await createQuickSupplier({
+      name: appData.factoryName,
+      phone: appData.phone,
+      contactPerson: appData.contactPerson,
+      address: fullAddress,
+      accessPassword: customPin?.trim() || undefined,
+      allowedCategories: appData.categories && appData.categories.length > 0 ? appData.categories : ['Marble', 'Granite']
+    });
+
+    if (!createRes.success || !createRes.supplier) {
+      return { success: false, error: createRes.error || 'Failed to create supplier account' };
+    }
+
+    const enrichedSupplier: Supplier = {
+      ...createRes.supplier,
+      factoryImageUrl: appData.factoryImageUrl || '',
+      profileCompleted: true
+    };
+    await saveSupplier(enrichedSupplier);
+
+    await updateDoc(doc(db, 'supplier_applications', applicationId), {
+      status: 'approved',
+      approvedSupplierId: enrichedSupplier.id,
+      issuedPin: enrichedSupplier.accessPassword || '',
+      updatedAt: new Date().toISOString()
+    });
+
+    return { success: true, supplier: enrichedSupplier };
+  } catch (err: any) {
+    console.error('Error approving supplier application:', err);
+    return { success: false, error: err?.message || 'Approval failed' };
+  }
+}
+
+export async function rejectSupplierApplication(applicationId: string): Promise<{ success: boolean; error?: string }> {
+  const db = getDb();
+  if (!db) return { success: false, error: 'Database not connected' };
+  try {
+    await updateDoc(doc(db, 'supplier_applications', applicationId), {
+      status: 'rejected',
+      updatedAt: new Date().toISOString()
+    });
+    return { success: true };
+  } catch (err: any) {
+    console.error('Error rejecting supplier application:', err);
+    return { success: false, error: err?.message || 'Rejection failed' };
   }
 }
 

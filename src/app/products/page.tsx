@@ -46,11 +46,11 @@ import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { useFullscreenImage } from '@/context/fullscreen-image-context';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 
 export default function ProductsPage() {
   const { t, language } = useLanguage();
-  const { openImage } = useFullscreenImage();
+  const { openImage, openGallery } = useFullscreenImage();
   
   // Data States
   const [marbles, setMarbles] = useState<Marble[]>([]);
@@ -566,52 +566,71 @@ export default function ProductsPage() {
           {selectedMarble && (
             <div className="grid grid-cols-1 md:grid-cols-2">
               {/* Left Side: Images */}
-              <div className="relative bg-muted flex flex-col justify-between">
-                <div 
-                  className="relative aspect-video md:aspect-auto md:h-full min-h-[250px] w-full overflow-hidden cursor-pointer hover:opacity-95 transition-opacity group/image"
-                  onClick={() => openImage(activeMarbleImage, selectedMarble.name)}
-                  title="Click to view full screen"
-                >
-                  <Image 
-                    src={activeMarbleImage} 
-                    alt={selectedMarble.name} 
-                    fill 
-                    className="object-cover transition-transform duration-300 group-hover/image:scale-102" 
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-xs text-xs text-white px-2.5 py-1 rounded-md font-medium tracking-wide flex items-center gap-1 opacity-0 group-hover/image:opacity-100 transition-opacity">
-                    <Maximize className="h-3 w-3" /> Full Screen
-                  </div>
-                </div>
-                {/* Image Gallery thumbnails */}
-                {selectedMarble.gallery && selectedMarble.gallery.length > 0 && (
-                  <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 px-4">
-                    <div className="flex gap-1.5 p-1.5 rounded-xl bg-black/60 backdrop-blur-md max-w-full overflow-x-auto no-scrollbar">
-                      <button 
-                        onClick={() => setActiveMarbleImage(selectedMarble.imageUrl)}
-                        className={cn(
-                          "relative h-10 w-15 rounded-lg overflow-hidden border-2 shrink-0 transition-all",
-                          activeMarbleImage === selectedMarble.imageUrl ? "border-primary scale-105" : "border-transparent opacity-70"
-                        )}
-                      >
-                        <Image src={selectedMarble.imageUrl} alt={selectedMarble.name} fill className="object-cover" />
-                      </button>
-                      {selectedMarble.gallery.map((img) => (
-                        <button 
-                          key={img.id}
-                          onClick={() => setActiveMarbleImage(img.url)}
-                          className={cn(
-                            "relative h-10 w-15 rounded-lg overflow-hidden border-2 shrink-0 transition-all",
-                            activeMarbleImage === img.url ? "border-primary scale-105" : "border-transparent opacity-70"
-                          )}
-                        >
-                          <Image src={img.url} alt={img.altText || selectedMarble.name} fill className="object-cover" />
-                        </button>
-                      ))}
+              {(() => {
+                const marbleGallery = buildProductGallery(
+                  selectedMarble.imageUrl,
+                  selectedMarble.name,
+                  selectedMarble.gallery
+                );
+                const activeIdx = Math.max(
+                  0,
+                  marbleGallery.findIndex((g) => g.url === activeMarbleImage)
+                );
+
+                return (
+                  <div className="relative bg-muted flex flex-col justify-between">
+                    <div
+                      className="relative aspect-video md:aspect-auto md:h-full min-h-[250px] w-full overflow-hidden cursor-pointer hover:opacity-95 transition-opacity group/image"
+                      onClick={() => openGallery(marbleGallery, activeIdx)}
+                      title="Click to view full screen"
+                    >
+                      <Image
+                        src={activeMarbleImage}
+                        alt={selectedMarble.name}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover/image:scale-102"
+                        referrerPolicy="no-referrer"
+                        unoptimized={activeMarbleImage.startsWith('data:')}
+                      />
+                      <div className="absolute top-3 right-3 bg-black/65 backdrop-blur-xs text-xs text-white px-2.5 py-1 rounded-md font-medium tracking-wide flex items-center gap-1 opacity-85 group-hover/image:opacity-100 transition-opacity">
+                        <Maximize className="h-3 w-3" /> Full Screen{marbleGallery.length > 1 ? ` (${activeIdx + 1}/${marbleGallery.length})` : ''}
+                      </div>
                     </div>
+                    {/* Image Gallery thumbnails */}
+                    {marbleGallery.length > 1 && (
+                      <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2 px-4">
+                        <div className="flex gap-1.5 p-1.5 rounded-xl bg-black/65 backdrop-blur-md max-w-full overflow-x-auto no-scrollbar">
+                          {marbleGallery.map((img, idx) => (
+                            <button
+                              key={`${img.url}-${idx}`}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMarbleImage(img.url);
+                                openGallery(marbleGallery, idx);
+                              }}
+                              title={img.caption || `View ${selectedMarble.name} photo ${idx + 1}`}
+                              className={cn(
+                                "relative h-10 w-14 rounded-lg overflow-hidden border-2 shrink-0 transition-all cursor-pointer",
+                                activeMarbleImage === img.url ? "border-primary scale-105" : "border-transparent opacity-75 hover:opacity-100"
+                              )}
+                            >
+                              <Image
+                                src={img.url}
+                                alt={img.alt || selectedMarble.name}
+                                fill
+                                className="object-cover"
+                                referrerPolicy="no-referrer"
+                                unoptimized={img.url.startsWith('data:')}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {/* Right Side: Details */}
               <div className="p-6 md:p-8 flex flex-col justify-between max-h-[85vh] overflow-y-auto">
@@ -829,11 +848,27 @@ export default function ProductsPage() {
                       <span>{language === 'ur' ? 'پچھلے کام کے نمونے' : 'Our Work Portfolio'}</span>
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {selectedProvider.gallery.map((img) => (
-                        <div key={img.id} className="relative aspect-video rounded-xl overflow-hidden bg-muted group/gallery border border-border/40">
-                          <Image src={img.url} alt={img.altText || 'Portfolio item'} fill className="object-cover transition-transform duration-300 group-hover/gallery:scale-105" />
-                        </div>
-                      ))}
+                      {selectedProvider.gallery.map((img, idx) => {
+                        const providerGallery = (selectedProvider.gallery || []).map((g, gIdx) => ({
+                          url: g.url,
+                          alt: g.altText || `${selectedProvider.name} — Portfolio ${gIdx + 1}`,
+                          caption: g.altText || `${selectedProvider.name} — Portfolio ${gIdx + 1}`,
+                        }));
+                        return (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() => openGallery(providerGallery, idx)}
+                            title="Click to view full screen"
+                            className="relative aspect-video rounded-xl overflow-hidden bg-muted group/gallery border border-border/40 cursor-pointer"
+                          >
+                            <Image src={img.url} alt={img.altText || 'Portfolio item'} fill className="object-cover transition-transform duration-300 group-hover/gallery:scale-105" referrerPolicy="no-referrer" />
+                            <div className="absolute top-1.5 right-1.5 bg-black/65 backdrop-blur-xs text-white p-1 rounded opacity-0 group-hover/gallery:opacity-100 transition-opacity">
+                              <Maximize className="h-3 w-3" />
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

@@ -4,7 +4,7 @@ import { Header } from '@/components/header';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useFullscreenImage } from '@/context/fullscreen-image-context';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 import { Button } from '@/components/ui/button';
 import { Pencil, PlusCircle, ChevronDown, Save, ArrowLeft, MapPin, Loader2, Send, X, Gem, Truck, Globe, Info, CheckCircle2, Wrench, Package, LayoutGrid, Eye, Calculator, Share2, ArrowRight, Maximize2, Minimize2, ArrowUp, ArrowDown, ArrowUpToLine, ArrowDownToLine, Trash2, Settings, Plus, Scale, Search, Check, Scissors, Upload, Camera, RotateCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -87,7 +87,7 @@ const filterCategories = [
 export default function OrderPage() {
   const params = useParams();
   const router = useRouter();
-  const { openImage } = useFullscreenImage();
+  const { openGallery } = useFullscreenImage();
   const searchParams = useSearchParams();
   const rawMarbleIdFromUrl = Array.isArray(params.marbleId) ? params.marbleId[0] : params.marbleId;
   const [selectedSelectorMarbleId, setSelectedSelectorMarbleId] = useState<string | null>(null);
@@ -468,7 +468,7 @@ export default function OrderPage() {
     if (calcType && selectedMarble && selectedMarble.id !== 'general-supplies-order' && currentVariant) {
       const autoKey = `${selectedMarble.id}:${calcType}`;
       if (autoOpenedCalcKeyRef.current === autoKey) return;
-      const validTypes: RequirementType[] = ['simple', 'floor', 'stairs', 'window-sill', 'kitchen', 'vanity', 'cutting-optimizer'];
+      const validTypes: RequirementType[] = ['simple', 'floor', 'stairs', 'window-sill', 'kitchen', 'vanity'];
       if (validTypes.includes(calcType as RequirementType)) {
         autoOpenedCalcKeyRef.current = autoKey;
         const timer = setTimeout(() => {
@@ -478,31 +478,6 @@ export default function OrderPage() {
       }
     }
   }, [searchParams, selectedMarble, currentVariant]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-open Cutting Optimizer directly (resuming previous saved work without forcing Material Selector popup)
-  useEffect(() => {
-    const calcType = searchParams.get('calc');
-    const pickMaterial = searchParams.get('pickMaterial') === '1';
-    if (!isGeneralSuppliesOrder || calcType !== 'cutting-optimizer') return;
-
-    let hasSaved = false;
-    try {
-      hasSaved = Boolean(
-        window.localStorage.getItem('stonecut_has_active_session') === '1' ||
-          window.localStorage.getItem('stonecut_room_floor_planner_backup_v2') ||
-          window.localStorage.getItem('stonecut_saved_stock_inventory_backup_v1') ||
-          window.localStorage.getItem('stonecut_computer_billing_v1')
-      );
-    } catch {
-      hasSaved = false;
-    }
-    setHasSavedOptimizerSession(hasSaved);
-
-    if (!pickMaterial) {
-      setIsResumedOptimizerSession(true);
-      setIsStandaloneOptimizerOpen(true);
-    }
-  }, [isGeneralSuppliesOrder, searchParams]);
 
 
   const handleShareLocation = () => {
@@ -799,7 +774,6 @@ export default function OrderPage() {
     { id: 'vanity', labelEn: 'Vanity', labelUr: 'وینٹی', descriptionEn: 'Custom bathroom vanity tops and splashbacks', descriptionUr: 'غسل خانے کی وینٹی اور سپلیش بیکس کی قیمت' },
     { id: 'window-sill', labelEn: 'Window Sills', labelUr: 'کھڑکی کی چوکھٹ / سل', descriptionEn: 'Window frame sills and border length calculations', descriptionUr: 'کھڑکی کے فریم اور سل کی لمبائی کا حساب' },
     { id: 'stairs', labelEn: 'Stairs', labelUr: 'سیڑھیاں', descriptionEn: 'Tread, riser and molding details for staircases', descriptionUr: 'سیڑھیوں کے ٹریڈ، رائزر اور مولڈنگ کی تفصیلات' },
-    { id: 'cutting-optimizer', labelEn: 'Cutting Optimizer', labelUr: 'کٹنگ آپٹیمائزر (سلیب کٹنگ)', descriptionEn: '2D slab cutting, bookmatch & floor fixing diagram', descriptionUr: 'سلیب کٹنگ، بک میچ اور فرش کی فٹنگ کا مکمل 2D نقشہ' },
     { id: 'facade', labelEn: 'Facade Stone', labelUr: 'فیساڈ و وال اسٹون', descriptionEn: 'Exterior wall cladding and elevation stone estimation', descriptionUr: 'بیرونی دیواروں اور فرنٹ ایلیویشن فیساڈ کا تخمینہ' }
   ];
 
@@ -810,11 +784,56 @@ export default function OrderPage() {
     vanity: ["Vanity", "Imported Granite", "Local Granite", "Artificial Stone", "Corian"],
     "window-sill": ["Local Marble", "Imported Marble", "Local Granite", "Imported Granite", "MDM Material", "Limestone"],
     stairs: ["Local Marble", "Imported Marble", "Local Granite", "Imported Granite", "MDM Material"],
-    "cutting-optimizer": ["Local Marble", "Imported Marble", "Local Granite", "Imported Granite", "MDM Material", "Limestone"],
     facade: ["Facade Stone"]
   };
 
   const calcType = searchParams.get('calc');
+
+  // Cutting Optimizer is restricted exclusively to Admin Panel and authorized Supplier / VIP Portal links
+  if (calcType === 'cutting-optimizer') {
+    return (
+      <div className="flex min-h-screen w-full flex-col bg-slate-950 text-slate-100">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4 mt-16 md:mt-28">
+          <div className="w-full max-w-lg rounded-2xl border border-amber-500/30 bg-slate-900/95 p-6 sm:p-8 text-center shadow-2xl space-y-5">
+            <div className="mx-auto w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Scissors className="h-7 w-7" />
+            </div>
+            <div className="space-y-2">
+              <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                Authorized Partners &amp; Admin Only
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-white">
+                کٹنگ آپٹیمائزر صرف مخصوص سپلائرز اور ایڈمن کے لیے ہے
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                یہ پروفیشنل سلیب کٹنگ آپٹیمائزر اب صرف ایڈمن پینل اور ہمارے منظور شدہ سپلائر / خاص پارٹنرز کے پورٹل لنک پر دستیاب ہے۔ اگر آپ کے پاس پورٹل پاسورڈ (PIN) موجود ہے تو نیچے دیے گئے بٹن سے لاگ ان کریں۔
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Button
+                type="button"
+                onClick={() => router.push('/supplier')}
+                className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black gap-2"
+              >
+                <Scissors className="h-4 w-4" />
+                <span>سپلائر / VIP پورٹل کھولیں (Login with PIN)</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push('/')}
+                className="w-full sm:w-auto border-slate-700 text-slate-200 hover:bg-slate-800"
+              >
+                واپس ہوم پیج پر جائیں
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   const showMaterialSelector = isGeneralSuppliesOrder && calcType;
 
   if (showMaterialSelector) {
@@ -1003,7 +1022,7 @@ export default function OrderPage() {
                   <Card key={marble.id} className="overflow-hidden flex flex-col hover:shadow-md transition-shadow border bg-background">
                     <div 
                       className="relative aspect-video w-full bg-muted overflow-hidden cursor-pointer group"
-                      onClick={() => openImage(marble.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(marble.name)}`, marble.name)}
+                      onClick={() => openGallery(buildProductGallery(marble.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(marble.name)}`, marble.name, marble.gallery), 0)}
                       title="Click to view full screen"
                     >
                       <Image
@@ -1087,7 +1106,6 @@ export default function OrderPage() {
                             'window-sill',
                             'kitchen',
                             'vanity',
-                            'cutting-optimizer',
                           ];
                           if (
                             calcType &&
