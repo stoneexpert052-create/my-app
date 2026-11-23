@@ -58,9 +58,14 @@ import { useUser } from '@/firebase';
 
 import { VanityDesigner } from '@/components/vanity-designer';
 import { KitchenDesigner } from '@/components/kitchen-designer';
+import { StairDesigner } from '@/components/stair-designer';
 import { OrderForm } from '@/components/order-form';
 import { FloorPlanner } from '@/components/floor-planner';
 import { SimpleCalculator } from '@/components/simple-calculator';
+import {
+  CalculatorVoiceGuide,
+  type GuidedCalculatorType,
+} from '@/components/calculator-voice-guide';
 import { LaborQuoteCalculator } from '@/components/labor-quote-calculator';
 import { CuttingOptimizerPro } from '@/components/cutting-optimizer-pro';
 
@@ -2047,9 +2052,14 @@ export default function OrderPage() {
                           </DialogHeader>
                         )}
                         <div className={cn(
-                          "overflow-y-auto flex-grow",
+                          "overflow-y-auto flex-grow space-y-4",
                           editingRequirement.type === 'cutting-optimizer' ? "p-0 bg-slate-950" : "px-4 sm:px-6 py-4"
                         )}>
+                            {editingRequirement.type !== 'cutting-optimizer' && (
+                              <CalculatorVoiceGuide
+                                calculatorType={editingRequirement.type as GuidedCalculatorType}
+                              />
+                            )}
                             {(() => {
                             const commonProps = {
                                 onSave: (data: any) => handleSaveRequirement(editingRequirement!.id, data),
@@ -2064,7 +2074,7 @@ export default function OrderPage() {
                             switch(editingRequirement.type) {
                                 case 'simple': return <SimpleCalculator {...commonProps} />;
                                 case 'floor': return <FloorPlanner {...commonProps} />;
-                                case 'stairs': return <OrderForm {...commonProps} applicationType="stairs" />;
+                                case 'stairs': return <StairDesigner {...commonProps} />;
                                 case 'window-sill': return <OrderForm {...commonProps} applicationType="window-sill" />;
                                 case 'kitchen': return <KitchenDesigner {...commonProps} />;
                                 case 'vanity': return <VanityDesigner {...commonProps} />;

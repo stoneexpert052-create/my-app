@@ -730,15 +730,13 @@ export default function Home() {
   const carouselMarbles = carouselItems;
   
   const handleImageClick = (marble: Marble) => {
-    setSelectedMarble(marble);
-    setActiveGalleryImage(marble.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(marble.name)}`);
-    setIsImagePopupOpen(true);
+    setIsCalculatorLoading(true);
+    router.push(`/product-detail/${marble.id}`);
   };
 
   const handleFixingMaterialClick = (material: FixingMaterial) => {
-    setSelectedFixingMaterial(material);
-    setActiveFixingGalleryImage(material.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(material.name)}`);
-    setIsFixingMaterialPopupOpen(true);
+    setIsCalculatorLoading(true);
+    router.push(`/product-detail/${material.id}`);
   };
   
   const handleProviderCardClick = (provider: ServiceProvider) => {
@@ -1162,51 +1160,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* Instant Estimators & Calculators Showcase */}
-          <section className="w-full py-10 bg-accent/30 border-b">
-            <div className="container px-4 md:px-6">
-              <div className="flex flex-col items-center justify-center text-center space-y-3 mb-8">
-                <h2 className="font-headline text-xl sm:text-2xl md:text-3xl font-bold tracking-tighter flex items-center gap-2">
-                  <Calculator className="h-6 w-6 text-primary" />
-                  {language === 'ur' ? 'انسٹنٹ آٹو کوٹیشن کیلکولیٹرز' : 'Instant Auto-Quotation Calculators'}
-                </h2>
-                <p className="max-w-[600px] text-muted-foreground text-xs sm:text-sm">
-                  {language === 'ur' 
-                    ? 'ماربل اور گرینائٹ کی تنصیب کے لیے اپنی ضرورت کے مطابق درست اور فوری تخمینہ لگائیں۔' 
-                    : 'Get precise, real-time material and cost estimates tailored to your project requirements.'}
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 max-w-7xl mx-auto">
-                {calculators.map((calc) => {
-                  const Icon = calc.icon;
-                  const targetHref = `/order/general-supplies-order?calc=${calc.id}`;
-                  return (
-                    <Link 
-                      key={calc.id} 
-                      id={`home-calc-btn-${calc.id}`}
-                      href={targetHref}
-                      onClick={() => setIsCalculatorLoading(true)}
-                      className="flex flex-col items-center justify-center p-4 rounded-xl border bg-background hover:bg-accent hover:border-primary/50 shadow-sm hover:shadow-md transition-all group text-center cursor-pointer min-h-[110px]"
-                    >
-                      <div className="p-2.5 rounded-lg bg-primary/5 text-primary group-hover:bg-primary/10 group-hover:scale-110 transition-all mb-2">
-                        <Icon className="h-5 w-5 shrink-0" />
-                      </div>
-                      <span className="text-xs font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                        {language === 'ur' ? calc.labelUr : calc.labelEn}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground line-clamp-2 mt-1 hidden sm:block leading-tight">
-                        {language === 'ur' ? calc.descriptionUr : calc.descriptionEn}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-
-          
           <section className="w-full py-12 md:py-24 lg:py-32" id="products-showcase">
             <div className="container px-4 md:px-6 space-y-10">
 
@@ -1389,7 +1342,7 @@ export default function Home() {
                                                     onImageClick={handleImageClick}
                                                     onDesignClick={(id) => {
                                                         setIsCalculatorLoading(true);
-                                                        router.push(`/order/${id}`);
+                                                        router.push(`/product-detail/${id}#product-calculators`);
                                                     }}
                                                     itemNumber={index + 1}
                                                 />
@@ -1662,13 +1615,27 @@ export default function Home() {
                             </li>
                             <li className="flex items-start gap-3">
                                 <MapPin className="h-5 w-5 text-primary mt-0.5" />
-                                <a href={businessContact.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary">Main GT Road, Rawalpindi, Pakistan</a>
+                                <a href={businessContact.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="hover:text-primary">Plot # 375-A, Potohar Road, I-9/3, Islamabad</a>
                             </li>
                         </ul>
                     </div>
+                    <div className="space-y-2">
+                        <h4 className="font-semibold">Legal &amp; Policies</h4>
+                        <ul className="space-y-1.5 text-sm text-muted-foreground">
+                            <li><Link href="/terms" className="hover:text-primary">Terms &amp; Conditions (شرائط و ضوابط)</Link></li>
+                            <li><Link href="/privacy" className="hover:text-primary">Privacy Policy (پرائیویسی پالیسی)</Link></li>
+                            <li><Link href="/brochure" className="hover:text-primary">Official Brochure &amp; Rates</Link></li>
+                            <li><Link href="/contact" className="hover:text-primary">Contact &amp; Support</Link></li>
+                        </ul>
+                    </div>
                 </div>
-                <div className="mt-8 border-t border-muted-foreground/20 pt-6 text-center text-xs text-muted-foreground">
+                <div className="mt-8 border-t border-muted-foreground/20 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
                     <p>{t('footer_text')}</p>
+                    <div className="flex items-center gap-4 font-medium">
+                        <Link href="/terms" className="hover:text-primary transition-colors">Terms &amp; Conditions</Link>
+                        <span>•</span>
+                        <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+                    </div>
                 </div>
             </div>
         </footer>
@@ -1724,24 +1691,28 @@ export default function Home() {
                                             {/* Dual Button Overlay */}
                                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button 
-                                                    className="bg-primary text-primary-foreground font-bold shadow-lg w-32"
+                                                    className="bg-primary text-primary-foreground font-bold shadow-lg w-36"
                                                     size="sm"
                                                     onClick={() => {
+                                                        setViewAllCategory(null);
                                                         setIsCalculatorLoading(true);
-                                                        router.push(`/order/${marble.id}`);
+                                                        router.push(`/product-detail/${marble.id}#product-calculators`);
                                                     }}
                                                 >
                                                     <Calculator className="mr-2 h-4 w-4" />
-                                                    Design Now
+                                                    Details &amp; Calc
                                                 </Button>
                                                 <Button 
                                                     variant="secondary"
-                                                    className="font-bold shadow-lg w-32"
+                                                    className="font-bold shadow-lg w-36"
                                                     size="sm"
-                                                    onClick={() => handleImageClick(marble)}
+                                                    onClick={() => {
+                                                        setViewAllCategory(null);
+                                                        handleImageClick(marble);
+                                                    }}
                                                 >
                                                     <Eye className="mr-2 h-4 w-4" />
-                                                    Samples
+                                                    Full Page
                                                 </Button>
                                             </div>
                                         </div>

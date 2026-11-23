@@ -7,7 +7,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { useLanguage } from '@/context/language-context';
 import { getMarbles, getFixingMaterials } from '@/lib/admin-actions';
-import type { Marble, FixingMaterial } from '@/lib/types';
+import type { Marble, MarbleVariant, FixingMaterial } from '@/lib/types';
+import { ProductCalculatorStudio } from '@/components/product-calculator-studio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -39,10 +40,19 @@ export default function ProductDetailPage() {
   const { openGallery } = useFullscreenImage();
   const id = params?.id as string;
 
+  const [requestedCalc, setRequestedCalc] = useState<string>('simple');
   const [item, setItem] = useState<Marble | FixingMaterial | null>(null);
   const [itemType, setItemType] = useState<'stone' | 'fixing' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeImage, setActiveImage] = useState<string>('');
+  const [selectedVariant, setSelectedVariant] = useState<MarbleVariant | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const calcParam = new URLSearchParams(window.location.search).get('calc');
+      if (calcParam) setRequestedCalc(calcParam);
+    }
+  }, []);
 
   useEffect(() => {
     async function loadProduct() {
@@ -59,6 +69,9 @@ export default function ProductDetailPage() {
           setItem(foundMarble);
           setItemType('stone');
           setActiveImage(foundMarble.imageUrl);
+          if (foundMarble.variants && foundMarble.variants.length > 0) {
+            setSelectedVariant(foundMarble.variants[0]);
+          }
         } else {
           const foundFixing = fixingMaterials.find(f => f.id === id);
           if (foundFixing) {
@@ -379,10 +392,17 @@ export default function ProductDetailPage() {
                           ? (stoneItem.discountType === 'fixed' ? Math.max(1, originalPrice - discountVal) : Math.round(originalPrice * (1 - discountVal / 100)))
                           : originalPrice;
 
+                        const isSelectedVar = selectedVariant?.id === variant.id;
                         return (
-                          <div 
-                            key={variant.id || idx} 
-                            className="flex items-center justify-between py-3 px-5 rounded-xl border border-border/80 bg-card hover:bg-muted/20 hover:border-primary/20 transition-all shadow-xs"
+                          <button
+                            type="button"
+                            key={variant.id || idx}
+                            onClick={() => setSelectedVariant(variant)}
+                            className={`w-full text-left flex items-center justify-between py-3 px-5 rounded-xl border transition-all shadow-xs cursor-pointer ${
+                              isSelectedVar
+                                ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                                : 'border-border/80 bg-card hover:bg-muted/20 hover:border-primary/40'
+                            }`}
                           >
                             <div className="flex flex-col space-y-0.5">
                               <span className="font-bold text-foreground text-sm md:text-base">{(variant.size || '').split('(')[0].trim()}</span>
@@ -392,16 +412,16 @@ export default function ProductDetailPage() {
                               {originalPrice > 0 ? (
                                 isSale ? (
                                   <div className="flex flex-col items-end">
-                                    <span className="text-xs text-muted-foreground line-through font-semibold">
+                                    <span className="text-xs text-muted-foreground line-through font-semibold tabular-nums">
                                       PKR {originalPrice.toLocaleString()}
                                     </span>
-                                    <span className="font-black text-red-600 dark:text-red-400 text-base md:text-lg">
+                                    <span className="font-black text-red-600 dark:text-red-400 text-base md:text-lg tabular-nums">
                                       PKR {discountedPrice.toLocaleString()}
                                       {isPerPiece ? <span className="text-xs font-medium"> /pc</span> : <span className="text-xs font-medium"> /sqft</span>}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="font-extrabold text-primary text-base md:text-lg">
+                                  <span className="font-extrabold text-primary text-base md:text-lg tabular-nums">
                                     PKR {originalPrice.toLocaleString()}
                                     {isPerPiece ? <span className="text-xs text-muted-foreground font-medium"> /pc</span> : <span className="text-xs text-muted-foreground font-medium"> /sqft</span>}
                                   </span>
@@ -410,7 +430,7 @@ export default function ProductDetailPage() {
                                 <span className="text-destructive font-bold text-sm">N/A</span>
                               )}
                             </div>
-                          </div>
+                          </button>
                         );
                       })
                     ) : (
@@ -478,14 +498,37 @@ export default function ProductDetailPage() {
               )}
 
               {/* Call-to-Action Action Buttons */}
-              <div className="pt-8 border-t border-border/60 flex flex-col sm:flex-row gap-4">
+              <div className="pt-8 border-t border-border/60 flex flex-col sm:flex-row gap-3">
                 {isStone ? (
-                  <Button asChild size="lg" className="flex-1 font-bold h-12 shadow-md hover:shadow-lg transition-all rounded-xl gap-2 text-base">
-                    <Link href={`/order/${stoneItem.id}`}>
-                      {isPerPiece ? <ShoppingCart className="h-5 w-5" /> : <Calculator className="h-5 w-5" />}
-                      <span>{labels.calculate}</span>
-                    </Link>
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => {
+                        const el = document.getElementById('product-calculators');
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="flex-1 font-bold h-12 shadow-md hover:shadow-lg transition-all rounded-xl gap-2 text-base"
+                    >
+                      <Calculator className="h-5 w-5" />
+                      <span>
+                        {language === 'ur'
+                          ? 'نیچے کیلکولیٹر کھولیں'
+                          : 'Use Calculators Below'}
+                      </span>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="lg"
+                      className="font-bold h-12 rounded-xl gap-2 text-sm"
+                    >
+                      <Link href={`/order/${stoneItem.id}`}>
+                        <ShoppingCart className="h-4 w-4" />
+                        <span>{language === 'ur' ? 'مکمل کوٹیشن پیج' : 'Full Quotation Page'}</span>
+                      </Link>
+                    </Button>
+                  </>
                 ) : (
                   <>
                     {fixingItem.dataSheetUrl && (
@@ -509,6 +552,29 @@ export default function ProductDetailPage() {
             </div>
 
           </div>
+
+          {/* Embedded Guided All-in-One Stone Calculators right inside this Full-Screen Product Page */}
+          {isStone && (
+            <ProductCalculatorStudio
+              marble={stoneItem}
+              selectedVariant={
+                selectedVariant ||
+                stoneItem.variants?.[0] || {
+                  id: `${stoneItem.id}-default`,
+                  size: 'Standard',
+                  thickness: '6-Sutar',
+                  price: 0,
+                }
+              }
+              initialTab={
+                (['simple', 'kitchen', 'vanity', 'stairs', 'window-sill', 'floor'].includes(
+                  requestedCalc
+                )
+                  ? requestedCalc
+                  : 'simple') as 'simple' | 'kitchen' | 'vanity' | 'stairs' | 'window-sill' | 'floor'
+              }
+            />
+          )}
 
         </div>
       </main>

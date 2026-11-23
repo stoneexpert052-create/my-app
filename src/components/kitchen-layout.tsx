@@ -24,6 +24,8 @@ interface KitchenLayoutProps {
   setActiveCutout?: (cutout: Cutout | null) => void;
   zoom?: number;
   unit?: 'inches' | 'feet' | 'cm' | 'mm';
+  activePieceId?: 'top' | 'left' | 'right' | number;
+  onSelectPiece?: (id: 'top' | 'left' | 'right' | number) => void;
 }
 
 const WavyLine: React.FC<{ d: string }> = ({ d }) => (
@@ -196,7 +198,9 @@ export function KitchenLayout({
   setActiveCutout, 
   zoom = 1, 
   onCutoutChange,
-  unit
+  unit,
+  activePieceId,
+  onSelectPiece,
 }: KitchenLayoutProps) {
   const patternId = React.useMemo(() => `kitchen-pattern-${Math.random().toString(36).substr(2, 9)}`, []);
   const { top, left, right, islands } = dimensions;
@@ -214,14 +218,45 @@ export function KitchenLayout({
   const rL = parseFloat(right.length) || 0;
   const rW = parseFloat(right.width) || 0;
 
-  const renderPiece = (id: string, path: string, pData: { length: string; width: string; cutouts: Cutout[] }, transform: string = "", edges: React.ReactNode[] = [], dims: React.ReactNode[] = []) => {
+  const renderPiece = (
+    id: string,
+    selectId: 'top' | 'left' | 'right' | number,
+    path: string,
+    pData: { length: string; width: string; cutouts: Cutout[] },
+    transform: string = "",
+    edges: React.ReactNode[] = [],
+    dims: React.ReactNode[] = []
+  ) => {
     const hasTexture = !!(textureUrl && textureUrl.trim() !== "");
     const fill = hasTexture && !isPrintMode ? `url(#${patternId})` : '#f3f4f6';
     const isVerticalPiece = id === 'left' || id === 'right';
+    const isSelectedPiece = !isPrintMode && activePieceId !== undefined && activePieceId === selectId;
+    const labelX = isVerticalPiece ? (parseFloat(pData.width) || 24) / 2 : (parseFloat(pData.length) || 0) / 2;
+    const labelY = isVerticalPiece ? Math.max(12, ((parseFloat(pData.length) || 0) - tW) / 2) : (parseFloat(pData.width) || 0) / 2;
 
     return (
       <g key={`piece-group-${id}`} transform={transform}>
-        <path d={path} fill={fill} stroke="#333" strokeWidth="1.5" />
+        <path
+          d={path}
+          fill={fill}
+          stroke={isSelectedPiece ? '#d97706' : '#334155'}
+          strokeWidth={isSelectedPiece ? '2.4' : '1.5'}
+          className={!isPrintMode && onSelectPiece ? 'cursor-pointer transition-colors' : undefined}
+          onClick={(e) => {
+            if (!isPrintMode && onSelectPiece) {
+              e.stopPropagation();
+              onSelectPiece(selectId);
+            }
+          }}
+        />
+        {isSelectedPiece && (
+          <path
+            d={path}
+            fill="rgba(217, 119, 6, 0.12)"
+            stroke="none"
+            className="pointer-events-none"
+          />
+        )}
         {(pData.cutouts || []).map(c => {
           const pieceWidth = parseFloat(pData.width) || 24;
           const rectX = isVerticalPiece ? (pieceWidth - c.depth) / 2 : c.x;
@@ -361,15 +396,17 @@ export function KitchenLayout({
         {edges}
         {dims}
         <text 
-          x={parseFloat(pData.length)/2} 
-          y={parseFloat(pData.width)/2} 
-          fontSize="10" 
+          x={labelX} 
+          y={labelY} 
+          fontSize="9.5" 
           fontWeight="bold" 
           textAnchor="middle" 
           dominantBaseline="middle" 
-          className="pointer-events-none opacity-40"
+          transform={isVerticalPiece ? `rotate(-90 ${labelX} ${labelY})` : undefined}
+          fill={isSelectedPiece ? '#b45309' : '#0f172a'}
+          className="pointer-events-none opacity-65"
         >
-          {pData.length}{getUnitSymbol(unit)} x {pData.width}{getUnitSymbol(unit)}
+          {pData.length}{getUnitSymbol(unit)} × {pData.width}{getUnitSymbol(unit)}
         </text>
       </g>
     );
@@ -389,8 +426,8 @@ export function KitchenLayout({
           <DimensionLine key="dim_t_l" idKey="dim_t_l" x1={0} y1={0} x2={tL} y2={0} text={top.length} offset={25} unit={unit} />,
           <DimensionLine key="dim_t_w" idKey="dim_t_w" x1={0} y1={0} x2={0} y2={tW} text={top.width} offset={25} unit={unit} />
         ] : [];
-        items.push(renderPiece('top', `M0 0 H${tL} V${tW} H0 Z`, top, "", edges, dims));
-        bbox = { x1: -60, y1: -60, x2: tL + 60, y2: tW + 60 };
+        items.push(renderPiece('top', 'top', `M0 0 H${tL} V${tW} H0 Z`, top, "", edges, dims));
+        bbox = { x1: -46, y1: -46, x2: tL + 46, y2: tW + 46 };
     } else if (layout === 'l-shape-right') {
         const tEdges = [
             <Edge key="t_f" id="top_front" x1={0} y1={tW} x2={tL-rW} y2={tW} isSelected={!!selectedEdges['top_front']} onToggle={onEdgeToggle} length={tL-rW} isPrintMode={isPrintMode} unit={unit} />,
@@ -410,9 +447,9 @@ export function KitchenLayout({
           <DimensionLine key="dim_r_w" idKey="dim_r_w" x1={0} y1={rL-tW} x2={rW} y2={rL-tW} text={right.width} offset={25} textOnRight={true} unit={unit} />
         ] : [];
 
-        items.push(renderPiece('top', `M0 0 H${tL} V${tW} H0 Z`, top, "", tEdges, tDims));
-        items.push(renderPiece('right', `M0 0 H${rW} V${rL-tW} H0 Z`, right, `translate(${tL-rW}, ${tW})`, rEdges, rDims));
-        bbox = { x1: -60, y1: -60, x2: tL + 80, y2: Math.max(tW, rL) + 80 };
+        items.push(renderPiece('top', 'top', `M0 0 H${tL} V${tW} H0 Z`, top, "", tEdges, tDims));
+        items.push(renderPiece('right', 'right', `M0 0 H${rW} V${rL-tW} H0 Z`, right, `translate(${tL-rW}, ${tW})`, rEdges, rDims));
+        bbox = { x1: -46, y1: -46, x2: tL + 54, y2: Math.max(tW, rL) + 52 };
     } else if (layout === 'l-shape-left') {
         const tEdges = [
             <Edge key="t_f" id="top_front" x1={lW} y1={tW} x2={tL} y2={tW} isSelected={!!selectedEdges['top_front']} onToggle={onEdgeToggle} length={tL-lW} isPrintMode={isPrintMode} unit={unit} />,
@@ -432,9 +469,9 @@ export function KitchenLayout({
           <DimensionLine key="dim_l_w" idKey="dim_l_w" x1={0} y1={lL-tW} x2={lW} y2={lL-tW} text={left.width} offset={25} textOnRight={true} unit={unit} />
         ] : [];
 
-        items.push(renderPiece('top', `M0 0 H${tL} V${tW} H0 Z`, top, "", tEdges, tDims));
-        items.push(renderPiece('left', `M0 0 H${lW} V${lL-tW} H0 Z`, left, `translate(0, ${tW})`, lEdges, lDims));
-        bbox = { x1: -80, y1: -60, x2: tL + 60, y2: Math.max(tW, lL) + 80 };
+        items.push(renderPiece('top', 'top', `M0 0 H${tL} V${tW} H0 Z`, top, "", tEdges, tDims));
+        items.push(renderPiece('left', 'left', `M0 0 H${lW} V${lL-tW} H0 Z`, left, `translate(0, ${tW})`, lEdges, lDims));
+        bbox = { x1: -54, y1: -46, x2: tL + 48, y2: Math.max(tW, lL) + 52 };
     } else if (layout === 'u-shape') {
         const tEdges = [
             <Edge key="t_f" id="top_front" x1={lW} y1={tW} x2={tL-rW} y2={tW} isSelected={!!selectedEdges['top_front']} onToggle={onEdgeToggle} length={tL-lW-rW} isPrintMode={isPrintMode} unit={unit} />,
@@ -462,16 +499,16 @@ export function KitchenLayout({
           <DimensionLine key="dim_r_w" idKey="dim_r_w" x1={0} y1={rL-tW} x2={rW} y2={rL-tW} text={right.width} offset={25} textOnRight={true} unit={unit} />
         ] : [];
 
-        items.push(renderPiece('top', `M0 0 H${tL} V${tW} H0 Z`, top, "", tEdges, tDims));
-        items.push(renderPiece('left', `M0 0 H${lW} V${lL-tW} H0 Z`, left, `translate(0, ${tW})`, lEdges, lDims));
-        items.push(renderPiece('right', `M0 0 H${rW} V${rL-tW} H0 Z`, right, `translate(${tL-rW}, ${tW})`, rEdges, rDims));
-        bbox = { x1: -80, y1: -60, x2: tL + 80, y2: Math.max(tW, lL, rL) + 80 };
+        items.push(renderPiece('top', 'top', `M0 0 H${tL} V${tW} H0 Z`, top, "", tEdges, tDims));
+        items.push(renderPiece('left', 'left', `M0 0 H${lW} V${lL-tW} H0 Z`, left, `translate(0, ${tW})`, lEdges, lDims));
+        items.push(renderPiece('right', 'right', `M0 0 H${rW} V${rL-tW} H0 Z`, right, `translate(${tL-rW}, ${tW})`, rEdges, rDims));
+        bbox = { x1: -54, y1: -46, x2: tL + 54, y2: Math.max(tW, lL, rL) + 52 };
     }
 
     (islands || []).forEach((isl, i) => {
         const iL = parseFloat(isl.length) || 0;
         const iW = parseFloat(isl.width) || 0;
-        const yOff = bbox.y2 + 40;
+        const yOff = bbox.y2 + 24;
         const iEdges = [
             <Edge key={`isl-${i}-t`} id={`island_${isl.id}_top`} x1={0} y1={0} x2={iL} y2={0} isSelected={!!selectedEdges[`island_${isl.id}_top`]} onToggle={onEdgeToggle} length={iL} isPrintMode={isPrintMode} unit={unit} />,
             <Edge key={`isl-${i}-b`} id={`island_${isl.id}_bottom`} x1={0} y1={iW} x2={iL} y2={iW} isSelected={!!selectedEdges[`island_${isl.id}_bottom`]} onToggle={onEdgeToggle} length={iL} isPrintMode={isPrintMode} unit={unit} />,
@@ -479,13 +516,13 @@ export function KitchenLayout({
             <Edge key={`isl-${i}-r`} id={`island_${isl.id}_right`} x1={iL} y1={0} x2={iL} y2={iW} isSelected={!!selectedEdges[`island_${isl.id}_right`]} onToggle={onEdgeToggle} length={iW} isPrintMode={isPrintMode} unit={unit} />,
         ];
         const iDims = isDimensioningMode ? [
-          <DimensionLine key={`dim_isl_${i}_l`} idKey={`dim_isl_${i}_l`} x1={0} y1={0} x2={iL} y2={0} text={isl.length} offset={20} unit={unit} />,
-          <DimensionLine key={`dim_isl_${i}_w`} idKey={`dim_isl_${i}_w`} x1={0} y1={0} x2={0} y2={iW} text={isl.width} offset={20} unit={unit} />
+          <DimensionLine key={`dim_isl_${i}_l`} idKey={`dim_isl_${i}_l`} x1={0} y1={0} x2={iL} y2={0} text={isl.length} offset={18} unit={unit} />,
+          <DimensionLine key={`dim_isl_${i}_w`} idKey={`dim_isl_${i}_w`} x1={0} y1={0} x2={0} y2={iW} text={isl.width} offset={18} unit={unit} />
         ] : [];
-        items.push(renderPiece(`isl-${i}`, `M0 0 H${iL} V${iW} H0 Z`, {length: isl.length, width: isl.width, cutouts: isl.cutouts || []}, `translate(0, ${yOff})`, iEdges, iDims));
+        items.push(renderPiece(`isl-${i}`, isl.id, `M0 0 H${iL} V${iW} H0 Z`, {length: isl.length, width: isl.width, cutouts: isl.cutouts || []}, `translate(0, ${yOff})`, iEdges, iDims));
         
-        bbox.y2 = yOff + iW + 60;
-        bbox.x2 = Math.max(bbox.x2, iL + 60);
+        bbox.y2 = yOff + iW + 46;
+        bbox.x2 = Math.max(bbox.x2, iL + 46);
     });
 
     return (

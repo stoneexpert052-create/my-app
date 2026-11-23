@@ -178,9 +178,9 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
             </Button>
           ) : (
             <Button asChild className="w-full font-bold text-sm h-11 group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-xl">
-              <Link href={`/order/${marble.id}`} className="flex items-center justify-center">
+              <Link href={`/product-detail/${marble.id}#product-calculators`} className="flex items-center justify-center">
                 {isPerPiece ? <ShoppingCart className="mr-2 h-4 w-4" /> : <Calculator className="mr-2 h-4 w-4" />}
-                {isPerPiece ? 'Add to Quotation' : 'Design & Calculate'}
+                {isPerPiece ? 'Add to Quotation' : 'Details & Calculators'}
               </Link>
             </Button>
           )}

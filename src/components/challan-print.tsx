@@ -83,6 +83,20 @@ const SingleChallanPage = ({ name, address, phone, orderId, date, req, letterhea
                 }
             }
         });
+        if (Array.isArray(details.winders) && details.winders.length > 0) {
+            details.winders.forEach((winder: any, wIdx: number) => {
+                if (parseFloat(winder.width) > 0 && parseFloat(winder.length) > 0) {
+                    const isMain = winder.isMainLanding || winder.turnDirection === 'u-right' || winder.turnDirection === 'u-left';
+                    allItems.push({
+                        id: `stairs-winder-${winder.id || wIdx}`,
+                        description: `${isMain ? 'Stair Landing (Chowki)' : 'Winder Chowki'} (${winder.type || '1-step'}): ${req.marble?.name || 'Marble'}`,
+                        size: `${winder.width}" x ${winder.length}"`,
+                        qty: '1',
+                        diagram: <span className="text-xs text-gray-500 italic">Chowki / Landing</span>
+                    });
+                }
+            });
+        }
     } else if (req.type === 'window-sill' && details.windowSillRows) {
          details.windowSillRows.forEach((row: any) => {
             if(parseFloat(row.length) > 0 && parseFloat(row.width) > 0) {

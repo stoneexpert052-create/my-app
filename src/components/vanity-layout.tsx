@@ -18,6 +18,8 @@ interface VanityLayoutProps {
   isPrintMode?: boolean;
   zoom?: number;
   unit?: 'inches' | 'feet' | 'cm' | 'mm';
+  activeSinkId?: number | null;
+  onSelectSink?: (sinkId: number) => void;
 }
 
 const UnitContext = React.createContext<'inches' | 'feet' | 'cm' | 'mm'>('inches');
@@ -130,6 +132,8 @@ export function VanityLayout({
     isPrintMode = false,
     zoom = 1,
     unit = 'inches',
+    activeSinkId = null,
+    onSelectSink,
 }: VanityLayoutProps) {
   const patternId = React.useMemo(() => `marble-pattern-vanity-${Math.random().toString(36).substr(2, 9)}`, []);
   const backsplashPatternId = React.useMemo(() => `backsplash-pattern-vanity-${Math.random().toString(36).substr(2, 9)}`, []);
@@ -297,7 +301,7 @@ export function VanityLayout({
       return <p className="text-muted-foreground text-center">Please enter valid dimensions.</p>;
     }
     
-    const padding = 40;
+    const padding = 26;
 
     const sinkElements = (sinks || []).map(sink => {
       const w = parseFloat(sink.width) || 0;
@@ -326,12 +330,27 @@ export function VanityLayout({
         y = Math.max(0, vanityWidth - l - margin);
       }
       
-      const strokeColor = sink.type === 'undermount' ? '#0066cc' : '#FFD700';
+      const isSelectedSink = !isPrintMode && activeSinkId === sink.id;
+      const strokeColor = isSelectedSink ? '#2563eb' : sink.type === 'undermount' ? '#0066cc' : '#d97706';
       const strokeDash = sink.type === 'undermount' ? "4 2" : "0";
+      const fillVal = isPrintMode
+        ? 'white'
+        : isSelectedSink
+          ? 'rgba(37, 99, 235, 0.22)'
+          : 'rgba(255,255,255,0.55)';
+      const clickProps = !isPrintMode && onSelectSink
+        ? {
+            className: 'cursor-pointer transition-all',
+            onClick: (e: React.MouseEvent) => {
+              e.stopPropagation();
+              onSelectSink(sink.id);
+            },
+          }
+        : {};
 
       if (sink.shape === 'circle') {
           l = w;
-          return <circle key={sink.id} cx={x + w/2} cy={y + l/2} r={w/2} fill={isPrintMode ? 'white' : 'rgba(255,255,255,0.3)'} stroke={isPrintMode ? 'black' : strokeColor} strokeWidth="2" strokeDasharray={strokeDash} style={{vectorEffect: 'non-scaling-stroke'}} />
+          return <circle key={sink.id} cx={x + w/2} cy={y + l/2} r={w/2} fill={fillVal} stroke={isPrintMode ? 'black' : strokeColor} strokeWidth={isSelectedSink ? "2.6" : "2"} strokeDasharray={strokeDash} style={{vectorEffect: 'non-scaling-stroke'}} {...clickProps} />
       }
 
       return (
@@ -341,11 +360,12 @@ export function VanityLayout({
           y={y}
           width={w}
           height={l}
-          fill={isPrintMode ? 'white' : 'rgba(255,255,255,0.3)'}
+          fill={fillVal}
           stroke={isPrintMode ? 'black' : strokeColor}
-          strokeWidth="2"
+          strokeWidth={isSelectedSink ? "2.6" : "2"}
           strokeDasharray={strokeDash}
           style={{vectorEffect: 'non-scaling-stroke'}}
+          {...clickProps}
         />
       );
     });
@@ -353,7 +373,7 @@ export function VanityLayout({
     const viewBox = `${contentBBox.minX - padding} ${contentBBox.minY - padding} ${contentWidth + padding * 2} ${contentHeight + padding * 2}`;
     
     return (
-        <svg viewBox={viewBox} preserveAspectRatio="xMidYMid meet" >
+        <svg viewBox={viewBox} width="100%" height="100%" preserveAspectRatio="xMidYMid meet" >
             <defs>
               {hasTexture && !isPrintMode && (
                 <pattern id={patternId} patternUnits="userSpaceOnUse" width="100" height="100">

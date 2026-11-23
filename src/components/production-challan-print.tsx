@@ -157,6 +157,26 @@ export const ProductionChallanPrint = React.forwardRef<HTMLDivElement, Productio
                                                     }
                                                 }
                                             });
+                                            if (simpleReq.type === 'stairs' && Array.isArray(details.winders) && details.winders.length > 0) {
+                                                details.winders.forEach((winder: any, wIndex: number) => {
+                                                    if (parseFloat(winder.width) > 0 && parseFloat(winder.length) > 0) {
+                                                        const isMain = winder.isMainLanding || winder.turnDirection === 'u-right' || winder.turnDirection === 'u-left';
+                                                        const label = isMain
+                                                            ? `Stair Landing / Chowki (${winder.type || '1-step'})`
+                                                            : `Winder Chowki (${winder.type || '2-step'})`;
+                                                        tableRows.push(
+                                                            <tr key={`${simpleReq.id}-winder-${winder.id || wIndex}`} className="border-b page-break-inside-avoid bg-amber-50/40">
+                                                                <td className="p-1 text-center border align-middle">C{wIndex + 1}</td>
+                                                                <td className="p-1 font-semibold border align-middle">{label}</td>
+                                                                <td className="p-1 text-center font-semibold border align-middle">{winder.width}" x {winder.length}"</td>
+                                                                <td className="p-1 text-center font-bold border align-middle">1</td>
+                                                                <td className="p-1 text-center border align-middle"><EdgeProfileDisplay profileType={details.globalProfileType} /></td>
+                                                                <td className="p-1 text-center text-xs text-gray-600 border align-middle">Chowki / Landing</td>
+                                                            </tr>
+                                                        );
+                                                    }
+                                                });
+                                            }
                                             return tableRows;
                                         } else if (simpleReq.type === 'floor' || simpleReq.type === 'simple') {
                                         const rawSqFt = Number(details.totalFloorArea || details.totalArea) || 0;
