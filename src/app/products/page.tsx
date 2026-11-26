@@ -2,7 +2,7 @@
 
 import { Header } from '@/components/header';
 import { useLanguage } from '@/context/language-context';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getMarbles, getFixingMaterials, getServiceProviders, subscribeToAppUpdates } from '@/lib/admin-actions';
 import type { Marble, FixingMaterial, ServiceProvider } from '@/lib/types';
 import { MarbleCard } from '@/components/marble-card';
@@ -42,6 +42,7 @@ import {
   FileText,
   Maximize
 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Icons } from '@/components/icons';
 import Image from 'next/image';
@@ -49,8 +50,17 @@ import { cn } from '@/lib/utils';
 import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
 
 export default function ProductsPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <ProductsContent />
+    </React.Suspense>
+  );
+}
+
+function ProductsContent() {
   const { t, language } = useLanguage();
   const { openImage, openGallery } = useFullscreenImage();
+  const searchParams = useSearchParams();
   
   // Data States
   const [marbles, setMarbles] = useState<Marble[]>([]);
@@ -59,10 +69,20 @@ export default function ProductsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filter & Search States
-  const [activeCategory, setActiveCategory] = useState<'stone' | 'tool_chemical' | 'business'>('stone');
+  const initialTabParam = searchParams.get('tab');
+  const [activeCategory, setActiveCategory] = useState<'stone' | 'tool_chemical' | 'business'>(
+    initialTabParam === 'tool_chemical' || initialTabParam === 'business' ? initialTabParam : 'stone'
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStoneType, setSelectedStoneType] = useState('All');
   const [selectedToolChemicalType, setSelectedToolChemicalType] = useState('All');
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'stone' || tabParam === 'tool_chemical' || tabParam === 'business') {
+      setActiveCategory(tabParam);
+    }
+  }, [searchParams]);
 
   // Popup Detail States
   const [selectedMarble, setSelectedMarble] = useState<Marble | null>(null);

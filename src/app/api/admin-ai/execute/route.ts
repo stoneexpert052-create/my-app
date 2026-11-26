@@ -14,6 +14,7 @@ import {
   updateSupplierRateListAndSyncApp,
   syncSupplierRatesToEntireApp,
   saveSaleRibbonStyle,
+  updateOrderStatus,
   getDb
 } from "@/lib/admin-actions";
 import { normalizeSaleRibbonStyle } from "@/lib/sale-ribbon-style";
@@ -394,6 +395,43 @@ export async function POST(req: NextRequest) {
           messageEn: successMessageEn,
           timestamp: new Date().toISOString()
         });
+      }
+
+      case "UPDATE_ORDER_STATUS": {
+        const orderId = payload?.orderId || targetId;
+        const newStatus = payload?.status;
+        const allowed = ['Pending', 'In Progress', 'Shipped', 'Delivered', 'Canceled'];
+        if (!orderId || !allowed.includes(newStatus)) {
+          return NextResponse.json({ error: "Valid orderId and status are required" }, { status: 400 });
+        }
+
+        const res = await updateOrderStatus(orderId, newStatus);
+        if (!res.success) {
+          throw new Error("Failed to update order status");
+        }
+
+        successMessageUr = `آرڈر #${orderId} (${targetName || 'کسٹمر'}) کا اسٹیٹس کامیابی سے "${newStatus}" کر دیا گیا ہے۔`;
+        successMessageEn = `Order #${orderId} status successfully updated to ${newStatus}.`;
+        break;
+      }
+
+      case "TOGGLE_PRODUCT_VISIBILITY": {
+        const itemType = payload?.itemType || "marble";
+        const id = payload?.itemId || targetId;
+        const isHidden = Boolean(payload?.isHidden);
+        if (!id) {
+          return NextResponse.json({ error: "Item ID required" }, { status: 400 });
+        }
+
+        if (itemType === "marble") {
+          await updateMarbleDetails(id, { isHidden });
+        } else {
+          await updateFixingMaterialFields(id, { isHidden });
+        }
+
+        successMessageUr = `"${targetName || id}" کو ایپ میں کامیابی سے ${isHidden ? 'چھپا (Hidden)' : 'ظاہر (Visible)'} کر دیا گیا۔`;
+        successMessageEn = `"${targetName || id}" is now ${isHidden ? 'hidden from' : 'visible in'} the storefront.`;
+        break;
       }
 
       default:

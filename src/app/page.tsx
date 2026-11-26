@@ -45,6 +45,7 @@ import config from '@/lib/config.json';
 import initialHomepageContent from '@/lib/homepage-content.json';
 import { RepresentativesSection } from '@/components/representatives-section';
 import { getHomepageContent, getMarbles, getFixingMaterials, getHomepageConfig, getServiceProviders, getPartnerCompanies, getDailyRates, subscribeToAppUpdates, deduplicateCategories, type PartnerCompany } from '@/lib/admin-actions';
+import { getBundledMarbles, getBundledFixingMaterials, getBundledServiceProviders, getClientInstantMarbles, getClientInstantFixingMaterials } from '@/lib/instant-catalog';
 import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { defaultDailyRates } from '@/lib/data';
@@ -89,6 +90,9 @@ const categoryIcons: { [key: string]: React.ElementType } = {
   'Vanity': Bath,
   'Search Results': Search,
 };
+
+const getCategoryDomId = (category: string) =>
+  `category-${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`;
 
 const serviceIcons: { [key: string]: React.ElementType } = {
   'Marble & Tile Fixing': Gem,
@@ -237,18 +241,15 @@ export default function Home() {
   // All-Sale Products Popup State
   const [isAllSalePopupOpen, setIsAllSalePopupOpen] = useState(false);
 
-  // Dynamic AI-managed styling for #main-header-sale-ribbon
-  const [saleRibbonStyle, setSaleRibbonStyle] = useState<SaleRibbonStyleConfig>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('stone_expert_sale_ribbon_style');
-        if (cached) return normalizeSaleRibbonStyle(JSON.parse(cached));
-      } catch (e) {}
-    }
-    return DEFAULT_SALE_RIBBON_STYLE;
-  });
+  // Dynamic AI-managed styling for #main-header-sale-ribbon (SSR-safe default, synced on mount)
+  const [saleRibbonStyle, setSaleRibbonStyle] = useState<SaleRibbonStyleConfig>(DEFAULT_SALE_RIBBON_STYLE);
 
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem('stone_expert_sale_ribbon_style');
+      if (cached) setSaleRibbonStyle(normalizeSaleRibbonStyle(JSON.parse(cached)));
+    } catch (e) {}
+
     const handleRibbonStyleEvent = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail) {
@@ -271,15 +272,17 @@ export default function Home() {
 
   useEffect(() => {
     setIsCalculatorLoading(false);
-    
-    // Intercept back gesture on home page to show exit permission dialog
+
+    // Only intercept back gesture when already at the plain root URL without filter/hash
     if (typeof window !== 'undefined') {
-      window.history.pushState(window.history.state, '', window.location.href);
+      if (!window.location.search && !window.location.hash) {
+        window.history.pushState({ ...(window.history.state || {}), exitSentinel: true }, '', window.location.href);
+      }
 
       const handlePopState = () => {
-        setIsExitDialogOpen(true);
-        // Re-push state to keep intercepting back button
-        window.history.pushState(window.history.state, '', window.location.href);
+        if (!window.location.search && !window.location.hash) {
+          setIsExitDialogOpen(true);
+        }
       };
 
       window.addEventListener('popstate', handlePopState);
@@ -317,11 +320,13 @@ export default function Home() {
   const [viewAllCategory, setViewAllCategory] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
-  const [marbles, setMarbles] = useState<Marble[]>([]);
-  const [fixingMaterials, setFixingMaterials] = useState<FixingMaterial[]>([]);
-  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
+  const [marbles, setMarbles] = useState<Marble[]>(() => getBundledMarbles());
+  const [fixingMaterials, setFixingMaterials] = useState<FixingMaterial[]>(() => getBundledFixingMaterials());
+  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>(() =>
+    getBundledServiceProviders().filter(p => p.status === 'active')
+  );
   const [partnerCompanies, setPartnerCompanies] = useState<PartnerCompany[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => getBundledMarbles().length === 0);
   const [homepageContent, setHomepageContent] = useState(initialHomepageContent);
   const [categoryOrder, setCategoryOrder] = useState<string[]>(() => deduplicateCategories(config.categoryOrder || []));
   const [logoUrl, setLogoUrl] = useState<string>(config.logoUrl);
@@ -338,7 +343,7 @@ export default function Home() {
   );
 
   useEffect(() => {
-    // Safely sync cached category order after initial hydration
+    // Safely sync cached category order and local snapshots after initial hydration
     try {
       const cached = localStorage.getItem('local_category_order');
       if (cached) {
@@ -348,6 +353,15 @@ export default function Home() {
         }
       }
     } catch (e) {}
+
+    const cachedMarbles = getClientInstantMarbles();
+    if (cachedMarbles.length > 0) {
+      setMarbles(cachedMarbles);
+    }
+    const cachedFixing = getClientInstantFixingMaterials();
+    if (cachedFixing.length > 0) {
+      setFixingMaterials(cachedFixing);
+    }
 
     async function loadData(showLoadingSpinner = true) {
       if (showLoadingSpinner) {
@@ -402,7 +416,7 @@ export default function Home() {
       }
     }
 
-    loadData(true);
+    loadData(getBundledMarbles().length === 0);
 
     const unsubscribe = subscribeToAppUpdates((event) => {
       if (event.type === 'sale_ribbon_style_updated' && event.detail) {
@@ -426,6 +440,47 @@ export default function Home() {
 
   const materialQuery = searchParams.get('material');
   const searchQuery = searchParams.get('q');
+  const focusCategory = searchParams.get('focusCategory');
+  const [highlightedCategory, setHighlightedCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (focusCategory) {
+      const cleanList = deduplicateCategories(categoryOrder);
+      const matchedCat =
+        cleanList.find((c) => c.toLowerCase() === focusCategory.toLowerCase()) ||
+        focusCategory;
+      const targetId = getCategoryDomId(matchedCat);
+      setHighlightedCategory(matchedCat);
+
+      const scrollTimer = window.setTimeout(() => {
+        const el = document.getElementById(targetId) || document.getElementById('products-showcase');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
+
+      const clearTimer = window.setTimeout(() => {
+        setHighlightedCategory((prev) => (prev === matchedCat ? null : prev));
+      }, 3800);
+
+      return () => {
+        window.clearTimeout(scrollTimer);
+        window.clearTimeout(clearTimer);
+      };
+    }
+
+    if ((materialQuery && materialQuery !== 'All') || searchQuery) {
+      const scrollTimer = window.setTimeout(() => {
+        const el = document.getElementById('products-showcase');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
+      return () => window.clearTimeout(scrollTimer);
+    }
+  }, [focusCategory, materialQuery, searchQuery, isLoading, categoryOrder]);
 
   const isFixingMaterialQuery = useMemo(() => {
     return materialQuery && fixingMaterialCategories.includes(materialQuery as any);
@@ -750,17 +805,49 @@ export default function Home() {
     (filteredAndGroupedMarbles['Search Results'] || []).length === 0 && 
     (filteredAndGroupedFixingMaterials['Search Results'] || []).length === 0;
 
+  const cleanCategories = useMemo(() => deduplicateCategories(categoryOrder), [categoryOrder]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    const visibleMarbles = marbles.filter(m => !m.isHidden);
+    const visibleFixing = fixingMaterials.filter(f => !f.isHidden);
+
+    for (const cat of cleanCategories) {
+      const catLower = cat.toLowerCase();
+      const isSaleCategory = catLower.includes('sale') || catLower.includes('discount') || catLower.includes('سیل');
+      if (isSaleCategory) {
+        counts[cat] =
+          visibleMarbles.filter(m => m.onSale || (m.discount && m.discount > 0) || m.category === 'Sale & Discount').length +
+          visibleFixing.filter(f => (f as any).onSale || ((f as any).discount && (f as any).discount > 0) || (f.category as string) === 'Sale & Discount').length;
+      } else {
+        counts[cat] =
+          visibleMarbles.filter(m =>
+            (m.category && m.category.toLowerCase() === catLower) ||
+            (m.materialType && m.materialType.toLowerCase() === catLower) ||
+            (`${(m.origin || 'Local').toLowerCase()} ${(m.materialType || '').toLowerCase()}` === catLower) ||
+            (catLower === 'marble tiles' && m.materialType === '12x24 Tiles') ||
+            (catLower.includes('mdm') && (
+              (m.category && m.category.toLowerCase().includes('mdm')) ||
+              (m.materialType && m.materialType.toLowerCase().includes('mdm')) ||
+              (m.name && m.name.toLowerCase().includes('mdm'))
+            ))
+          ).length +
+          visibleFixing.filter(f => f.category && f.category.toLowerCase() === catLower).length;
+      }
+    }
+    return counts;
+  }, [cleanCategories, marbles, fixingMaterials]);
+
   const sortedCategories = useMemo(() => {
     if (isSearchOrFilterActive) {
       return ['Search Results'];
     }
-    const cleanList = deduplicateCategories(categoryOrder);
-    return cleanList.filter(category => {
+    return cleanCategories.filter(category => {
       const marbleCount = (filteredAndGroupedMarbles[category] || []).length;
       const fixingCount = (filteredAndGroupedFixingMaterials[category] || []).length;
       return marbleCount > 0 || fixingCount > 0;
     });
-  }, [filteredAndGroupedMarbles, filteredAndGroupedFixingMaterials, categoryOrder, isSearchOrFilterActive]);
+  }, [filteredAndGroupedMarbles, filteredAndGroupedFixingMaterials, cleanCategories, isSearchOrFilterActive]);
   
   const OriginIcon = selectedMarble?.origin === 'Local' ? Truck : Globe;
   const buildWithUsContent = (homepageContent?.buildWithUs?.[language] || homepageContent?.buildWithUs?.en) || {
@@ -1160,7 +1247,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="w-full py-12 md:py-24 lg:py-32" id="products-showcase">
+          <section className="w-full py-12 md:py-24 lg:py-32 scroll-mt-24" id="products-showcase">
             <div className="container px-4 md:px-6 space-y-10">
 
               {/* Category Navigation & Quick Filter Strip */}
@@ -1222,26 +1309,11 @@ export default function Home() {
                     </button>
 
                     {/* Dynamic categories from categoryOrder */}
-                    {deduplicateCategories(categoryOrder).map(cat => {
+                    {cleanCategories.map(cat => {
                       const Icon = categoryIcons[cat] || Gem;
                       const catLower = cat.toLowerCase();
                       const isSaleCategory = catLower.includes('sale') || catLower.includes('discount') || catLower.includes('سیل');
-
-                      const count = isSaleCategory
-                        ? marbles.filter(m => !m.isHidden && (m.onSale || (m.discount && m.discount > 0) || m.category === 'Sale & Discount')).length +
-                          fixingMaterials.filter(f => !f.isHidden && ((f as any).onSale || ((f as any).discount && (f as any).discount > 0) || (f.category as string) === 'Sale & Discount')).length
-                        : marbles.filter(m => !m.isHidden && (
-                            (m.category && m.category.toLowerCase() === catLower) || 
-                            (m.materialType && m.materialType.toLowerCase() === catLower) || 
-                            (`${(m.origin || 'Local').toLowerCase()} ${(m.materialType || '').toLowerCase()}` === catLower) ||
-                            (catLower === 'marble tiles' && m.materialType === '12x24 Tiles') ||
-                            (catLower.includes('mdm') && (
-                              (m.category && m.category.toLowerCase().includes('mdm')) || 
-                              (m.materialType && m.materialType.toLowerCase().includes('mdm')) || 
-                              (m.name && m.name.toLowerCase().includes('mdm'))
-                            ))
-                          )).length + fixingMaterials.filter(f => f.category && f.category.toLowerCase() === catLower).length;
-                      
+                      const count = categoryCounts[cat] ?? 0;
                       const isSelected = materialQuery === cat;
 
                       return (
@@ -1315,56 +1387,116 @@ export default function Home() {
                         const items = filteredAndGroupedMarbles[category] || [];
                         const fixingItems = filteredAndGroupedFixingMaterials[category] || [];
                         if (items.length === 0 && fixingItems.length === 0) return null;
-                        const Icon = categoryIcons[category] || Gem;
+                        const activeLabel =
+                          category === 'Search Results'
+                            ? (materialQuery && materialQuery !== 'All'
+                                ? materialQuery
+                                : (searchQuery ? `${language === 'ur' ? 'تلاش' : 'Search'}: "${searchQuery}"` : category))
+                            : category;
+                        const Icon = (materialQuery && categoryIcons[materialQuery]) || categoryIcons[category] || Gem;
                         const totalCount = items.length + fixingItems.length;
+                        const domId = category === 'Search Results' ? 'search-results-section' : getCategoryDomId(category);
+                        const isHighlighted = highlightedCategory === category;
+
                         return (
-                        <div key={category} className="space-y-6">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="flex items-baseline gap-4">
+                        <div
+                          key={category}
+                          id={domId}
+                          className={cn(
+                            "space-y-6 scroll-mt-28 transition-all duration-500",
+                            !isSearchOrFilterActive && "[content-visibility:auto] [contain-intrinsic-size:480px]",
+                            isHighlighted && "ring-2 ring-amber-500/70 bg-amber-500/5 rounded-2xl p-4 sm:p-5 shadow-lg shadow-amber-500/10"
+                          )}
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-baseline gap-3 sm:gap-4">
                                     <h2 className="font-headline flex items-center gap-3 text-2xl md:text-3xl font-bold tracking-tighter">
-                                        <Icon className="h-8 w-8 text-primary" />
-                                        {category}
+                                        <Icon className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
+                                        {activeLabel}
                                     </h2>
                                     <span className="text-muted-foreground font-medium text-sm md:text-base">({totalCount} Items)</span>
                                 </div>
-                                <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80" onClick={() => setViewAllCategory(category)}>
-                                    {t('view_all')}
-                                    <ChevronRight className="ml-1 h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                  {isSearchOrFilterActive && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => router.push('/')}
+                                      className="text-xs rounded-lg"
+                                    >
+                                      {language === 'ur' ? 'تمام کیٹیگریز دیکھیں' : 'All Categories'}
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80" onClick={() => setViewAllCategory(category)}>
+                                      {t('view_all')}
+                                      <ChevronRight className="ml-1 h-4 w-4" />
+                                  </Button>
+                                </div>
                             </div>
-                            {items.length > 0 && (
-                                <Carousel opts={{ align: "start", loop: items.length > 4, watchDrag: true }} plugins={[Autoplay({delay: 2000, stopOnInteraction: true})]}>
-                                    <CarouselContent className="-ml-4">
-                                        {items.map((marble, index) => (
-                                            <CarouselItem key={marble.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
-                                                <MarbleCard
-                                                    marble={marble}
-                                                    onImageClick={handleImageClick}
-                                                    onDesignClick={(id) => {
-                                                        setIsCalculatorLoading(true);
-                                                        router.push(`/product-detail/${id}#product-calculators`);
-                                                    }}
-                                                    itemNumber={index + 1}
-                                                />
-                                            </CarouselItem>
-                                        ))}
-                                    </CarouselContent>
-                                    <CarouselPrevious className="hidden sm:flex" />
-                                    <CarouselNext className="hidden sm:flex" />
-                                </Carousel>
-                            )}
-                            {fixingItems.length > 0 && (
-                                <Carousel opts={{ align: "start", loop: fixingItems.length > 4, watchDrag: true }} plugins={[Autoplay({delay: 2500, stopOnInteraction: true})]}>
-                                    <CarouselContent className="-ml-4">
-                                        {fixingItems.map((material) => (
-                                            <CarouselItem key={material.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
-                                                <FixingMaterialCard material={material} onImageClick={handleFixingMaterialClick} />
-                                            </CarouselItem>
-                                        ))}
-                                    </CarouselContent>
-                                    <CarouselPrevious className="hidden sm:flex" />
-                                    <CarouselNext className="hidden sm:flex" />
-                                </Carousel>
+
+                            {isSearchOrFilterActive ? (
+                              <>
+                                {items.length > 0 && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                                    {items.map((marble, index) => (
+                                      <MarbleCard
+                                        key={marble.id}
+                                        marble={marble}
+                                        onImageClick={handleImageClick}
+                                        onDesignClick={(id) => {
+                                          setIsCalculatorLoading(true);
+                                          router.push(`/product-detail/${id}#product-calculators`);
+                                        }}
+                                        itemNumber={index + 1}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                                {fixingItems.length > 0 && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+                                    {fixingItems.map((material) => (
+                                      <FixingMaterialCard key={material.id} material={material} onImageClick={handleFixingMaterialClick} />
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {items.length > 0 && (
+                                    <Carousel opts={{ align: "start", loop: items.length > 4, watchDrag: true }}>
+                                        <CarouselContent className="-ml-4">
+                                            {items.map((marble, index) => (
+                                                <CarouselItem key={marble.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+                                                    <MarbleCard
+                                                        marble={marble}
+                                                        onImageClick={handleImageClick}
+                                                        onDesignClick={(id) => {
+                                                            setIsCalculatorLoading(true);
+                                                            router.push(`/product-detail/${id}#product-calculators`);
+                                                        }}
+                                                        itemNumber={index + 1}
+                                                    />
+                                                </CarouselItem>
+                                            ))}
+                                        </CarouselContent>
+                                        <CarouselPrevious className="hidden sm:flex" />
+                                        <CarouselNext className="hidden sm:flex" />
+                                    </Carousel>
+                                )}
+                                {fixingItems.length > 0 && (
+                                    <Carousel opts={{ align: "start", loop: fixingItems.length > 4, watchDrag: true }}>
+                                        <CarouselContent className="-ml-4">
+                                            {fixingItems.map((material) => (
+                                                <CarouselItem key={material.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
+                                                    <FixingMaterialCard material={material} onImageClick={handleFixingMaterialClick} />
+                                                </CarouselItem>
+                                            ))}
+                                        </CarouselContent>
+                                        <CarouselPrevious className="hidden sm:flex" />
+                                        <CarouselNext className="hidden sm:flex" />
+                                    </Carousel>
+                                )}
+                              </>
                             )}
                         </div>
                         );
@@ -1445,7 +1577,7 @@ export default function Home() {
                       Our Expert Teams
                     </h2>
                 </div>
-                 <Carousel opts={{ align: "start", loop: serviceProviders.length > 3 }} plugins={[Autoplay({delay: 3000, stopOnInteraction: true})]}>
+                 <Carousel opts={{ align: "start", loop: serviceProviders.length > 3 }}>
                     <CarouselContent className="-ml-4">
                       {serviceProviders.map((provider) => {
                         const ServiceIcon = serviceIcons[provider.service] || Users;
@@ -1579,6 +1711,56 @@ export default function Home() {
             </div>
           </section>
 
+          {/* Editorial SEO Guide: Marble Price in Islamabad, Rawalpindi & Pakistan */}
+          <section
+            aria-label="Marble Price in Islamabad, Rawalpindi and Pakistan"
+            className="w-full py-12 md:py-16 border-t border-border/60 bg-muted/20"
+          >
+            <div className="container mx-auto px-4 md:px-6 max-w-6xl space-y-6">
+              <div className="max-w-3xl space-y-2">
+                <h2 className="font-headline text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
+                  {language === 'ur'
+                    ? 'سٹون ایکسپرٹ — ماربل پرائس ان اسلام آباد، راولپنڈی اور پاکستان'
+                    : 'Stone Expert — Marble Price in Islamabad, Rawalpindi & Pakistan'}
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {language === 'ur'
+                    ? 'سٹون ایکسپرٹ (پلاٹ 375-A، پوٹھوہار روڈ، I-9/3 اسلام آباد) پاکستان کی صفِ اول کی بیسٹ ماربل فیکٹری اور بیسٹ ماربل سپلائر ہے جہاں سے آپ براہِ راست فیکٹری ریٹ پر زیارت وائٹ، بادل، سنی وائٹ، بوٹی سینا، گرینائٹ، سیڑھیوں، کچن اور فلورنگ کے تازہ ترین ریٹس معلوم کر سکتے ہیں۔'
+                    : 'Operating directly from Plot # 375-A, Potohar Road, I-9/3, Islamabad, Stone Expert is trusted as the Best Marble Factory and Best Marble Supplier for transparent Marble Price in Islamabad, Marble Price in Rawalpindi, and nationwide Marble Price in Pakistan.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <article className="rounded-xl border border-border/80 bg-card p-5 space-y-2">
+                  <h3 className="font-bold text-base text-foreground">
+                    Best Marble Factory &amp; Best Marble Supplier
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Factory-direct Ziarat White, Badal, Sunny White, Silky Black, Botticino, and imported granite slabs with instant online calculators and live daily rates across Islamabad, Rawalpindi, DHA, Bahria Town, and Pakistan.
+                  </p>
+                </article>
+
+                <article className="rounded-xl border border-border/80 bg-card p-5 space-y-2">
+                  <h3 className="font-bold text-base text-foreground">
+                    Best Marble Fixer (بیسٹ ماربل فکسر)
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Precision marble &amp; granite installation for staircases, winders, kitchen countertops, bathroom vanities, feature walls, and residential flooring using laser leveling and industrial adhesives.
+                  </p>
+                </article>
+
+                <article className="rounded-xl border border-border/80 bg-card p-5 space-y-2">
+                  <h3 className="font-bold text-base text-foreground">
+                    Best Marble Polisher &amp; Best Marble and Granite Polish
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Italian diamond grinding, epoxy resin filling, crystallization, and mirror-shine marble and granite polish in Islamabad and Rawalpindi for new builds and floor restoration.
+                  </p>
+                </article>
+              </div>
+            </div>
+          </section>
+
         </main>
         <footer className="bg-secondary text-secondary-foreground">
             <div className="container py-12 px-4 md:px-6">
@@ -1587,15 +1769,17 @@ export default function Home() {
                         <Link href="/" className="flex items-center gap-2.5">
                            <span className="font-headline text-2xl font-extrabold tracking-wider" style={{ color: '#dfb96c' }}>Stone Expert</span>
                         </Link>
-                        <p className="text-sm text-muted-foreground">Your one-stop shop for premium construction materials in Rawalpindi and Islamabad.</p>
+                        <p className="text-sm text-muted-foreground">Best Marble Factory, Supplier, Fixer &amp; Granite Polisher — live Marble Price in Islamabad, Rawalpindi &amp; Pakistan.</p>
                     </div>
                      <div className="space-y-2">
                         <h4 className="font-semibold">Explore</h4>
                         <ul className="space-y-1 text-sm text-muted-foreground">
-                            <li><Link href="/#service-teams" className="hover:text-primary">Our Teams</Link></li>
+                            <li><Link href="/#service-teams" className="hover:text-primary">Our Teams (Fixers &amp; Polishers)</Link></li>
                             <li><Link href="/#representatives-section" className="hover:text-primary">Regional Representatives</Link></li>
+                            <li><Link href="/representative" className="hover:text-primary">Representative Portal (نمائندہ پورٹل)</Link></li>
+                            <li><Link href="/supplier" className="hover:text-primary">Supplier Portal (سپلائر پورٹل)</Link></li>
                             <li><Link href="/#build-with-us" className="hover:text-primary">Our Work</Link></li>
-                             <li><Link href="/track-order" className="hover:text-primary">Track Order</Link></li>
+                            <li><Link href="/track-order" className="hover:text-primary">Track Order</Link></li>
                         </ul>
                     </div>
                     <div className="space-y-4">
@@ -1611,7 +1795,7 @@ export default function Home() {
                             </li>
                              <li className="flex items-center gap-3">
                                 <Mail className="h-5 w-5 text-primary" />
-                                <a href="mailto:info@stoneexpert.com" className="hover:text-primary">info@stoneexpert.com</a>
+                                <a href="mailto:info@stoneexpert.net" className="hover:text-primary">info@stoneexpert.net</a>
                             </li>
                             <li className="flex items-start gap-3">
                                 <MapPin className="h-5 w-5 text-primary mt-0.5" />

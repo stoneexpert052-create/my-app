@@ -174,8 +174,92 @@ export interface Representative {
   officeAddressEn?: string;
   officeAddressUr?: string;
   avatarUrl?: string;
+  portalPin?: string;
+  email?: string;
   isActive: boolean;
   order?: number;
 }
 
+export type SiteMeasurementCategory =
+  | 'stairs'
+  | 'window-sill'
+  | 'floor'
+  | 'feature-wall'
+  | 'kitchen'
+  | 'vanity'
+  | 'simple';
+
+export interface SiteMeasurementRow {
+  id: string;
+  label: string;
+  width: number;
+  length: number;
+  qty: number;
+  sqFt: number;
+  notes?: string;
+}
+
+export interface SiteMeasurementSection {
+  id: string;
+  category: SiteMeasurementCategory;
+  title: string;
+  materialId?: string;
+  materialName: string;
+  variantLabel?: string;
+  ratePerSqFt: number;
+  unit: 'inches' | 'feet';
+  rows: SiteMeasurementRow[];
+  totalSqFt: number;
+  wastagePercent: number;
+  finalSqFt: number;
+  extraLabel?: string;
+  extraCharges: number;
+  subtotal: number;
+  notes?: string;
+}
+
+export type SiteVisitJobStatus =
+  | 'assigned'
+  | 'visited'
+  | 'quoted'
+  | 'approved'
+  | 'completed';
+
+export interface SiteVisitJob {
+  id: string;
+  representativeId: string;
+  representativeName: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  customerCity?: string;
+  customerNotes: string;
+  requestedCategories: SiteMeasurementCategory[];
+  preferredVisitDate?: string;
+  status: SiteVisitJobStatus;
+  siteMeasurements: SiteMeasurementSection[];
+  grandTotalSqFt: number;
+  grandTotalPKR: number;
+  linkedOrderId?: string;
+  createdBy: 'admin' | 'representative' | 'customer';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type DailyRates = Record<string, any>;
+
+export interface PriceHistoryEntry {
+  id: string;
+  rowId: string;
+  productId: string;
+  variantId?: string;
+  productName: string;
+  productType: 'marble' | 'fixing_material';
+  previousPrice: number | null;
+  newPrice: number;
+  source: 'manual' | 'bulk' | 'supplier_markup' | 'initial';
+  note?: string;
+  recordedAt: string;
+}
+
+

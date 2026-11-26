@@ -31,7 +31,9 @@ export interface AdminActionProposal {
     | 'DELETE_PRODUCT'
     | 'BULK_SUPPLIER_RATE_UPDATE'
     | 'APPLY_SUPPLIER_MARKUP'
-    | 'UPDATE_SALE_RIBBON_STYLE';
+    | 'UPDATE_SALE_RIBBON_STYLE'
+    | 'UPDATE_ORDER_STATUS'
+    | 'TOGGLE_PRODUCT_VISIBILITY';
   title: string;
   description: string;
   targetId?: string;
@@ -95,6 +97,12 @@ ${JSON.stringify(context.fixingMaterials.map(f => ({
 
 4. Build Your Home Rates:
 Base Cost/sqft: PKR ${context.buildRatesSummary.baseCostPerSqFt || 120}
+
+5. Recent Orders (${context.orders?.length || 0} orders):
+${JSON.stringify((context.orders || []).slice(0, 25), null, 2)}
+
+6. Top Missed Customer Searches:
+${JSON.stringify(context.missedSearches || [])}
 
 SUPPLIER RATE SHEET IMAGE OCR & APP SYNC CAPABILITY (نیا اور اہم ترین فیچر):
 - When the admin uploads an image/photo of a marble supplier's rate list (ریٹ لسٹ کی تصویر) OR pastes a supplier's rate list in text, and specifies which supplier it belongs to (or if the supplier name is written on the rate sheet header, e.g. "Al Majeed Marble & Granite Factory" or any vendor name):
@@ -185,6 +193,10 @@ VALID actionType VALUES AND PAYLOAD SHAPES:
       "headlineEn"?: string, // optional updated English banner badge text
       "headlineUr"?: string  // optional updated Urdu banner badge text
     }
+15. UPDATE_ORDER_STATUS (Use when admin asks to change an order's status):
+    payload: { "orderId": string, "status": "Pending" | "In Progress" | "Shipped" | "Delivered" | "Canceled" }
+16. TOGGLE_PRODUCT_VISIBILITY (Use when admin asks to hide or unhide a marble/chemical):
+    payload: { "itemType": "marble" | "fixing_material", "itemId": string, "isHidden": boolean }
 `;
 
     // Construct multimodal contents
@@ -224,7 +236,7 @@ VALID actionType VALUES AND PAYLOAD SHAPES:
     });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.8-flash",
+      model: "gemini-4-hydrogen",
       contents,
       config: {
         systemInstruction,

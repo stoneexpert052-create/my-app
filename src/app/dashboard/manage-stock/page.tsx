@@ -55,9 +55,11 @@ import {
   getAlMajeedRates,
   getSupplierApplications,
   approveSupplierApplication,
-  rejectSupplierApplication
+  rejectSupplierApplication,
+  recordProductPriceHistory
 } from '@/lib/admin-actions';
 import { SupplierRateSheetMatrix } from '@/components/supplier-rate-sheet-matrix';
+import { PriceHistoryModal, type PriceHistoryTargetProduct } from '@/components/price-history-modal';
 import type { Marble, FixingMaterial } from '@/lib/types';
 import type { Supplier, SupplierRate, SupplierProposal, SupplierRateRequest, SupplierApplication } from '@/lib/admin-actions';
 import { getPublicOrigin, cn, formatSaleBadgeText } from '@/lib/utils';
@@ -104,7 +106,8 @@ import {
   Camera,
   Handshake,
   Scissors,
-  Building2
+  Building2,
+  History
 } from 'lucide-react';
 
 export default function ManageStockPage() {
@@ -132,6 +135,9 @@ export default function ManageStockPage() {
     saleBadgeText: string;
     heroHighlightOnSale?: boolean;
   } | null>(null);
+
+  // Price History Sparkline Modal State
+  const [priceHistoryProduct, setPriceHistoryProduct] = useState<PriceHistoryTargetProduct | null>(null);
   
   // Data States
   const [marbles, setMarbles] = useState<Marble[]>([]);
@@ -494,6 +500,9 @@ export default function ManageStockPage() {
   const handleMarblePriceUpdate = async (marbleId: string, variantId: string, newPrice: number) => {
     const marbleToUpdate = marbles.find(m => m.id === marbleId);
     if (!marbleToUpdate) return;
+
+    const targetVariant = marbleToUpdate.variants.find(v => v.id === variantId);
+    const previousPrice = typeof targetVariant?.price === 'number' ? targetVariant.price : null;
     
     const updatedVariants = marbleToUpdate.variants.map(v => {
       if (v.id === variantId) {
@@ -506,6 +515,20 @@ export default function ManageStockPage() {
       const res = await updateMarbleDetails(marbleId, { variants: updatedVariants });
       if (res.success) {
         setMarbles(prev => prev.map(m => m.id === marbleId ? { ...m, variants: updatedVariants } : m));
+        const rowId = variantId ? `${marbleId}_${variantId}` : marbleId;
+        const label = targetVariant
+          ? `${marbleToUpdate.name} - ${targetVariant.size} (${targetVariant.thickness})`
+          : marbleToUpdate.name;
+        await recordProductPriceHistory({
+          rowId,
+          productId: marbleId,
+          variantId: variantId || undefined,
+          productName: label,
+          productType: 'marble',
+          previousPrice,
+          newPrice,
+          source: 'manual'
+        });
         toast({
           title: "Price Updated",
           description: `Successfully updated retail price to PKR ${newPrice.toLocaleString()}`,
@@ -523,10 +546,21 @@ export default function ManageStockPage() {
   };
 
   const handleFixingMaterialPriceUpdate = async (materialId: string, newPrice: number) => {
+    const existingMaterial = fixingMaterials.find(m => m.id === materialId);
+    const previousPrice = typeof existingMaterial?.price === 'number' ? existingMaterial.price : null;
     try {
       const res = await updateFixingMaterialFields(materialId, { price: newPrice });
       if (res.success) {
         setFixingMaterials(prev => prev.map(m => m.id === materialId ? { ...m, price: newPrice } : m));
+        await recordProductPriceHistory({
+          rowId: materialId,
+          productId: materialId,
+          productName: existingMaterial?.name || 'Fixing Material',
+          productType: 'fixing_material',
+          previousPrice,
+          newPrice,
+          source: 'manual'
+        });
         toast({
           title: "Price Updated",
           description: `Successfully updated price to PKR ${newPrice.toLocaleString()}`,
@@ -732,6 +766,7 @@ export default function ManageStockPage() {
 
     try {
       // 1. Bulk adjust marbles
+      const bulkNote = `${direction === 'increase' ? '+' : '-'}${percent}% Bulk Adjustment`;
       for (const m of marbles) {
         const originalVariantsStr = JSON.stringify(m.variants);
         const adjustedVariants = m.variants.map(v => {
@@ -743,6 +778,24 @@ export default function ManageStockPage() {
           const res = await updateMarbleDetails(m.id, { variants: adjustedVariants });
           if (res.success) {
             successCount += m.variants.length;
+            await Promise.all(
+              m.variants.map((v, idx) => {
+                const prevP = v.price || 0;
+                const nextP = adjustedVariants[idx]?.price || 0;
+                if (prevP === nextP) return Promise.resolve();
+                return recordProductPriceHistory({
+                  rowId: `${m.id}_${v.id}`,
+                  productId: m.id,
+                  variantId: v.id,
+                  productName: `${m.name} - ${v.size} (${v.thickness})`,
+                  productType: 'marble',
+                  previousPrice: prevP,
+                  newPrice: nextP,
+                  source: 'bulk',
+                  note: bulkNote
+                });
+              })
+            );
           }
         }
       }
@@ -755,6 +808,16 @@ export default function ManageStockPage() {
           const res = await updateFixingMaterialFields(fm.id, { price: newPrice });
           if (res.success) {
             successCount++;
+            await recordProductPriceHistory({
+              rowId: fm.id,
+              productId: fm.id,
+              productName: fm.name,
+              productType: 'fixing_material',
+              previousPrice: oldPrice,
+              newPrice,
+              source: 'bulk',
+              note: bulkNote
+            });
           }
         }
       }
@@ -1967,6 +2030,20 @@ export default function ManageStockPage() {
                       discountType: r.discountType || 'percentage',
                       saleBadgeText: r.saleBadgeText || '',
                       heroHighlightOnSale: r.heroHighlightOnSale !== false
+                    });
+                  }}
+                  onViewPriceHistory={(r) => {
+                    setPriceHistoryProduct({
+                      rowId: r.rowId,
+                      productId: r.productId,
+                      variantId: r.variantId,
+                      name: r.name,
+                      baseName: r.baseName,
+                      variantLabel: r.variantLabel,
+                      type: r.type,
+                      price: r.price,
+                      unit: r.unit,
+                      imageUrl: r.imageUrl
                     });
                   }}
                 />
@@ -3255,6 +3332,28 @@ export default function ManageStockPage() {
         </DialogContent>
       </Dialog>
 
+      {/* 4B. INDIVIDUAL PRODUCT PRICE HISTORY SPARKLINE MODAL */}
+      <PriceHistoryModal
+        product={priceHistoryProduct}
+        open={!!priceHistoryProduct}
+        onOpenChange={(open) => {
+          if (!open) setPriceHistoryProduct(null);
+        }}
+        onUpdatePrice={async (newPrice) => {
+          if (!priceHistoryProduct) return;
+          if (priceHistoryProduct.type === 'marble') {
+            await handleMarblePriceUpdate(
+              priceHistoryProduct.productId,
+              priceHistoryProduct.variantId || '',
+              newPrice
+            );
+          } else {
+            await handleFixingMaterialPriceUpdate(priceHistoryProduct.productId, newPrice);
+          }
+          setPriceHistoryProduct(prev => (prev ? { ...prev, price: newPrice } : null));
+        }}
+      />
+
       {/* 5. BULK SALE & DISCOUNT SYSTEM DIALOG */}
       <Dialog 
         open={isBulkSaleModalOpen} 
@@ -3426,7 +3525,8 @@ function RowComponent({
   handleFixingMaterialVisibilityToggle,
   handleVendorRateChange,
   handleDeleteVendorRate,
-  onEditSale
+  onEditSale,
+  onViewPriceHistory
 }: {
   row: any;
   currentRates: { supplierName: string; rate: number; supplierId: string; rateMaterialId: string }[];
@@ -3442,6 +3542,7 @@ function RowComponent({
   handleDeleteVendorRate: any;
   categories?: { id: string; labelEn: string; labelUr: string }[];
   onEditSale?: (row: any) => void;
+  onViewPriceHistory?: (row: any) => void;
 }) {
   const { toast } = useToast();
   const { openGallery } = useFullscreenImage();
@@ -3886,6 +3987,17 @@ function RowComponent({
           ) : (
             <Tag className="h-3.5 w-3.5" />
           )}
+        </button>
+
+        {/* View Price History Button */}
+        <button
+          type="button"
+          onClick={() => onViewPriceHistory && onViewPriceHistory(row)}
+          className="col-span-3 h-7 px-2.5 rounded-md text-[11px] font-bold flex items-center justify-center gap-1.5 border border-border/80 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 text-muted-foreground transition-colors cursor-pointer"
+          title={`View Price History for ${row.name}`}
+        >
+          <History className="h-3.5 w-3.5 shrink-0" />
+          <span>View Price History</span>
         </button>
       </div>
 

@@ -37,6 +37,14 @@ service cloud.firestore {
     match /representatives/{id} {
       allow read, write: if true;
     }
+
+    match /representative_jobs/{id} {
+      allow read, write: if true;
+    }
+
+    match /price_history/{id} {
+      allow read, write: if true;
+    }
     
     // Catch-all fallback rule to ensure absolute continuous availability
     match /{document=**} {

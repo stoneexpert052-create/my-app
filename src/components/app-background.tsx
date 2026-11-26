@@ -30,9 +30,9 @@ export function AppBackground() {
     // Context might not be wrapped in some isolated components
   }
 
-  // High-resolution marble processing factory image (industrial stone cutting, raw blocks, gang saws & polished slabs)
-  const defaultFactoryUrl = 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=2560&q=85';
-  const fallbackFactoryUrl = 'https://picsum.photos/seed/marblefactory/1920/1080?blur=1';
+  // Lightweight marble processing factory image for fast loading and smooth scrolling
+  const defaultFactoryUrl = 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1280&q=70';
+  const fallbackFactoryUrl = 'https://picsum.photos/seed/marblefactory/1280/720?blur=1';
 
   // Strictly use defaultFactoryUrl and default filters until hydrated to guarantee identical SSR output
   const activeImageUrl = (isBgHydrated && bgConfig.imageUrl && bgConfig.imageUrl.trim() !== '') 
@@ -56,13 +56,16 @@ export function AppBackground() {
         alt="Marble Factory and Stone Processing Plant"
         onError={() => setImgError(true)}
         referrerPolicy="no-referrer"
+        decoding="async"
+        fetchPriority="low"
         suppressHydrationWarning
         style={{
           filter: `blur(${blurVal}px) brightness(${highlightVal}%) contrast(${contrastVal}%)`,
           opacity: opacityVal / 100,
-          transform: `scale(${blurVal > 0 ? 1.05 + (blurVal * 0.003) : 1})`,
+          transform: `translateZ(0) scale(${blurVal > 0 ? 1.05 + (blurVal * 0.003) : 1})`,
+          willChange: 'transform',
         }}
-        className="w-full h-full object-cover object-center transition-all duration-300 ease-out"
+        className="w-full h-full object-cover object-center transition-opacity duration-300 ease-out"
       />
 
       {/* Theme-Adaptive Ambient Overlay Gradients */}

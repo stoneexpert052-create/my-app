@@ -71,12 +71,11 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
     detectIOS();
 
-    // PWA Service Worker disabled during development so code edits update instantly
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    // Clear service worker caches only during local development so production stays fast
+    if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then((registrations) => {
         for (const registration of registrations) {
           registration.unregister();
-          console.log('[Dev Mode] Unregistered Service Worker to ensure instant code updates');
         }
       });
       if ('caches' in window) {

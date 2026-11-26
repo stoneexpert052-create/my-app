@@ -1,7 +1,11 @@
 User-agent: *
 Allow: /
+Allow: /api/stone-image/
 Disallow: /dashboard/
 Disallow: /admin/
-Disallow: /api/
+Disallow: /representative/
+Disallow: /supplier/
+Disallow: /api/admin-ai/
 
 Sitemap: https://stoneexpert.net/sitemap.xml
+Sitemap: https://stoneexpert.net/image-sitemap.xml

@@ -15,6 +15,7 @@ import { Calculator, Gem, Truck, Globe, ShoppingCart, Flame, Percent, Maximize2 
 import { Badge } from './ui/badge';
 import { formatSaleBadgeText } from '@/lib/utils';
 import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
+import { getSeoImageUrl, getSeoImageAlt } from '@/lib/seo';
 import React from 'react';
 
 interface MarbleCardProps {
@@ -29,10 +30,12 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
   const OriginIcon = marble.origin === 'Local' ? Truck : Globe;
   const isPerPiece = ['Vanity', 'Inlay', 'Antique'].includes(marble.materialType);
   
-  // Safe Image URL with fallback to prevent crashes when imageUrl is missing or empty
-  const imageUrl = (marble.imageUrl && marble.imageUrl.trim() !== "") 
+  // Safe Image URL with SEO filename containing Stone Expert + exact material name
+  const rawImageUrl = (marble.imageUrl && marble.imageUrl.trim() !== "") 
     ? marble.imageUrl 
-    : `https://placehold.co/600x400?text=${encodeURIComponent(marble.name || 'Marble')}`;
+    : `https://placehold.co/600x400?text=${encodeURIComponent(`Stone Expert - ${marble.name || 'Marble'}`)}`;
+  const imageUrl = getSeoImageUrl(rawImageUrl, marble.name, { productId: marble.id });
+  const imageAlt = getSeoImageAlt(marble.name, marble.materialType);
 
   return (
     <>
@@ -45,12 +48,13 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
         >
           <Image
             src={imageUrl}
-            alt={`Image of ${marble.name}`}
+            alt={imageAlt}
             width={600}
             height={600}
             data-ai-hint={marble.imageHint}
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 group-hover:brightness-105 saturate-102"
-            unoptimized={imageUrl.startsWith('data:')}
+            unoptimized={imageUrl.startsWith('data:') || imageUrl.startsWith('/api/stone-image/')}
           />
           
           {/* Top-Left Category Overlay Badge */}

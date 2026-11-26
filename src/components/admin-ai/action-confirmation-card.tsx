@@ -21,7 +21,9 @@ import {
   FileSpreadsheet,
   Store,
   Palette,
-  Flame
+  Flame,
+  ShoppingCart,
+  EyeOff
 } from 'lucide-react';
 import type { AdminActionProposal } from '@/app/api/admin-ai/chat/route';
 import {
@@ -80,6 +82,10 @@ export function ActionConfirmationCard({
       case 'APPLY_BULK_SALE':
       case 'CLEAR_BULK_SALE':
         return <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />;
+      case 'UPDATE_ORDER_STATUS':
+        return <ShoppingCart className="h-4 w-4 text-sky-600 dark:text-sky-400" />;
+      case 'TOGGLE_PRODUCT_VISIBILITY':
+        return <EyeOff className="h-4 w-4 text-slate-600 dark:text-slate-300" />;
       case 'UPDATE_STOCK_STATUS':
         return <Layers className="h-4 w-4 text-blue-500" />;
       case 'UPDATE_PRODUCT_IMAGE':
@@ -149,6 +155,9 @@ export function ActionConfirmationCard({
             window.dispatchEvent(
               new CustomEvent('sale_ribbon_style_updated', { detail: data.saleRibbonStyle })
             );
+          }
+          if (proposal.actionType === 'UPDATE_ORDER_STATUS') {
+            window.dispatchEvent(new CustomEvent('orders_updated', { detail: data }));
           }
           window.dispatchEvent(new CustomEvent('products_updated', { detail: data }));
         }
@@ -399,8 +408,12 @@ export function ActionConfirmationCard({
                 ? isUrdu
                   ? 'اوکے، بینر اسٹائل لاگو کریں (Apply Style)'
                   : 'Apply Banner Style'
+                : proposal.actionType === 'UPDATE_ORDER_STATUS'
+                ? isUrdu
+                  ? 'اوکے، آرڈر اسٹیٹس اپ ڈیٹ کریں'
+                  : 'Update Order Status'
                 : isUrdu
-                ? 'اوکے، تمام ریٹس اپ ڈیٹ کریں (Confirm)'
+                ? 'اوکے، تائید و لاگو کریں (Confirm)'
                 : 'Confirm & Apply'}
             </Button>
           </>
@@ -412,9 +425,13 @@ export function ActionConfirmationCard({
                 ? isUrdu
                   ? 'سیل بینر پر نیا اسٹائل لاگو ہو رہا ہے...'
                   : 'Applying sale banner style...'
+                : proposal.actionType === 'UPDATE_ORDER_STATUS'
+                ? isUrdu
+                  ? 'آرڈر اسٹیٹس اپ ڈیٹ ہو رہا ہے...'
+                  : 'Updating order status...'
                 : isUrdu
-                ? 'سپلائر اور ایپ کے ریٹس اپ ڈیٹ ہو رہے ہیں...'
-                : 'Updating supplier & app rates...'}
+                ? 'تبدیلی ڈیٹا بیس میں محفوظ ہو رہی ہے...'
+                : 'Applying changes to database...'}
             </span>
           </div>
         ) : status === 'applied' ? (
@@ -425,8 +442,12 @@ export function ActionConfirmationCard({
                 ? isUrdu
                   ? 'سیل بینر کا نیا اسٹائل کامیابی سے لاگو ہو گیا!'
                   : 'Sale Banner Style Applied!'
+                : proposal.actionType === 'UPDATE_ORDER_STATUS'
+                ? isUrdu
+                  ? 'آرڈر اسٹیٹس کامیابی سے اپ ڈیٹ ہو گیا!'
+                  : 'Order Status Updated!'
                 : isUrdu
-                ? 'کامیابی سے سپلائر اور ایپ کے ریٹس اپ ڈیٹ ہو گئے!'
+                ? 'تبدیلی کامیابی سے محفوظ و لاگو ہو گئی!'
                 : 'Successfully Applied & Synced!'}
             </span>
           </div>

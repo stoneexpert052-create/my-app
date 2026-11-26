@@ -187,7 +187,7 @@ export const QuotationPrint = React.forwardRef<
                 </table>
                 <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-4">
                     <p>This quotation is valid for 7 days. Prices are subject to change.</p>
-                    <p>Stone Expert | Ph: {props.phone} | Email: info@stoneexpert.com</p>
+                    <p>Stone Expert | Ph: {props.phone} | Email: info@stoneexpert.net</p>
                 </div>
             </footer>
            </div>

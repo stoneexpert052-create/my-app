@@ -19,8 +19,31 @@ import {
   limit
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import type { Order, Marble, FixingMaterial, ServiceProvider, GalleryImage, Representative, DailyRates } from './types';
-export type { Representative, DailyRates };
+import type {
+  Order,
+  Marble,
+  FixingMaterial,
+  ServiceProvider,
+  GalleryImage,
+  Representative,
+  DailyRates,
+  SiteVisitJob,
+  SiteMeasurementSection,
+  SiteMeasurementRow,
+  SiteMeasurementCategory,
+  SiteVisitJobStatus,
+  PriceHistoryEntry
+} from './types';
+export type {
+  Representative,
+  DailyRates,
+  SiteVisitJob,
+  SiteMeasurementSection,
+  SiteMeasurementRow,
+  SiteMeasurementCategory,
+  SiteVisitJobStatus,
+  PriceHistoryEntry
+};
 import initialMarbles from '@/lib/marbles-data.json';
 import initialFixingMaterials from '@/lib/fixing-materials-data.json';
 import initialServiceProviders from '@/lib/service-providers-data.json';
@@ -105,6 +128,64 @@ const inMemoryCache: {
   dailyRates: null,
   representatives: null,
 };
+
+const CACHE_TTL_MS = 120_000;
+const inFlightRequests: Partial<Record<keyof typeof inMemoryCache, Promise<any>>> = {};
+
+function cleanMarbleImage(url?: string): string {
+  const brokenUrl = "https://images.unsplash.com/photo-1502005229762-fc1b2b812ca5";
+  const validUrl = "https://images.unsplash.com/photo-1584622650111-993a426fbf0a";
+  if (url && (url.includes(brokenUrl) || url.includes("502005229762-fc1b2b812ca5"))) {
+    return url.replace(brokenUrl, validUrl).replace("502005229762-fc1b2b812ca5", "1584622650111-993a426fbf0a");
+  }
+  return url || '';
+}
+
+export function getInstantMarbles(): Marble[] {
+  if (inMemoryCache.marbles?.data?.length) {
+    return inMemoryCache.marbles.data;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_marbles_data');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = mergeWithInitial(parsed);
+          inMemoryCache.marbles = { data: merged, timestamp: 0 };
+          return merged;
+        }
+      }
+    } catch (e) {}
+  }
+  return (initialMarbles as Marble[]).map(m => ({ ...m, imageUrl: cleanMarbleImage(m.imageUrl) }));
+}
+
+export function getInstantFixingMaterials(): FixingMaterial[] {
+  if (inMemoryCache.fixingMaterials?.data?.length) {
+    return inMemoryCache.fixingMaterials.data;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_fixing_materials_data');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          inMemoryCache.fixingMaterials = { data: parsed, timestamp: 0 };
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
+  return initialFixingMaterials as FixingMaterial[];
+}
+
+export function getInstantServiceProviders(): ServiceProvider[] {
+  if (inMemoryCache.serviceProviders?.data?.length) {
+    return inMemoryCache.serviceProviders.data;
+  }
+  return initialServiceProviders as ServiceProvider[];
+}
 
 export function clearDataCaches(specific?: keyof typeof inMemoryCache) {
   if (specific) {
@@ -297,6 +378,7 @@ export async function saveOrder(orderData: any): Promise<{ success: boolean; ord
       const existing: Order[] = raw ? JSON.parse(raw) : [];
       const filtered = existing.filter(o => o && o.id !== orderId);
       localStorage.setItem('stone_expert_orders_cache', JSON.stringify([cleanData, ...filtered].slice(0, 150)));
+      window.dispatchEvent(new CustomEvent('orders_updated', { detail: cleanData }));
     } catch (e) {}
   }
 
@@ -394,14 +476,29 @@ export async function deleteOrder(orderId: string) {
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('stone_expert_orders_cache');
+      const existing: Order[] = raw ? JSON.parse(raw) : [];
+      const updated = existing.map(o =>
+        o && o.id === orderId ? { ...o, status: status as Order['status'] } : o
+      );
+      localStorage.setItem('stone_expert_orders_cache', JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('orders_updated', { detail: { id: orderId, status } }));
+    } catch (e) {}
+  }
+
   const db = getDb();
-  if (!db) return { success: false, error: "Database not connected" };
+  if (!db) return { success: true };
   try {
-    await updateDoc(doc(db, 'orders', orderId), { status });
+    await withFastTimeout(
+      setDoc(doc(db, 'orders', orderId), { status, updatedAt: new Date().toISOString() }, { merge: true }),
+      2500
+    );
     return { success: true };
   } catch (e) {
     console.error("Error updating order status:", e);
-    return { success: false, error: "Failed to update status" };
+    return { success: true };
   }
 }
 
@@ -485,28 +582,21 @@ function deleteLocalMarbleCache(id: string) {
 }
 
 export async function getMarbles(): Promise<Marble[]> {
-  const cleanImage = (url?: string): string => {
-    const brokenUrl = "https://images.unsplash.com/photo-1502005229762-fc1b2b812ca5";
-    const validUrl = "https://images.unsplash.com/photo-1584622650111-993a426fbf0a";
-    if (url && (url.includes(brokenUrl) || url.includes("502005229762-fc1b2b812ca5"))) {
-      return url.replace(brokenUrl, validUrl).replace("502005229762-fc1b2b812ca5", "1584622650111-993a426fbf0a");
-    }
-    return url || '';
-  };
-
   const getCleanedInitial = (): Marble[] => {
     return (initialMarbles as Marble[]).map(m => ({
       ...m,
-      imageUrl: cleanImage(m.imageUrl)
+      imageUrl: cleanMarbleImage(m.imageUrl)
     }));
   };
 
-  // 1. Check in-memory TTL cache (30s)
+  // 1. Check in-memory TTL cache
   const now = Date.now();
-  if (inMemoryCache.marbles && (now - inMemoryCache.marbles.timestamp < 30000)) {
-    const merged = mergeWithInitial(inMemoryCache.marbles.data);
-    inMemoryCache.marbles.data = merged;
-    return merged;
+  if (inMemoryCache.marbles && inMemoryCache.marbles.timestamp > 0 && (now - inMemoryCache.marbles.timestamp < CACHE_TTL_MS)) {
+    return inMemoryCache.marbles.data;
+  }
+
+  if (inFlightRequests.marbles) {
+    return inFlightRequests.marbles;
   }
 
   const db = getDb();
@@ -519,82 +609,68 @@ export async function getMarbles(): Promise<Marble[]> {
     return getCleanedInitial();
   }
 
-  try {
-    const colRef = collection(db, 'marbles');
-    const snapshot = await getDocs(colRef);
-    const dbMarbles = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return { 
-        id: doc.id, 
-        ...data,
-        imageUrl: cleanImage(data.imageUrl as string)
-      } as Marble;
-    });
-
-    let deletedIds = new Set<string>();
+  const promise = (async () => {
     try {
-      const delSnap = await getDoc(doc(db, 'config', 'deleted_items'));
-      if (delSnap.exists()) {
-        const delData = delSnap.data();
-        Object.keys(delData).forEach(k => {
-          if (k.startsWith('marble_') && delData[k] === true) {
-            deletedIds.add(k.replace('marble_', ''));
-          }
-        });
-      }
-    } catch (e) {}
-    
-    const mergedList = JSON.parse(JSON.stringify(getCleanedInitial())).filter((m: any) => !deletedIds.has(m.id));
-    dbMarbles.forEach(dbM => {
-        if (deletedIds.has(dbM.id) || (dbM as any).isDeleted) return;
-        const index = mergedList.findIndex((m: any) => m.id === dbM.id);
-        if (index > -1) {
-            const localImg = mergedList[index].imageUrl;
-            mergedList[index] = { ...mergedList[index], ...dbM };
-            if (!mergedList[index].imageUrl || mergedList[index].imageUrl.trim() === "") {
-                mergedList[index].imageUrl = localImg;
-            }
-        } else {
-            mergedList.push(dbM);
-        }
-    });
+      const colRef = collection(db, 'marbles');
+      const snapshot = await getDocs(colRef);
+      const dbMarbles = snapshot.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          imageUrl: cleanMarbleImage(data.imageUrl as string)
+        } as Marble;
+      });
 
-    // Save to memory cache & localStorage
-    inMemoryCache.marbles = { data: mergedList, timestamp: Date.now() };
-    if (typeof window !== 'undefined') {
+      const deletedIds = new Set<string>();
       try {
-        localStorage.setItem('cached_marbles_data', JSON.stringify(mergedList));
-      } catch (e) {}
-    }
-    return mergedList;
-  } catch (error) {
-    logFetchError("Error fetching marbles", error);
-    // Graceful fallback hierarchy: Memory cache -> LocalStorage -> Bundled initial
-    if (inMemoryCache.marbles?.data) {
-      const merged = mergeWithInitial(inMemoryCache.marbles.data);
-      inMemoryCache.marbles.data = merged;
-      return merged;
-    }
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = localStorage.getItem('cached_marbles_data');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const merged = mergeWithInitial(parsed);
-            try {
-              localStorage.setItem('cached_marbles_data', JSON.stringify(merged));
-            } catch (e) {}
-            inMemoryCache.marbles = { data: merged, timestamp: Date.now() };
-            return merged;
-          }
+        const delSnap = await getDoc(doc(db, 'config', 'deleted_items'));
+        if (delSnap.exists()) {
+          const delData = delSnap.data();
+          Object.keys(delData).forEach(k => {
+            if (k.startsWith('marble_') && delData[k] === true) {
+              deletedIds.add(k.replace('marble_', ''));
+            }
+          });
         }
       } catch (e) {}
+
+      const mergedList = getCleanedInitial().filter((m) => !deletedIds.has(m.id));
+      const indexById = new Map<string, number>();
+      mergedList.forEach((m, idx) => indexById.set(m.id, idx));
+
+      dbMarbles.forEach(dbM => {
+        if (deletedIds.has(dbM.id) || (dbM as any).isDeleted) return;
+        const index = indexById.get(dbM.id);
+        if (index !== undefined) {
+          const localImg = mergedList[index].imageUrl;
+          mergedList[index] = { ...mergedList[index], ...dbM };
+          if (!mergedList[index].imageUrl || mergedList[index].imageUrl.trim() === "") {
+            mergedList[index].imageUrl = localImg;
+          }
+        } else {
+          indexById.set(dbM.id, mergedList.length);
+          mergedList.push(dbM);
+        }
+      });
+
+      inMemoryCache.marbles = { data: mergedList, timestamp: Date.now() };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('cached_marbles_data', JSON.stringify(mergedList));
+        } catch (e) {}
+      }
+      return mergedList;
+    } catch (error) {
+      logFetchError("Error fetching marbles", error);
+      return getInstantMarbles();
+    } finally {
+      delete inFlightRequests.marbles;
     }
-    const initial = getCleanedInitial();
-    inMemoryCache.marbles = { data: initial, timestamp: Date.now() };
-    return initial;
-  }
+  })();
+
+  inFlightRequests.marbles = promise;
+  return promise;
 }
 
 export async function addMarble(formData: FormData) {
@@ -751,71 +827,75 @@ export async function deleteMarble(id: string) {
  * Fixing Materials
  */
 export async function getFixingMaterials(): Promise<FixingMaterial[]> {
-    // 1. Check in-memory TTL cache (30s)
     const now = Date.now();
-    if (inMemoryCache.fixingMaterials && (now - inMemoryCache.fixingMaterials.timestamp < 30000)) {
+    if (inMemoryCache.fixingMaterials && inMemoryCache.fixingMaterials.timestamp > 0 && (now - inMemoryCache.fixingMaterials.timestamp < CACHE_TTL_MS)) {
         return inMemoryCache.fixingMaterials.data;
+    }
+    if (inFlightRequests.fixingMaterials) {
+        return inFlightRequests.fixingMaterials;
     }
 
     const db = getDb();
     if (!db) {
-        if (inMemoryCache.fixingMaterials?.data) return inMemoryCache.fixingMaterials.data;
-        return initialFixingMaterials as FixingMaterial[];
+        return getInstantFixingMaterials();
     }
-    try {
-        const snapshot = await getDocs(collection(db, 'fixing_materials'));
-        const dbItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FixingMaterial));
 
-        let deletedIds = new Set<string>();
-        try {
-          const delSnap = await getDoc(doc(db, 'config', 'deleted_items'));
-          if (delSnap.exists()) {
-            const delData = delSnap.data();
-            Object.keys(delData).forEach(k => {
-              if (k.startsWith('fixing_') && delData[k] === true) {
-                deletedIds.add(k.replace('fixing_', ''));
-              }
-            });
-          }
-        } catch (e) {}
+    const promise = (async () => {
+      try {
+          const snapshot = await getDocs(collection(db, 'fixing_materials'));
+          const dbItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FixingMaterial));
 
-        const merged = JSON.parse(JSON.stringify(initialFixingMaterials as FixingMaterial[])).filter((m: any) => !deletedIds.has(m.id));
-        dbItems.forEach(dbItem => {
-            if (deletedIds.has(dbItem.id) || (dbItem as any).isDeleted) return;
-            const index = merged.findIndex((m: any) => m.id === dbItem.id);
-            if (index > -1) {
-                const localImg = merged[index].imageUrl;
-                merged[index] = { ...merged[index], ...dbItem };
-                if (!merged[index].imageUrl || merged[index].imageUrl.trim() === "") {
-                    merged[index].imageUrl = localImg;
+          const deletedIds = new Set<string>();
+          try {
+            const delSnap = await getDoc(doc(db, 'config', 'deleted_items'));
+            if (delSnap.exists()) {
+              const delData = delSnap.data();
+              Object.keys(delData).forEach(k => {
+                if (k.startsWith('fixing_') && delData[k] === true) {
+                  deletedIds.add(k.replace('fixing_', ''));
                 }
-            } else {
-                merged.push(dbItem);
+              });
             }
-        });
-
-        // Save to cache
-        inMemoryCache.fixingMaterials = { data: merged, timestamp: Date.now() };
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('cached_fixing_materials_data', JSON.stringify(merged));
           } catch (e) {}
-        }
-        return merged;
-    } catch (e) {
-        logFetchError("Error fetching fixing materials", e);
-        if (inMemoryCache.fixingMaterials?.data) return inMemoryCache.fixingMaterials.data;
-        if (typeof window !== 'undefined') {
-          try {
-            const cached = localStorage.getItem('cached_fixing_materials_data');
-            if (cached) {
-              const parsed = JSON.parse(cached);
-              if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-          } catch (err) {}
-        }
-        return initialFixingMaterials as FixingMaterial[];
-    }
+
+          const merged = (initialFixingMaterials as FixingMaterial[])
+            .map(m => ({ ...m }))
+            .filter(m => !deletedIds.has(m.id));
+          const indexById = new Map<string, number>();
+          merged.forEach((m, idx) => indexById.set(m.id, idx));
+
+          dbItems.forEach(dbItem => {
+              if (deletedIds.has(dbItem.id) || (dbItem as any).isDeleted) return;
+              const index = indexById.get(dbItem.id);
+              if (index !== undefined) {
+                  const localImg = merged[index].imageUrl;
+                  merged[index] = { ...merged[index], ...dbItem };
+                  if (!merged[index].imageUrl || merged[index].imageUrl.trim() === "") {
+                      merged[index].imageUrl = localImg;
+                  }
+              } else {
+                  indexById.set(dbItem.id, merged.length);
+                  merged.push(dbItem);
+              }
+          });
+
+          inMemoryCache.fixingMaterials = { data: merged, timestamp: Date.now() };
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('cached_fixing_materials_data', JSON.stringify(merged));
+            } catch (e) {}
+          }
+          return merged;
+      } catch (e) {
+          logFetchError("Error fetching fixing materials", e);
+          return getInstantFixingMaterials();
+      } finally {
+          delete inFlightRequests.fixingMaterials;
+      }
+    })();
+
+    inFlightRequests.fixingMaterials = promise;
+    return promise;
 }
 
 export async function addFixingMaterial(formData: FormData) {
@@ -920,42 +1000,50 @@ export async function deleteFixingMaterial(id: string) {
  * Service Providers
  */
 export async function getServiceProviders(): Promise<ServiceProvider[]> {
-  // 1. Check in-memory TTL cache (30s)
   const now = Date.now();
-  if (inMemoryCache.serviceProviders && (now - inMemoryCache.serviceProviders.timestamp < 30000)) {
+  if (inMemoryCache.serviceProviders && (now - inMemoryCache.serviceProviders.timestamp < CACHE_TTL_MS)) {
     return inMemoryCache.serviceProviders.data;
+  }
+  if (inFlightRequests.serviceProviders) {
+    return inFlightRequests.serviceProviders;
   }
 
   const db = getDb();
   if (!db) {
-    if (inMemoryCache.serviceProviders?.data) return inMemoryCache.serviceProviders.data;
-    return initialServiceProviders as ServiceProvider[];
+    return getInstantServiceProviders();
   }
-  try {
-    const colRef = collection(db, 'service_providers');
-    const snapshot = await getDocs(colRef);
-    const dbProviders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceProvider));
-    
-    // Merge db results with initial/static service providers
-    const mergedList = JSON.parse(JSON.stringify(initialServiceProviders as ServiceProvider[]));
-    dbProviders.forEach(dbP => {
-      const index = mergedList.findIndex((p: any) => p.id === dbP.id);
-      if (index > -1) {
-        const localImg = mergedList[index].imageUrl;
-        mergedList[index] = { ...mergedList[index], ...dbP };
-        if (!mergedList[index].imageUrl || mergedList[index].imageUrl.trim() === "") {
-          mergedList[index].imageUrl = localImg;
+
+  const promise = (async () => {
+    try {
+      const colRef = collection(db, 'service_providers');
+      const snapshot = await getDocs(colRef);
+      const dbProviders = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceProvider));
+
+      const mergedList = (initialServiceProviders as ServiceProvider[]).map(p => ({ ...p }));
+      dbProviders.forEach(dbP => {
+        const index = mergedList.findIndex((p) => p.id === dbP.id);
+        if (index > -1) {
+          const localImg = mergedList[index].imageUrl;
+          mergedList[index] = { ...mergedList[index], ...dbP };
+          if (!mergedList[index].imageUrl || mergedList[index].imageUrl.trim() === "") {
+            mergedList[index].imageUrl = localImg;
+          }
+        } else {
+          mergedList.push(dbP);
         }
-      } else {
-        mergedList.push(dbP);
-      }
-    });
-    inMemoryCache.serviceProviders = { data: mergedList, timestamp: Date.now() };
-    return mergedList;
-  } catch (error) {
-    logFetchError("Error fetching service providers", error);
-    return inMemoryCache.serviceProviders?.data || (initialServiceProviders as ServiceProvider[]);
-  }
+      });
+      inMemoryCache.serviceProviders = { data: mergedList, timestamp: Date.now() };
+      return mergedList;
+    } catch (error) {
+      logFetchError("Error fetching service providers", error);
+      return getInstantServiceProviders();
+    } finally {
+      delete inFlightRequests.serviceProviders;
+    }
+  })();
+
+  inFlightRequests.serviceProviders = promise;
+  return promise;
 }
 
 export async function addServiceProvider(formData: FormData) {
@@ -1174,20 +1262,29 @@ export async function clearLetterhead() {
 
 export async function getHomepageContent() {
   const now = Date.now();
-  if (inMemoryCache.homepageContent && (now - inMemoryCache.homepageContent.timestamp < 30000)) {
+  if (inMemoryCache.homepageContent && (now - inMemoryCache.homepageContent.timestamp < CACHE_TTL_MS)) {
     return { success: true, content: inMemoryCache.homepageContent.data };
   }
-  const db = getDb();
-  if (!db) return { success: true, content: inMemoryCache.homepageContent?.data || null }; 
-  try {
-    const snap = await getDoc(doc(db, 'config', 'homepage_content'));
-    const content = snap.exists() ? snap.data() : null;
-    inMemoryCache.homepageContent = { data: content, timestamp: Date.now() };
-    return { success: true, content };
-  } catch (error: any) {
-    logFetchError("Error fetching homepage content", error);
-    return { success: true, content: inMemoryCache.homepageContent?.data || null };
+  if (inFlightRequests.homepageContent) {
+    return inFlightRequests.homepageContent;
   }
+  const db = getDb();
+  if (!db) return { success: true, content: inMemoryCache.homepageContent?.data || null };
+  const promise = (async () => {
+    try {
+      const snap = await getDoc(doc(db, 'config', 'homepage_content'));
+      const content = snap.exists() ? snap.data() : null;
+      inMemoryCache.homepageContent = { data: content, timestamp: Date.now() };
+      return { success: true, content };
+    } catch (error: any) {
+      logFetchError("Error fetching homepage content", error);
+      return { success: true, content: inMemoryCache.homepageContent?.data || null };
+    } finally {
+      delete inFlightRequests.homepageContent;
+    }
+  })();
+  inFlightRequests.homepageContent = promise;
+  return promise;
 }
 
 export async function updateHomepageContent(formData: FormData) {
@@ -1484,8 +1581,11 @@ export async function deleteGalleryImage(mId: string, imgId: string) {
 
 export async function getHomepageConfig() {
   const now = Date.now();
-  if (inMemoryCache.homepageConfig && (now - inMemoryCache.homepageConfig.timestamp < 30000)) {
+  if (inMemoryCache.homepageConfig && (now - inMemoryCache.homepageConfig.timestamp < CACHE_TTL_MS)) {
     return inMemoryCache.homepageConfig.data;
+  }
+  if (inFlightRequests.homepageConfig) {
+    return inFlightRequests.homepageConfig;
   }
 
   let localCategoryOrder: string[] | null = null;
@@ -1504,34 +1604,40 @@ export async function getHomepageConfig() {
     if (fallback) inMemoryCache.homepageConfig = { data: fallback, timestamp: Date.now() };
     return fallback;
   }
-  try {
-    const snap = await getDoc(doc(db, 'config', 'homepage'));
-    if (snap.exists()) {
-      const data = snap.data();
-      // If Firestore data has categoryOrder, return it (and sync to localStorage)
-      if (data && data.categoryOrder && Array.isArray(data.categoryOrder)) {
-        const cleanOrder = deduplicateCategories(data.categoryOrder);
-        data.categoryOrder = cleanOrder;
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('local_category_order', JSON.stringify(cleanOrder));
-          } catch (e) {}
+
+  const promise = (async () => {
+    try {
+      const snap = await getDoc(doc(db, 'config', 'homepage'));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && data.categoryOrder && Array.isArray(data.categoryOrder)) {
+          const cleanOrder = deduplicateCategories(data.categoryOrder);
+          data.categoryOrder = cleanOrder;
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('local_category_order', JSON.stringify(cleanOrder));
+            } catch (e) {}
+          }
+          inMemoryCache.homepageConfig = { data, timestamp: Date.now() };
+          return data;
         }
-        inMemoryCache.homepageConfig = { data, timestamp: Date.now() };
-        return data;
+        const res = localCategoryOrder ? { ...data, categoryOrder: localCategoryOrder } : data;
+        inMemoryCache.homepageConfig = { data: res, timestamp: Date.now() };
+        return res;
       }
-      // If Firestore exists but doesn't have categoryOrder yet, use local if available
-      const res = localCategoryOrder ? { ...data, categoryOrder: localCategoryOrder } : data;
-      inMemoryCache.homepageConfig = { data: res, timestamp: Date.now() };
-      return res;
+      const fallback = localCategoryOrder ? { categoryOrder: localCategoryOrder } : null;
+      inMemoryCache.homepageConfig = { data: fallback, timestamp: Date.now() };
+      return fallback;
+    } catch (e: any) {
+      logFetchError("Error fetching homepage config", e);
+      return localCategoryOrder ? { categoryOrder: localCategoryOrder } : (inMemoryCache.homepageConfig?.data || null);
+    } finally {
+      delete inFlightRequests.homepageConfig;
     }
-    const fallback = localCategoryOrder ? { categoryOrder: localCategoryOrder } : null;
-    inMemoryCache.homepageConfig = { data: fallback, timestamp: Date.now() };
-    return fallback;
-  } catch (e: any) {
-    logFetchError("Error fetching homepage config", e);
-    return localCategoryOrder ? { categoryOrder: localCategoryOrder } : (inMemoryCache.homepageConfig?.data || null);
-  }
+  })();
+
+  inFlightRequests.homepageConfig = promise;
+  return promise;
 }
 
 export async function saveSaleRibbonStyle(style: Record<string, any>): Promise<{ success: boolean; saleRibbonStyle?: Record<string, any>; error?: string }> {
@@ -4061,49 +4167,71 @@ export const defaultPartnerCompanies: PartnerCompany[] = [
 
 export async function getPartnerCompanies(): Promise<PartnerCompany[]> {
   const now = Date.now();
-  if (inMemoryCache.partnerCompanies && (now - inMemoryCache.partnerCompanies.timestamp < 30000)) {
+  if (inMemoryCache.partnerCompanies && (now - inMemoryCache.partnerCompanies.timestamp < CACHE_TTL_MS)) {
     return inMemoryCache.partnerCompanies.data;
+  }
+  if (inFlightRequests.partnerCompanies) {
+    return inFlightRequests.partnerCompanies;
   }
 
   const db = getDb();
   if (!db) return defaultPartnerCompanies;
-  try {
-    const colRef = collection(db, 'partner_companies');
-    const snapshot = await getDocs(colRef);
-    if (snapshot.empty) {
-      inMemoryCache.partnerCompanies = { data: defaultPartnerCompanies, timestamp: Date.now() };
-      return defaultPartnerCompanies;
+
+  const promise = (async () => {
+    try {
+      const colRef = collection(db, 'partner_companies');
+      const snapshot = await getDocs(colRef);
+      if (snapshot.empty) {
+        inMemoryCache.partnerCompanies = { data: defaultPartnerCompanies, timestamp: Date.now() };
+        return defaultPartnerCompanies;
+      }
+      const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PartnerCompany));
+      const sorted = items.sort((a, b) => (a.order || 99) - (b.order || 99));
+      inMemoryCache.partnerCompanies = { data: sorted, timestamp: Date.now() };
+      return sorted;
+    } catch (err) {
+      logFetchError('getPartnerCompanies', err);
+      return inMemoryCache.partnerCompanies?.data || defaultPartnerCompanies;
+    } finally {
+      delete inFlightRequests.partnerCompanies;
     }
-    const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PartnerCompany));
-    const sorted = items.sort((a, b) => (a.order || 99) - (b.order || 99));
-    inMemoryCache.partnerCompanies = { data: sorted, timestamp: Date.now() };
-    return sorted;
-  } catch (err) {
-    logFetchError('getPartnerCompanies', err);
-    return inMemoryCache.partnerCompanies?.data || defaultPartnerCompanies;
-  }
+  })();
+
+  inFlightRequests.partnerCompanies = promise;
+  return promise;
 }
 
 export async function getDailyRates(): Promise<DailyRates> {
   const now = Date.now();
-  if (inMemoryCache.dailyRates && (now - inMemoryCache.dailyRates.timestamp < 30000)) {
+  if (inMemoryCache.dailyRates && (now - inMemoryCache.dailyRates.timestamp < CACHE_TTL_MS)) {
     return inMemoryCache.dailyRates.data;
+  }
+  if (inFlightRequests.dailyRates) {
+    return inFlightRequests.dailyRates;
   }
 
   const db = getDb();
   if (!db) return defaultDailyRates;
-  try {
-    const docSnap = await getDoc(doc(db, 'rates', 'daily'));
-    if (docSnap.exists()) {
-      const data = docSnap.data() as DailyRates;
-      inMemoryCache.dailyRates = { data, timestamp: Date.now() };
-      return data;
+
+  const promise = (async () => {
+    try {
+      const docSnap = await getDoc(doc(db, 'rates', 'daily'));
+      if (docSnap.exists()) {
+        const data = docSnap.data() as DailyRates;
+        inMemoryCache.dailyRates = { data, timestamp: Date.now() };
+        return data;
+      }
+      return defaultDailyRates;
+    } catch (error) {
+      logFetchError("Error fetching daily rates", error);
+      return inMemoryCache.dailyRates?.data || defaultDailyRates;
+    } finally {
+      delete inFlightRequests.dailyRates;
     }
-    return defaultDailyRates;
-  } catch (error) {
-    logFetchError("Error fetching daily rates", error);
-    return inMemoryCache.dailyRates?.data || defaultDailyRates;
-  }
+  })();
+
+  inFlightRequests.dailyRates = promise;
+  return promise;
 }
 
 export async function saveDailyRates(rates: Partial<DailyRates>): Promise<{ success: boolean; error?: string }> {
@@ -4135,12 +4263,15 @@ export interface ExtractedSupplierRateItem {
 }
 
 export async function getAdminAiContext() {
-  const [marbles, fixingMaterials, buildRates, dailyRates, suppliers] = await Promise.all([
+  const [marbles, fixingMaterials, buildRates, dailyRates, suppliers, orders, serviceProviders, searchLogs] = await Promise.all([
     getMarbles(),
     getFixingMaterials(),
     getBuildYourHomeRatesConfig(),
     getDailyRates(),
-    getSuppliers()
+    getSuppliers(),
+    getOrders(40),
+    getServiceProviders(),
+    getSearchLogs()
   ]);
 
   return {
@@ -4157,6 +4288,7 @@ export async function getAdminAiContext() {
         price: v.price
       })),
       stockStatus: (m as any).stockStatus || ((m as any).inStock !== false ? 'in_stock' : 'out_of_stock'),
+      isHidden: Boolean(m.isHidden),
       onSale: !!m.onSale,
       discount: m.discount || 0,
       discountType: m.discountType || 'percentage',
@@ -4170,6 +4302,7 @@ export async function getAdminAiContext() {
       price: f.price,
       unit: f.unit,
       stockStatus: (f as any).stockStatus || ((f as any).inStock !== false ? 'in_stock' : 'out_of_stock'),
+      isHidden: Boolean(f.isHidden),
       onSale: !!f.onSale,
       discount: f.discount || 0,
       discountType: f.discountType || 'percentage',
@@ -4189,6 +4322,24 @@ export async function getAdminAiContext() {
         rate: r.rate
       }))
     })),
+    orders: (orders || []).slice(0, 40).map(o => ({
+      id: o.id,
+      customerName: o.customerName,
+      customerPhone: o.calculationDetails?.customerInfo?.phone || '',
+      marbleName: o.marbleName,
+      quantity: o.quantity,
+      totalPrice: o.totalPrice,
+      status: o.status,
+      date: o.date
+    })),
+    serviceProviders: (serviceProviders || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      service: p.service,
+      phone: p.phone,
+      status: p.status
+    })),
+    missedSearches: (searchLogs || []).filter(s => !s.found).slice(0, 20).map(s => s.term),
     buildRatesSummary: {
       baseCostPerSqFt: buildRates.newProjects.baseCostPerSqFt,
       gradeRates: buildRates.newProjects.gradeRates,
@@ -4554,10 +4705,26 @@ export const defaultRepresentatives: Representative[] = [
     designationUr: 'علاقائی نمائندہ و پراجیکٹ کوآرڈینیٹر',
     officeAddressEn: 'Plot # 375-A, Potohar Road, I-9/3, Islamabad',
     officeAddressUr: 'پلاٹ نمبر 375-A، پوٹھوہار روڈ، آئی نائن تھری (I-9/3)، اسلام آباد',
+    portalPin: 'FH-1052',
     isActive: true,
     order: 1
   }
 ];
+
+function ensureRepPortalPin(rep: Representative): Representative {
+  if (rep.portalPin && rep.portalPin.trim()) return rep;
+  if (rep.id === 'rep-fayyaz-hussain-dha2') {
+    return { ...rep, portalPin: 'FH-1052' };
+  }
+  const initials = (rep.nameEn || 'RP')
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase())
+    .join('')
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 2) || 'RP';
+  const digits = (rep.phone || rep.id || '1052').replace(/\D/g, '').slice(-4).padStart(4, '5');
+  return { ...rep, portalPin: `${initials}-${digits}` };
+}
 
 // Known dummy / demo IDs that must never be shown or re-seeded
 export const LEGACY_FAKE_REP_IDS = new Set([
@@ -4666,7 +4833,9 @@ export async function getRepresentatives(): Promise<Representative[]> {
       items.push(fayyaz);
     }
 
-    const sorted = items.sort((a, b) => (a.order || 99) - (b.order || 99));
+    const sorted = items
+      .map(ensureRepPortalPin)
+      .sort((a, b) => (a.order || 99) - (b.order || 99));
 
     if (typeof window !== 'undefined') {
       try {
@@ -4678,7 +4847,7 @@ export async function getRepresentatives(): Promise<Representative[]> {
     return sorted;
   } catch (err) {
     logFetchError('getRepresentatives', err);
-    const fallback = (inMemoryCache.representatives?.data || []).filter(r => r && !isLegacyFakeRep(r));
+    const fallback = (inMemoryCache.representatives?.data || []).filter(r => r && !isLegacyFakeRep(r)).map(ensureRepPortalPin);
     return fallback.length > 0 ? fallback : defaultRepresentatives;
   }
 }
@@ -4710,6 +4879,20 @@ export async function clearAllRepresentatives(): Promise<{ success: boolean; err
 export async function saveRepresentative(rep: Partial<Representative>): Promise<{ success: boolean; id?: string; error?: string }> {
   const db = getDb();
   const repId = rep.id || `rep_${Date.now()}`;
+  const existingRep = (inMemoryCache.representatives?.data || []).find(r => r.id === repId);
+  const autoPin = (() => {
+    const raw = (rep.portalPin || existingRep?.portalPin || '').trim();
+    if (raw) return raw.toUpperCase();
+    const initials = (rep.nameEn || 'RP')
+      .split(/\s+/)
+      .map(w => w.charAt(0).toUpperCase())
+      .join('')
+      .replace(/[^A-Z]/g, '')
+      .slice(0, 2) || 'RP';
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `${initials}-${rand}`;
+  })();
+
   const payload: Representative = {
     id: repId,
     nameEn: rep.nameEn || '',
@@ -4724,6 +4907,8 @@ export async function saveRepresentative(rep: Partial<Representative>): Promise<
     officeAddressEn: rep.officeAddressEn || '',
     officeAddressUr: rep.officeAddressUr || '',
     avatarUrl: rep.avatarUrl || '',
+    portalPin: autoPin,
+    email: rep.email || '',
     isActive: rep.isActive !== undefined ? rep.isActive : true,
     order: rep.order || 99
   };
@@ -4809,6 +4994,308 @@ export async function toggleRepresentativeStatus(id: string, isActive: boolean):
     return { success: true };
   } catch (err: any) {
     console.error('Error updating representative status:', err);
+    return { success: true };
+  }
+}
+
+// ============================================================================
+// REPRESENTATIVE FIELD PORTAL & ISOLATED SITE VISIT JOBS / BILLS
+// ============================================================================
+
+export async function getRepresentativeById(id: string): Promise<Representative | null> {
+  if (!id || !id.trim()) return null;
+  const targetId = id.trim();
+  const list = await getRepresentatives();
+  const found = list.find(r => r.id === targetId);
+  if (found) return ensureRepPortalPin(found);
+
+  const db = getDb();
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, 'representatives', targetId));
+    if (snap.exists()) {
+      const rep = ensureRepPortalPin({ id: snap.id, ...snap.data() } as Representative);
+      if (!isLegacyFakeRep(rep)) return rep;
+    }
+  } catch (err) {
+    logFetchError('getRepresentativeById', err);
+  }
+  return null;
+}
+
+export async function verifyRepresentativePin(
+  pin: string,
+  expectedRepId?: string
+): Promise<{ success: boolean; representative?: Representative; error?: string }> {
+  const cleanPin = (pin || '').trim().toUpperCase();
+  if (!cleanPin) {
+    return { success: false, error: 'براہ کرم اپنا نمائندہ پن / پاسورڈ درج کریں۔ (Please enter your Representative PIN.)' };
+  }
+
+  // Force refresh representative list from Firestore if possible
+  const list = await getRepresentatives();
+  const normalizedList = list.map(ensureRepPortalPin);
+
+  if (expectedRepId) {
+    const target = normalizedList.find(r => r.id === expectedRepId);
+    if (!target) {
+      return { success: false, error: 'یہ نمائندہ اکاؤنٹ موجود نہیں ہے۔ (Representative account not found.)' };
+    }
+    if (!target.isActive) {
+      return { success: false, error: 'یہ نمائندہ اکاؤنٹ فی الحال غیر فعال ہے۔ ایڈمن سے رابطہ کریں۔' };
+    }
+    if ((target.portalPin || '').trim().toUpperCase() !== cleanPin) {
+      return { success: false, error: 'غلط پن! یہ پن اس نمائندے کے اکاؤنٹ سے مطابقت نہیں رکھتا۔' };
+    }
+    return { success: true, representative: target };
+  }
+
+  const matched = normalizedList.find(
+    r => r.isActive && (r.portalPin || '').trim().toUpperCase() === cleanPin
+  );
+  if (!matched) {
+    return { success: false, error: 'غلط پن یا غیر فعال اکاؤنٹ! درست نمائندہ پن درج کریں۔ (Invalid PIN.)' };
+  }
+  return { success: true, representative: matched };
+}
+
+export function computeSiteMeasurementSection(section: SiteMeasurementSection): SiteMeasurementSection {
+  const divisor = section.unit === 'inches' ? 144 : 1;
+  const rows: SiteMeasurementRow[] = (section.rows || []).map(row => {
+    const w = Number(row.width) || 0;
+    const l = Number(row.length) || 0;
+    const q = Math.max(0, Number(row.qty) || 0);
+    const sqFt = Number(((w * l * q) / divisor).toFixed(2));
+    return { ...row, width: w, length: l, qty: q, sqFt };
+  });
+  const totalSqFt = Number(rows.reduce((sum, r) => sum + r.sqFt, 0).toFixed(2));
+  const wastagePercent = Math.max(0, Math.min(50, Number(section.wastagePercent) || 0));
+  const finalSqFt = Number((totalSqFt * (1 + wastagePercent / 100)).toFixed(2));
+  const ratePerSqFt = Math.max(0, Number(section.ratePerSqFt) || 0);
+  const extraCharges = Math.max(0, Number(section.extraCharges) || 0);
+  const subtotal = Math.round(finalSqFt * ratePerSqFt + extraCharges);
+
+  return {
+    ...section,
+    rows,
+    totalSqFt,
+    wastagePercent,
+    finalSqFt,
+    ratePerSqFt,
+    extraCharges,
+    subtotal
+  };
+}
+
+function getRepJobsCacheKey(representativeId?: string): string {
+  return representativeId
+    ? `stone_expert_rep_jobs_${representativeId}`
+    : 'stone_expert_all_rep_jobs_admin';
+}
+
+export async function getRepresentativeJobs(representativeId?: string): Promise<SiteVisitJob[]> {
+  const targetRepId = representativeId?.trim() || undefined;
+  const cacheKey = getRepJobsCacheKey(targetRepId);
+
+  let localFallback: SiteVisitJob[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          localFallback = targetRepId
+            ? parsed.filter((j: SiteVisitJob) => j && j.representativeId === targetRepId)
+            : parsed.filter((j: SiteVisitJob) => j && j.id);
+        }
+      }
+    } catch (e) {}
+  }
+
+  const db = getDb();
+  if (!db) {
+    return localFallback.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  }
+
+  try {
+    const colRef = collection(db, 'representative_jobs');
+    const q = targetRepId
+      ? query(colRef, where('representativeId', '==', targetRepId))
+      : colRef;
+    const snap = await getDocs(q);
+    const items: SiteVisitJob[] = [];
+    snap.forEach(d => {
+      const data = { id: d.id, ...d.data() } as SiteVisitJob;
+      // Strict isolation guard: if a specific representativeId was requested, never allow any other rep's job
+      if (targetRepId && data.representativeId !== targetRepId) return;
+      items.push(data);
+    });
+
+    items.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(items));
+      } catch (e) {}
+    }
+
+    return items;
+  } catch (err) {
+    logFetchError('getRepresentativeJobs', err);
+    return localFallback.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  }
+}
+
+export async function saveRepresentativeJob(
+  jobInput: Partial<SiteVisitJob>,
+  options?: { syncToOrders?: boolean }
+): Promise<{ success: boolean; job?: SiteVisitJob; error?: string }> {
+  const repId = (jobInput.representativeId || '').trim();
+  const customerName = (jobInput.customerName || '').trim();
+  const customerPhone = (jobInput.customerPhone || '').trim();
+
+  if (!repId) {
+    return { success: false, error: 'Representative ID is required.' };
+  }
+  if (!customerName || !customerPhone) {
+    return { success: false, error: 'کسٹمر کا نام اور فون نمبر لازمی ہیں۔ (Customer name and phone are required.)' };
+  }
+
+  const now = new Date().toISOString();
+  const jobId = jobInput.id?.trim() || `SITE-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
+  const normalizedSections = (jobInput.siteMeasurements || []).map(computeSiteMeasurementSection);
+  const grandTotalSqFt = Number(
+    normalizedSections.reduce((sum, s) => sum + (s.finalSqFt || 0), 0).toFixed(2)
+  );
+  const grandTotalPKR = Math.round(
+    normalizedSections.reduce((sum, s) => sum + (s.subtotal || 0), 0)
+  );
+
+  const linkedOrderId =
+    options?.syncToOrders && grandTotalPKR > 0
+      ? (jobInput.linkedOrderId || `REP-ORD-${jobId.replace(/^SITE-/, '')}`)
+      : jobInput.linkedOrderId;
+
+  const job: SiteVisitJob = {
+    id: jobId,
+    representativeId: repId,
+    representativeName: (jobInput.representativeName || 'Representative').trim(),
+    customerName,
+    customerPhone,
+    customerAddress: (jobInput.customerAddress || '').trim(),
+    customerCity: (jobInput.customerCity || '').trim(),
+    customerNotes: (jobInput.customerNotes || '').trim(),
+    requestedCategories: Array.isArray(jobInput.requestedCategories) ? jobInput.requestedCategories : [],
+    preferredVisitDate: jobInput.preferredVisitDate || '',
+    status: jobInput.status || (normalizedSections.length > 0 && grandTotalPKR > 0 ? 'quoted' : 'assigned'),
+    siteMeasurements: normalizedSections,
+    grandTotalSqFt,
+    grandTotalPKR,
+    linkedOrderId,
+    createdBy: jobInput.createdBy || 'representative',
+    createdAt: jobInput.createdAt || now,
+    updatedAt: now
+  };
+
+  // Update isolated per-rep cache AND admin cache cleanly without leaking across reps
+  if (typeof window !== 'undefined') {
+    try {
+      const repKey = getRepJobsCacheKey(repId);
+      const existingRepJobs: SiteVisitJob[] = JSON.parse(localStorage.getItem(repKey) || '[]');
+      const nextRepJobs = [
+        job,
+        ...existingRepJobs.filter(j => j.id !== job.id && j.representativeId === repId)
+      ];
+      localStorage.setItem(repKey, JSON.stringify(nextRepJobs));
+
+      const adminKey = getRepJobsCacheKey();
+      const existingAdminJobsRaw = localStorage.getItem(adminKey);
+      if (existingAdminJobsRaw) {
+        const existingAdminJobs: SiteVisitJob[] = JSON.parse(existingAdminJobsRaw);
+        const nextAdminJobs = [job, ...existingAdminJobs.filter(j => j.id !== job.id)];
+        localStorage.setItem(adminKey, JSON.stringify(nextAdminJobs));
+      }
+    } catch (e) {}
+  }
+
+  broadcastAppUpdate('rep_jobs_updated', { representativeId: repId, jobId: job.id });
+
+  const db = getDb();
+  if (!db) {
+    return { success: true, job };
+  }
+
+  try {
+    await setDoc(doc(db, 'representative_jobs', job.id), job, { merge: true });
+
+    // Optional sync to Main Admin Orders collection so it also appears in /dashboard/orders
+    if (options?.syncToOrders && linkedOrderId && grandTotalPKR > 0) {
+      const materialSummary = Array.from(
+        new Set(normalizedSections.map(s => s.materialName).filter(Boolean))
+      ).join(', ') || 'On-Site Marble Quote';
+
+      const orderDoc = {
+        id: linkedOrderId,
+        customerName: job.customerName,
+        customerContact: job.customerPhone,
+        marbleName: `${materialSummary} (Site Quote)`,
+        quantity: grandTotalSqFt,
+        totalPrice: grandTotalPKR,
+        status: job.status === 'approved' ? 'Confirmed' : 'Pending',
+        applicationType: `Representative Site Bill — ${job.representativeName}`,
+        date: now,
+        calculationDetails: {
+          source: 'representative_portal',
+          representativeId: job.representativeId,
+          representativeName: job.representativeName,
+          siteJobId: job.id,
+          address: job.customerAddress,
+          sections: normalizedSections
+        }
+      };
+      await setDoc(doc(db, 'orders', linkedOrderId), orderDoc, { merge: true });
+    }
+
+    return { success: true, job };
+  } catch (err: any) {
+    logFetchError('saveRepresentativeJob', err);
+    return { success: true, job };
+  }
+}
+
+export async function deleteRepresentativeJob(
+  jobId: string,
+  representativeId?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!jobId) return { success: false, error: 'Missing job ID' };
+
+  if (typeof window !== 'undefined') {
+    try {
+      if (representativeId) {
+        const repKey = getRepJobsCacheKey(representativeId);
+        const list: SiteVisitJob[] = JSON.parse(localStorage.getItem(repKey) || '[]');
+        localStorage.setItem(repKey, JSON.stringify(list.filter(j => j.id !== jobId)));
+      }
+      const adminKey = getRepJobsCacheKey();
+      const adminRaw = localStorage.getItem(adminKey);
+      if (adminRaw) {
+        const adminList: SiteVisitJob[] = JSON.parse(adminRaw);
+        localStorage.setItem(adminKey, JSON.stringify(adminList.filter(j => j.id !== jobId)));
+      }
+    } catch (e) {}
+  }
+
+  broadcastAppUpdate('rep_jobs_updated', { representativeId, jobId });
+
+  const db = getDb();
+  if (!db) return { success: true };
+
+  try {
+    await deleteDoc(doc(db, 'representative_jobs', jobId));
+    return { success: true };
+  } catch (err: any) {
+    logFetchError('deleteRepresentativeJob', err);
     return { success: true };
   }
 }
@@ -5092,6 +5579,145 @@ export async function rejectSupplierApplication(applicationId: string): Promise<
   } catch (err: any) {
     console.error('Error rejecting supplier application:', err);
     return { success: false, error: err?.message || 'Rejection failed' };
+  }
+}
+
+// ============================================================================
+// PRODUCT PRICE HISTORY LEDGER (Manage Stock Sparkline Chart)
+// ============================================================================
+
+const PRICE_HISTORY_STORAGE_KEY = 'stone_expert_price_history_v1';
+
+function readLocalPriceHistory(): PriceHistoryEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PRICE_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalPriceHistory(entries: PriceHistoryEntry[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    const trimmed = entries.slice(-1500);
+    localStorage.setItem(PRICE_HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {}
+}
+
+export async function recordProductPriceHistory(input: {
+  rowId: string;
+  productId: string;
+  variantId?: string;
+  productName: string;
+  productType: 'marble' | 'fixing_material';
+  previousPrice: number | null;
+  newPrice: number;
+  source?: 'manual' | 'bulk' | 'supplier_markup' | 'initial';
+  note?: string;
+  recordedAt?: string;
+}): Promise<{ success: boolean; entry?: PriceHistoryEntry; error?: string }> {
+  const newPriceNum = Number(input.newPrice);
+  if (!input.rowId || !input.productId || Number.isNaN(newPriceNum) || newPriceNum < 0) {
+    return { success: false, error: 'Invalid price history payload.' };
+  }
+
+  const entry: PriceHistoryEntry = {
+    id: `ph-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    rowId: input.rowId,
+    productId: input.productId,
+    variantId: input.variantId || undefined,
+    productName: input.productName || 'Product',
+    productType: input.productType,
+    previousPrice:
+      typeof input.previousPrice === 'number' && !Number.isNaN(input.previousPrice)
+        ? input.previousPrice
+        : null,
+    newPrice: newPriceNum,
+    source: input.source || 'manual',
+    note: input.note || undefined,
+    recordedAt: input.recordedAt || new Date().toISOString()
+  };
+
+  const local = readLocalPriceHistory();
+  writeLocalPriceHistory([...local.filter(e => e.id !== entry.id), entry]);
+
+  const db = getDb();
+  if (!db) {
+    return { success: true, entry };
+  }
+
+  try {
+    const firestorePayload: Record<string, any> = {
+      id: entry.id,
+      rowId: entry.rowId,
+      productId: entry.productId,
+      productName: entry.productName,
+      productType: entry.productType,
+      previousPrice: entry.previousPrice,
+      newPrice: entry.newPrice,
+      source: entry.source,
+      recordedAt: entry.recordedAt
+    };
+    if (entry.variantId) firestorePayload.variantId = entry.variantId;
+    if (entry.note) firestorePayload.note = entry.note;
+
+    await setDoc(doc(db, 'price_history', entry.id), firestorePayload);
+    return { success: true, entry };
+  } catch (err: any) {
+    logFetchError('recordProductPriceHistory', err);
+    return { success: true, entry };
+  }
+}
+
+export async function getProductPriceHistory(
+  rowId: string,
+  productId?: string
+): Promise<PriceHistoryEntry[]> {
+  if (!rowId) return [];
+
+  const localMatches = readLocalPriceHistory().filter(
+    e => e && (e.rowId === rowId || (!e.variantId && productId && e.productId === productId && e.rowId === productId))
+  );
+
+  const db = getDb();
+  if (!db) {
+    return localMatches.sort((a, b) => (a.recordedAt || '').localeCompare(b.recordedAt || ''));
+  }
+
+  try {
+    const colRef = collection(db, 'price_history');
+    const q = query(colRef, where('rowId', '==', rowId));
+    const snap = await withFastTimeout(getDocs(q), 5000);
+    const byId = new Map<string, PriceHistoryEntry>();
+
+    localMatches.forEach(item => {
+      byId.set(item.id, item);
+    });
+
+    snap.forEach(d => {
+      const data = { id: d.id, ...d.data() } as PriceHistoryEntry;
+      if (data && typeof data.newPrice === 'number') {
+        byId.set(data.id, data);
+      }
+    });
+
+    const merged = Array.from(byId.values()).sort((a, b) =>
+      (a.recordedAt || '').localeCompare(b.recordedAt || '')
+    );
+
+    if (merged.length > 0) {
+      const others = readLocalPriceHistory().filter(e => e.rowId !== rowId);
+      writeLocalPriceHistory([...others, ...merged]);
+    }
+
+    return merged;
+  } catch (err) {
+    logFetchError('getProductPriceHistory', err);
+    return localMatches.sort((a, b) => (a.recordedAt || '').localeCompare(b.recordedAt || ''));
   }
 }
 

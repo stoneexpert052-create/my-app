@@ -268,10 +268,59 @@
         "officeAddressEn": { "type": "string" },
         "officeAddressUr": { "type": "string" },
         "avatarUrl": { "type": "string" },
+        "portalPin": { "type": "string", "description": "Personal PIN code for the representative's isolated field portal." },
+        "email": { "type": "string", "format": "email" },
         "isActive": { "type": "boolean" },
         "order": { "type": "number" }
       },
       "required": ["id", "nameEn", "nameUr", "phone", "regionEn", "regionUr", "isActive"]
+    },
+    "SiteVisitJob": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SiteVisitJob",
+      "type": "object",
+      "description": "On-site customer visit, field measurements, and online quotation created or managed by a specific Stone Expert representative.",
+      "properties": {
+        "id": { "type": "string" },
+        "representativeId": { "type": "string", "description": "Owning representative ID for strict per-rep data isolation." },
+        "representativeName": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerAddress": { "type": "string" },
+        "customerCity": { "type": "string" },
+        "customerNotes": { "type": "string" },
+        "requestedCategories": { "type": "array", "items": { "type": "string" } },
+        "preferredVisitDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["assigned", "visited", "quoted", "approved", "completed"] },
+        "siteMeasurements": { "type": "array", "items": { "type": "object" } },
+        "grandTotalSqFt": { "type": "number" },
+        "grandTotalPKR": { "type": "number" },
+        "linkedOrderId": { "type": "string" },
+        "createdBy": { "type": "string", "enum": ["admin", "representative", "customer"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "representativeId", "customerName", "customerPhone", "status", "createdAt", "updatedAt"]
+    },
+    "PriceHistoryEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PriceHistoryEntry",
+      "type": "object",
+      "description": "Historical price point recorded whenever a product or marble variant retail rate changes in Manage Stock.",
+      "properties": {
+        "id": { "type": "string" },
+        "rowId": { "type": "string", "description": "Composite row key (productId_variantId or productId)." },
+        "productId": { "type": "string" },
+        "variantId": { "type": "string" },
+        "productName": { "type": "string" },
+        "productType": { "type": "string", "enum": ["marble", "fixing_material"] },
+        "previousPrice": { "type": ["number", "null"] },
+        "newPrice": { "type": "number" },
+        "source": { "type": "string", "enum": ["manual", "bulk", "supplier_markup", "initial"] },
+        "note": { "type": "string" },
+        "recordedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "rowId", "productId", "productName", "productType", "newPrice", "source", "recordedAt"]
     }
   },
   "auth": {
@@ -402,6 +451,38 @@
             {
               "name": "representativeId",
               "description": "The unique identifier for the regional representative."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/representative_jobs/{jobId}",
+        "definition": {
+          "entityName": "SiteVisitJob",
+          "schema": {
+            "$ref": "#/backend/entities/SiteVisitJob"
+          },
+          "description": "Customer site visit assignments, on-site stone measurements (stairs, windows, flooring, feature walls, kitchen, vanity), and online bills scoped by representativeId.",
+          "params": [
+            {
+              "name": "jobId",
+              "description": "The unique identifier for the representative site visit job."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/price_history/{entryId}",
+        "definition": {
+          "entityName": "PriceHistoryEntry",
+          "schema": {
+            "$ref": "#/backend/entities/PriceHistoryEntry"
+          },
+          "description": "Time-series price change log for individual products and variants in Manage Stock.",
+          "params": [
+            {
+              "name": "entryId",
+              "description": "Unique identifier for the price history snapshot."
             }
           ]
         }

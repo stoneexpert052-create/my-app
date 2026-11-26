@@ -35,7 +35,7 @@ export const PrintLayout = React.forwardRef<HTMLDivElement, PrintLayoutProps>(
                    <p className="font-bold text-slate-900">Contact / رابطہ:</p>
                    <p>Phone: {config.businessPhoneNumber || "+92 339 9991052"}</p>
                    <p>WhatsApp: +{config.businessWhatsAppNumber || "923399991052"}</p>
-                   <p>Email: info@stoneexpert.com</p>
+                   <p>Email: info@stoneexpert.net</p>
                  </div>
                </div>
              ) : null}

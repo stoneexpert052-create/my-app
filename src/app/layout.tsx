@@ -1,14 +1,31 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppProviders } from '@/components/app-providers';
+import { CORE_SEO_KEYWORDS, SITE_URL } from '@/lib/seo';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://stoneexpert.net'),
-  title: 'Stone Expert - Premium Marble & Granite in Rawalpindi/Islamabad',
-  description: 'Your one-stop shop for premium Pakistani and imported marble, granite, and construction materials. Expert fixing and polishing services in Rawalpindi and Islamabad. Get instant quotations for your home construction.',
-  keywords: 'Marble Rawalpindi, Granite Islamabad, Stone Expert Pindi, Construction Materials Rawalpindi, Kitchen Countertops Islamabad, Flooring Marble Pakistan, Ziarat White Rawalpindi, Best Marble Shop Islamabad',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default:
+      'Stone Expert | Marble Price in Islamabad, Rawalpindi & Pakistan — Best Marble Factory, Supplier, Fixer & Granite Polish',
+    template: '%s | Stone Expert — Marble Price in Islamabad, Rawalpindi & Pakistan',
+  },
+  description:
+    'Check latest Marble Price in Islamabad, Marble Price in Rawalpindi & Marble Price in Pakistan directly from Stone Expert — Best Marble Factory, Best Marble Supplier, Best Marble Fixer, Best Marble Polisher & Best Marble and Granite Polish in I-9/3 Islamabad. ماربل پرائس ان اسلام آباد، راولپنڈی اور پاکستان۔',
+  keywords: CORE_SEO_KEYWORDS,
   alternates: {
-    canonical: 'https://stoneexpert.net',
+    canonical: SITE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
   },
   icons: {
     icon: [
@@ -24,17 +41,30 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'Stone Expert - Premium Marble & Granite in Islamabad & Rawalpindi',
-    description: 'Calculate your marble and granite costs instantly. Serving Islamabad, Rawalpindi and all of Pakistan from I-9/3 Islamabad.',
-    url: 'https://stoneexpert.net',
+    title:
+      'Stone Expert — Marble Price in Islamabad, Rawalpindi & Pakistan | Best Marble Factory, Supplier, Fixer & Granite Polish',
+    description:
+      'Official factory marble & granite rates in Islamabad, Rawalpindi & across Pakistan. Best Marble Supplier, Best Marble Factory, Best Marble Fixer & Best Marble and Granite Polisher at Plot # 375-A, Potohar Road, I-9/3, Islamabad.',
+    url: SITE_URL,
     siteName: 'Stone Expert',
     locale: 'en_PK',
     type: 'website',
+    images: [
+      {
+        url: `${SITE_URL}/icon-512.png`,
+        width: 512,
+        height: 512,
+        alt: 'Stone Expert - Best Marble Factory, Supplier, Fixer & Granite Polisher in Islamabad, Rawalpindi & Pakistan',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Stone Expert - Premium Marble & Granite in Islamabad & Rawalpindi',
-    description: 'Calculate your marble and granite costs instantly. Official factory rates from Plot # 375-A, Potohar Road, I-9/3, Islamabad.',
+    title:
+      'Stone Expert | Marble Price in Islamabad, Rawalpindi & Pakistan — Best Marble Factory & Granite Polish',
+    description:
+      'Live Marble & Granite Prices in Islamabad, Rawalpindi & Pakistan. Best Marble Supplier, Factory, Fixer & Polisher (I-9/3 Islamabad).',
+    images: [`${SITE_URL}/icon-512.png`],
   },
 };
 
@@ -144,60 +174,120 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=PT+Sans:wght@400;700&family=Cinzel:wght@400;600;700&display=swap"
           rel="stylesheet"
         />
-        {/* Schema.org Structured Data for Local SEO */}
+        {/* Schema.org Structured Data for Local & National Pakistan Marble SEO */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'HomeGoodsStore',
-              name: 'Stone Expert - Marble, Granite & Construction',
-              image: 'https://stoneexpert.net/logo.svg',
-              '@id': 'https://stoneexpert.net',
-              url: 'https://stoneexpert.net',
-              telephone: '+92-300-3634052',
-              priceRange: '$$',
-              address: {
-                '@type': 'PostalAddress',
-                streetAddress: 'Plot # 375-A, Potohar Road, I-9/3',
-                addressLocality: 'Islamabad',
-                addressRegion: 'Islamabad Capital Territory',
-                postalCode: '44000',
-                addressCountry: 'PK',
-              },
-              geo: {
-                '@type': 'GeoCoordinates',
-                latitude: 33.6625,
-                longitude: 73.0518,
-              },
-              openingHoursSpecification: {
-                '@type': 'OpeningHoursSpecification',
-                dayOfWeek: [
-                  'Monday',
-                  'Tuesday',
-                  'Wednesday',
-                  'Thursday',
-                  'Friday',
-                  'Saturday',
+            __html: JSON.stringify([
+              {
+                '@context': 'https://schema.org',
+                '@type': 'HomeGoodsStore',
+                name: 'Stone Expert — Best Marble Factory, Supplier, Fixer & Granite Polisher',
+                alternateName: [
+                  'Stone Expert Islamabad',
+                  'Stone Expert Rawalpindi',
+                  'سٹون ایکسپرٹ ماربل فیکٹری اسلام آباد',
                 ],
-                opens: '09:00',
-                closes: '20:00',
+                description:
+                  'Leading marble factory and direct marble supplier in Islamabad, Rawalpindi and Pakistan offering latest marble prices, granite slabs, expert marble fixing, and Italian diamond marble & granite polishing.',
+                image: 'https://stoneexpert.net/icon-512.png',
+                logo: 'https://stoneexpert.net/logo.svg',
+                '@id': 'https://stoneexpert.net/#organization',
+                url: 'https://stoneexpert.net',
+                telephone: '+92-300-3634052',
+                priceRange: 'PKR',
+                address: {
+                  '@type': 'PostalAddress',
+                  streetAddress: 'Plot # 375-A, Potohar Road, I-9/3',
+                  addressLocality: 'Islamabad',
+                  addressRegion: 'Islamabad Capital Territory',
+                  postalCode: '44000',
+                  addressCountry: 'PK',
+                },
+                geo: {
+                  '@type': 'GeoCoordinates',
+                  latitude: 33.6625,
+                  longitude: 73.0518,
+                },
+                openingHoursSpecification: {
+                  '@type': 'OpeningHoursSpecification',
+                  dayOfWeek: [
+                    'Monday',
+                    'Tuesday',
+                    'Wednesday',
+                    'Thursday',
+                    'Friday',
+                    'Saturday',
+                  ],
+                  opens: '09:00',
+                  closes: '20:00',
+                },
+                areaServed: [
+                  'Islamabad',
+                  'Rawalpindi',
+                  'Pakistan',
+                  'DHA Islamabad',
+                  'Bahria Town Rawalpindi',
+                  'Gulberg Greens',
+                  'B-17 Multi Gardens',
+                  'F-10 Islamabad',
+                  'G-11 Islamabad',
+                ],
+                hasOfferCatalog: {
+                  '@type': 'OfferCatalog',
+                  name: 'Marble, Granite & Stone Services in Islamabad, Rawalpindi & Pakistan',
+                  itemListElement: [
+                    {
+                      '@type': 'Offer',
+                      itemOffered: {
+                        '@type': 'Service',
+                        name: 'Best Marble Factory & Direct Marble Supplier (Islamabad, Rawalpindi & Pakistan)',
+                      },
+                    },
+                    {
+                      '@type': 'Offer',
+                      itemOffered: {
+                        '@type': 'Service',
+                        name: 'Best Marble Fixer & Stair, Kitchen, Vanity & Flooring Installation',
+                      },
+                    },
+                    {
+                      '@type': 'Offer',
+                      itemOffered: {
+                        '@type': 'Service',
+                        name: 'Best Marble Polisher & Best Marble and Granite Polish (Italian Diamond Polish)',
+                      },
+                    },
+                  ],
+                },
+                sameAs: [
+                  'https://facebook.com/stoneexpert',
+                  'https://instagram.com/stoneexpert',
+                ],
               },
-              areaServed: [
-                'Rawalpindi',
-                'Islamabad',
-                'Bahria Town Rawalpindi',
-                'DHA Islamabad',
-                'Gulberg Greens',
-                'B-17 Multi Gardens',
-                'G-11 Islamabad',
-                'F-10 Islamabad',
-              ],
-              sameAs: [
-                'https://facebook.com/stoneexpert',
-                'https://instagram.com/stoneexpert',
-              ],
-            }),
+              {
+                '@context': 'https://schema.org',
+                '@type': 'FAQPage',
+                mainEntity: [
+                  {
+                    '@type': 'Question',
+                    name: 'What is the latest Marble Price in Islamabad, Rawalpindi and Pakistan?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Stone Expert provides live factory-direct Marble Price in Islamabad, Rawalpindi and Pakistan including Ziarat White, Badal, Sunny White, Botticino, Silky Black, and imported granites with instant online calculators for stairs, kitchens, vanities, and flooring.',
+                    },
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Where can I find the Best Marble Factory, Marble Supplier, Marble Fixer and Marble & Granite Polisher in Islamabad & Rawalpindi?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Stone Expert operates directly from Plot # 375-A, Potohar Road, I-9/3, Islamabad, offering factory-direct marble supply, expert marble fixing teams, and mirror-finish marble and granite polishing across Islamabad, Rawalpindi, DHA, Bahria Town, and nationwide in Pakistan.',
+                    },
+                  },
+                ],
+              },
+            ]),
           }}
         />
         {/* PWA Headers */}

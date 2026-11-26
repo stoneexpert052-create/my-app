@@ -15,6 +15,7 @@ import { Badge } from './ui/badge';
 import { Tag, Calculator, Globe, Flame, Maximize2 } from 'lucide-react';
 import { formatSaleBadgeText } from '@/lib/utils';
 import { useFullscreenImage } from '@/context/fullscreen-image-context';
+import { getSeoImageUrl, getSeoImageAlt } from '@/lib/seo';
 import Link from 'next/link';
 import React from 'react';
 
@@ -31,6 +32,9 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
     ? (material.discountType === 'fixed' ? Math.max(1, material.price - discountVal) : Math.round(material.price * (1 - discountVal / 100)))
     : material.price;
 
+  const seoImageUrl = getSeoImageUrl(material.imageUrl, material.name, { productId: material.id });
+  const seoImageAlt = getSeoImageAlt(material.name, material.category);
+
   return (
     <Card className="group flex h-full w-full flex-col overflow-hidden border border-border/80 bg-card transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-1.5 hover:border-primary/30">
       
@@ -40,10 +44,12 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
         className="aspect-square overflow-hidden block relative w-full"
       >
         <Image
-          src={material.imageUrl}
-          alt={`Image of ${material.name}`}
+          src={seoImageUrl}
+          alt={seoImageAlt}
           width={600}
           height={600}
+          referrerPolicy="no-referrer"
+          unoptimized={seoImageUrl.startsWith('data:') || seoImageUrl.startsWith('/api/stone-image/')}
           className="h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 group-hover:brightness-105 saturate-102"
         />
         
@@ -96,7 +102,7 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            openImage(material.imageUrl, material.name);
+            openImage(seoImageUrl, material.name);
           }}
           title={`View ${material.name} full size`}
           aria-label={`View ${material.name} full size`}

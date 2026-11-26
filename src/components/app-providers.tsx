@@ -12,6 +12,7 @@ import { FullscreenImageProvider } from '@/context/fullscreen-image-context';
 import { AppBackground } from '@/components/app-background';
 import { Toaster } from '@/components/ui/toaster';
 import { SharedDomainRedirect } from '@/components/shared-domain-redirect';
+import { GeminiLiveConcierge } from '@/components/gemini-live-concierge';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -26,6 +27,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                     <SharedDomainRedirect />
                     <AppBackground />
                     {children}
+                    <GeminiLiveConcierge />
                     <Toaster />
                   </FullscreenImageProvider>
                 </CalculationProvider>

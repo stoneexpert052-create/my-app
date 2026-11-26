@@ -18,7 +18,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MoreHorizontal, PlusCircle, Loader2, Trash2, Upload, X, Star, Edit, Camera, AlertCircle, Save, Check, Layers, Plus, Flame, Percent, Sparkles } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Loader2, Trash2, Upload, X, Star, Edit, Camera, AlertCircle, Save, Check, Layers, Plus, Flame, Percent, Sparkles, LayoutGrid, Table2, Search, Maximize2, Images, EyeOff } from 'lucide-react';
+import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,9 +103,33 @@ export default function ManageProductsPage() {
   const [isAddingNewSize, setIsAddingNewSize] = useState<number | null>(null);
   const [newCustomSizeValue, setNewCustomSizeValue] = useState('');
   
-  // Filter States
+  // Filter & View Mode States
   const [marbleFilter, setMarbleFilter] = useState('All');
   const [fixingFilter, setFixingFilter] = useState('All');
+  const [productSearch, setProductSearch] = useState('');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [uploadingImageId, setUploadingImageId] = useState<string | null>(null);
+  const quickMarbleImageInputRef = useRef<HTMLInputElement>(null);
+  const quickFixingImageInputRef = useRef<HTMLInputElement>(null);
+  const [quickUploadMarbleId, setQuickUploadMarbleId] = useState<string | null>(null);
+  const [quickUploadFixingItem, setQuickUploadFixingItem] = useState<FixingMaterial | null>(null);
+  const { openImage, openGallery } = useFullscreenImage();
+
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem('manage_products_view_mode');
+      if (savedMode === 'grid' || savedMode === 'table') {
+        setViewMode(savedMode);
+      }
+    } catch {}
+  }, []);
+
+  const handleViewModeChange = (mode: 'table' | 'grid') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('manage_products_view_mode', mode);
+    } catch {}
+  };
 
   const stoneFilterOptions = useMemo(() => {
     return ['All', ...deduplicateCategories(categoryOrder)];
@@ -178,9 +204,20 @@ export default function ManageProductsPage() {
   }, []);
 
   const filteredMarbles = useMemo(() => {
-    if (marbleFilter === 'All') return marbles;
+    const searchLower = productSearch.trim().toLowerCase();
     const filterClean = marbleFilter.trim().toLowerCase();
+
     return marbles.filter(m => {
+        if (searchLower) {
+          const matchesSearch =
+            (m.name || '').toLowerCase().includes(searchLower) ||
+            (m.materialType || '').toLowerCase().includes(searchLower) ||
+            (m.category || '').toLowerCase().includes(searchLower) ||
+            (m.origin || '').toLowerCase().includes(searchLower);
+          if (!matchesSearch) return false;
+        }
+
+        if (marbleFilter === 'All') return true;
         const catClean = (m.category || '').trim().toLowerCase();
         const matClean = (m.materialType || '').trim().toLowerCase();
         const nameClean = (m.name || '').trim().toLowerCase();
@@ -209,12 +246,22 @@ export default function ManageProductsPage() {
         
         return key.trim().toLowerCase() === filterClean;
     });
-  }, [marbles, marbleFilter]);
+  }, [marbles, marbleFilter, productSearch]);
 
   const filteredFixingMaterials = useMemo(() => {
-    if (fixingFilter === 'All') return fixingMaterials;
-    return fixingMaterials.filter(m => m.category === fixingFilter);
-  }, [fixingMaterials, fixingFilter]);
+    const searchLower = productSearch.trim().toLowerCase();
+    return fixingMaterials.filter(m => {
+      if (fixingFilter !== 'All' && m.category !== fixingFilter) return false;
+      if (searchLower) {
+        return (
+          (m.name || '').toLowerCase().includes(searchLower) ||
+          (m.category || '').toLowerCase().includes(searchLower) ||
+          (m.description || '').toLowerCase().includes(searchLower)
+        );
+      }
+      return true;
+    });
+  }, [fixingMaterials, fixingFilter, productSearch]);
 
 
   // Marble States
@@ -683,28 +730,187 @@ export default function ManageProductsPage() {
       setIsSaving(false);
   };
 
+  const handleQuickReplaceMarbleImage = async (marbleId: string, file: File) => {
+    setUploadingImageId(marbleId);
+    try {
+      const formData = new FormData();
+      formData.append('id', marbleId);
+      formData.append('image', file);
+      const res = await updateMarbleImage(formData);
+      if (res.success && res.imageUrl) {
+        setMarbles(prev => prev.map(m => m.id === marbleId ? { ...m, imageUrl: res.imageUrl! } : m));
+        toast({ title: 'Product image updated' });
+      } else {
+        toast({ variant: 'destructive', title: 'Image update failed', description: res.error });
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Image update failed', description: err?.message });
+    } finally {
+      setUploadingImageId(null);
+      setQuickUploadMarbleId(null);
+    }
+  };
+
+  const handleQuickReplaceFixingImage = async (item: FixingMaterial, file: File) => {
+    setUploadingImageId(item.id);
+    try {
+      const formData = new FormData();
+      formData.append('id', item.id);
+      formData.append('name', item.name);
+      formData.append('description', item.description || '');
+      formData.append('price', String(item.price));
+      formData.append('unit', item.unit);
+      formData.append('category', item.category);
+      formData.append('isFeatured', String(Boolean(item.isFeatured)));
+      formData.append('image', file);
+      const res = await updateFixingMaterialDetails(formData);
+      if (res.success && res.updatedMaterial) {
+        setFixingMaterials(prev => prev.map(m => m.id === item.id ? { ...m, ...res.updatedMaterial! } : m));
+        toast({ title: 'Product image updated' });
+      } else {
+        toast({ variant: 'destructive', title: 'Image update failed', description: res.error });
+      }
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Image update failed', description: err?.message });
+    } finally {
+      setUploadingImageId(null);
+      setQuickUploadFixingItem(null);
+    }
+  };
+
+  const openEditFixingDialog = (item: FixingMaterial) => {
+    setFixingToEdit(item);
+    setEditFixingName(item.name);
+    setEditFixingPrice(String(item.price));
+    setEditFixingUnit(item.unit);
+    setEditFixingCategory(item.category);
+    setEditFixingDescription(item.description || '');
+    setEditFixingIsFeatured(item.isFeatured || false);
+    setEditFixingOnSale(item.onSale || false);
+    setEditFixingDiscount(typeof item.discount === 'number' ? item.discount : 0);
+    setEditFixingDiscountType(item.discountType || 'percentage');
+    setEditFixingSaleBadgeText(item.saleBadgeText || '');
+    setEditFixingHeroHighlightOnSale(item.heroHighlightOnSale !== false);
+    setIsEditFixingDialogOpen(true);
+  };
+
   return (
     <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        {/* Shared Hidden Inputs for 1-Click Quick Image Replacement in Grid View */}
+        <input
+          type="file"
+          ref={quickMarbleImageInputRef}
+          className="hidden"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && quickUploadMarbleId) {
+              handleQuickReplaceMarbleImage(quickUploadMarbleId, file);
+            }
+            e.target.value = '';
+          }}
+        />
+        <input
+          type="file"
+          ref={quickFixingImageInputRef}
+          className="hidden"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && quickUploadFixingItem) {
+              handleQuickReplaceFixingImage(quickUploadFixingItem, file);
+            }
+            e.target.value = '';
+          }}
+        />
+
         <Tabs defaultValue="materials">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                  <TabsList>
                     <TabsTrigger value="materials">Stone Collection</TabsTrigger>
                     <TabsTrigger value="fixing">Tools & Chemicals</TabsTrigger>
                 </TabsList>
-                <Button size="sm" onClick={() => {
-                    if (availableCategories.length > 0) {
-                        setNewProductMaterialType(availableCategories[0]);
-                    }
-                    setIsAddDialogOpen(true);
-                }}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Product
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-full sm:w-56">
+                        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                            value={productSearch}
+                            onChange={(e) => setProductSearch(e.target.value)}
+                            placeholder="Search products..."
+                            className="h-9 pl-8 pr-7 text-xs"
+                        />
+                        {productSearch && (
+                            <button
+                                type="button"
+                                onClick={() => setProductSearch('')}
+                                aria-label="Clear search"
+                                className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Table vs Card Grid View Toggle */}
+                    <div
+                      role="group"
+                      aria-label="Product list view mode"
+                      className="inline-flex items-center rounded-lg border border-border bg-muted/60 p-0.5"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange('table')}
+                        aria-pressed={viewMode === 'table'}
+                        title="Dense Table View"
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer',
+                          viewMode === 'table'
+                            ? 'bg-background text-foreground shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        <Table2 className="h-3.5 w-3.5" />
+                        <span>Table</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleViewModeChange('grid')}
+                        aria-pressed={viewMode === 'grid'}
+                        title="Visual Image Grid View"
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer',
+                          viewMode === 'grid'
+                            ? 'bg-background text-foreground shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                        <span>Grid</span>
+                      </button>
+                    </div>
+
+                    <Button size="sm" onClick={() => {
+                        if (availableCategories.length > 0) {
+                            setNewProductMaterialType(availableCategories[0]);
+                        }
+                        setIsAddDialogOpen(true);
+                    }}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Product
+                    </Button>
+                </div>
             </div>
             
             <TabsContent value="materials" className="space-y-4">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Stone Collection</CardTitle>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <CardTitle>Stone Collection ({filteredMarbles.length})</CardTitle>
+                            <span className="text-xs text-muted-foreground">
+                                {viewMode === 'grid'
+                                  ? 'Visual image cards — click any photo to inspect or swap thumbnail directly'
+                                  : 'Dense table view'}
+                            </span>
+                        </div>
                         <div className="flex flex-wrap gap-2 pt-2">
                             {stoneFilterOptions.map(filter => (
                                 <Button key={filter} variant={marbleFilter === filter ? 'default' : 'outline'} size="sm" onClick={() => setMarbleFilter(filter)}>
@@ -714,44 +920,259 @@ export default function ManageProductsPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <Table>
-                        <TableHeader>
-                            <TableRow>
-                            <TableHead className="w-[80px]">Image</TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Default Price</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? Array.from({ length: 5 }).map((_, i) => (
-                                <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
-                            )) : filteredMarbles.map((marble) => (
-                            <TableRow key={marble.id}>
-                                <TableCell>
-                                    <div className="relative h-10 w-10 overflow-hidden rounded-md border">
-                                        <Image alt={marble.name} src={marble.imageUrl || 'https://placehold.co/100x100?text=No+Img'} fill className="object-cover" />
-                                    </div>
-                                </TableCell>
-                                <TableCell className="font-medium flex items-center gap-2">
-                                    {marble.name} {marble.isFeatured && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
-                                </TableCell>
-                                <TableCell><Badge variant="outline">{marble.materialType}</Badge></TableCell>
-                                <TableCell className="text-primary font-bold">PKR {marble.variants[0]?.price?.toLocaleString() || '0'} / {marble.unit === 'Square feet' ? 'sqft' : marble.unit === 'Square meters' ? 'sqm' : (marble.unit || 'sqft').toLowerCase()}</TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleEditClick(marble)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-600" onClick={() => { setMarbleToDelete(marble); setIsDeleteDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                            ))}
-                        </TableBody>
-                        </Table>
+                        {viewMode === 'table' ? (
+                            <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead className="w-[80px]">Image</TableHead>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Default Price</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? Array.from({ length: 5 }).map((_, i) => (
+                                    <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
+                                )) : filteredMarbles.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
+                                            No products match the selected filter.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : filteredMarbles.map((marble) => (
+                                <TableRow key={marble.id}>
+                                    <TableCell>
+                                        <div className="relative h-10 w-10 overflow-hidden rounded-md border">
+                                            <Image alt={marble.name} src={marble.imageUrl || 'https://placehold.co/100x100?text=No+Img'} fill className="object-cover" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="font-medium flex items-center gap-2">
+                                        {marble.name} {marble.isFeatured && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                                    </TableCell>
+                                    <TableCell><Badge variant="outline">{marble.materialType}</Badge></TableCell>
+                                    <TableCell className="text-primary font-bold">PKR {marble.variants[0]?.price?.toLocaleString() || '0'} / {marble.unit === 'Square feet' ? 'sqft' : marble.unit === 'Square meters' ? 'sqm' : (marble.unit || 'sqft').toLowerCase()}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => handleEditClick(marble)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-red-600" onClick={() => { setMarbleToDelete(marble); setIsDeleteDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                            </Table>
+                        ) : isLoading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {Array.from({ length: 8 }).map((_, i) => (
+                                    <Card key={i} className="overflow-hidden">
+                                        <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                                        <div className="p-3.5 space-y-2">
+                                            <Skeleton className="h-4 w-3/4" />
+                                            <Skeleton className="h-3 w-1/2" />
+                                            <Skeleton className="h-8 w-full mt-2" />
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : filteredMarbles.length === 0 ? (
+                            <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
+                                No stone products match the current filter or search.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {filteredMarbles.map((marble) => {
+                                    const imgSrc = marble.imageUrl || 'https://placehold.co/600x450?text=No+Image';
+                                    const unitLabel = marble.unit === 'Square feet' ? 'sqft' : marble.unit === 'Square meters' ? 'sqm' : (marble.unit || 'sqft').toLowerCase();
+                                    const galleryCount = marble.gallery?.length || 0;
+                                    const isUploadingThis = uploadingImageId === marble.id;
+
+                                    return (
+                                        <Card
+                                            key={marble.id}
+                                            className={cn(
+                                                'group overflow-hidden border-border/80 flex flex-col transition-all duration-200 hover:border-primary/50 hover:shadow-md',
+                                                marble.isHidden && 'opacity-75'
+                                            )}
+                                        >
+                                            {/* Large Visual Image Preview Header */}
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => openGallery(buildProductGallery(imgSrc, marble.name, marble.gallery), 0)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        openGallery(buildProductGallery(imgSrc, marble.name, marble.gallery), 0);
+                                                    }
+                                                }}
+                                                title={`Click to inspect ${marble.name} photos`}
+                                                className="relative aspect-[4/3] w-full overflow-hidden bg-muted cursor-pointer select-none"
+                                            >
+                                                <Image
+                                                    alt={marble.name}
+                                                    src={imgSrc}
+                                                    fill
+                                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    referrerPolicy="no-referrer"
+                                                    unoptimized={imgSrc.startsWith('data:')}
+                                                />
+
+                                                {/* Top Badges: Category, Origin, Featured / Sale / Hidden */}
+                                                <div className="absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1 z-10 pointer-events-none">
+                                                    <div className="flex flex-wrap items-center gap-1">
+                                                        <Badge className="bg-black/70 text-white border-white/15 backdrop-blur-xs text-[10px] font-bold">
+                                                            {marble.materialType}
+                                                        </Badge>
+                                                        <Badge variant="secondary" className="bg-white/90 text-slate-900 text-[10px] font-bold">
+                                                            {marble.origin || 'Local'}
+                                                        </Badge>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        {marble.isFeatured && (
+                                                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow">
+                                                                <Star className="h-3 w-3 fill-current" />
+                                                            </span>
+                                                        )}
+                                                        {marble.onSale && (
+                                                            <Badge className="bg-red-600 text-white text-[10px] font-extrabold gap-0.5 px-1.5">
+                                                                <Flame className="h-2.5 w-2.5 fill-amber-300" />
+                                                                Sale
+                                                            </Badge>
+                                                        )}
+                                                        {marble.isHidden && (
+                                                            <Badge variant="destructive" className="text-[10px] gap-0.5 px-1.5">
+                                                                <EyeOff className="h-2.5 w-2.5" />
+                                                                Hidden
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Bottom Scrim: Gallery Counter & Zoom Hint */}
+                                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 py-2 flex items-center justify-between text-white">
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-black/55 px-2 py-0.5 rounded-md border border-white/15">
+                                                        <Images className="h-3 w-3 text-amber-300" />
+                                                        {galleryCount > 0 ? `${galleryCount} Sample${galleryCount > 1 ? 's' : ''}` : 'No Samples'}
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 px-2 py-0.5 rounded-md">
+                                                        <Maximize2 className="h-3 w-3" />
+                                                        Inspect
+                                                    </span>
+                                                </div>
+
+                                                {isUploadingThis && (
+                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 text-white z-20">
+                                                        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                                                        <span className="text-xs font-semibold">Updating Photo...</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Card Metadata & Sample Gallery Strip */}
+                                            <CardContent className="p-3.5 flex-1 flex flex-col gap-2.5">
+                                                <div className="space-y-1">
+                                                    <h3 className="font-semibold text-sm text-foreground leading-snug line-clamp-1" title={marble.name}>
+                                                        {marble.name}
+                                                    </h3>
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-sm font-extrabold text-primary">
+                                                            PKR {marble.variants[0]?.price?.toLocaleString() || '0'}
+                                                            <span className="text-[11px] font-medium text-muted-foreground"> / {unitLabel}</span>
+                                                        </span>
+                                                        <span className="text-[11px] text-muted-foreground font-medium">
+                                                            {marble.variants?.length || 0} variant{(marble.variants?.length || 0) === 1 ? '' : 's'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Mini Sample Gallery Strip for Visual Photo Auditing */}
+                                                {galleryCount > 0 ? (
+                                                    <div className="flex items-center gap-1.5 pt-1">
+                                                        {marble.gallery!.slice(0, 4).map((g, gIdx) => (
+                                                            <button
+                                                                key={g.id || gIdx}
+                                                                type="button"
+                                                                onClick={() => openGallery(buildProductGallery(imgSrc, marble.name, marble.gallery), gIdx + 1)}
+                                                                title={g.altText || `Sample ${gIdx + 1}`}
+                                                                className="relative h-9 w-9 rounded-md overflow-hidden border border-border/80 hover:border-primary transition-colors cursor-pointer shrink-0 bg-muted"
+                                                            >
+                                                                <Image
+                                                                    src={g.url}
+                                                                    alt={g.altText || `${marble.name} sample ${gIdx + 1}`}
+                                                                    fill
+                                                                    sizes="36px"
+                                                                    className="object-cover"
+                                                                    referrerPolicy="no-referrer"
+                                                                    unoptimized={g.url.startsWith('data:')}
+                                                                />
+                                                            </button>
+                                                        ))}
+                                                        {galleryCount > 4 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEditClick(marble)}
+                                                                className="h-9 px-2 rounded-md border border-dashed border-border text-[10px] font-bold text-muted-foreground hover:text-primary hover:border-primary cursor-pointer"
+                                                            >
+                                                                +{galleryCount - 4}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[11px] text-muted-foreground/80 italic pt-1">
+                                                        No sample gallery photos attached
+                                                    </p>
+                                                )}
+                                            </CardContent>
+
+                                            {/* Card Footer Actions */}
+                                            <CardFooter className="p-2.5 pt-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={isUploadingThis}
+                                                    onClick={() => {
+                                                        setQuickUploadMarbleId(marble.id);
+                                                        quickMarbleImageInputRef.current?.click();
+                                                    }}
+                                                    className="flex-1 h-8 text-xs gap-1 px-2 cursor-pointer"
+                                                    title="Replace main product photo immediately"
+                                                >
+                                                    <Camera className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">Photo</span>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => handleEditClick(marble)}
+                                                    className="flex-1 h-8 text-xs gap-1 px-2 cursor-pointer"
+                                                    title="Edit product details & sample gallery"
+                                                >
+                                                    <Edit className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">Edit</span>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => { setMarbleToDelete(marble); setIsDeleteDialogOpen(true); }}
+                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                                    title={`Delete ${marble.name}`}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </CardFooter>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </TabsContent>
@@ -759,7 +1180,14 @@ export default function ManageProductsPage() {
             <TabsContent value="fixing">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Tools & Chemicals</CardTitle>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <CardTitle>Tools & Chemicals ({filteredFixingMaterials.length})</CardTitle>
+                            <span className="text-xs text-muted-foreground">
+                                {viewMode === 'grid'
+                                  ? 'Visual image cards — click photo to inspect or replace image directly'
+                                  : 'Dense table view'}
+                            </span>
+                        </div>
                         <div className="flex flex-wrap gap-2 pt-2">
                             <Button variant={fixingFilter === 'All' ? 'default' : 'outline'} size="sm" onClick={() => setFixingFilter('All')}>All</Button>
                             {fixingMaterialCategories.map(cat => (
@@ -768,54 +1196,192 @@ export default function ManageProductsPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="w-[80px]">Image</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {isLoading ? Array.from({ length: 3 }).map((_, i) => (
-                                    <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
-                                )) : filteredFixingMaterials.map((item) => (
-                                <TableRow key={item.id}>
-                                    <TableCell>
-                                        <div className="relative h-10 w-10 overflow-hidden rounded-md border">
-                                            <Image alt={item.name} src={item.imageUrl || 'https://placehold.co/100x100?text=No+Img'} fill className="object-cover" />
+                        {viewMode === 'table' ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                    <TableHead className="w-[80px]">Image</TableHead>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Price</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? Array.from({ length: 3 }).map((_, i) => (
+                                        <TableRow key={i}><TableCell colSpan={4}><Skeleton className="h-10 w-full" /></TableCell></TableRow>
+                                    )) : filteredFixingMaterials.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground text-sm">
+                                                No supplies match the selected filter.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredFixingMaterials.map((item) => (
+                                    <TableRow key={item.id}>
+                                        <TableCell>
+                                            <div className="relative h-10 w-10 overflow-hidden rounded-md border">
+                                                <Image alt={item.name} src={item.imageUrl || 'https://placehold.co/100x100?text=No+Img'} fill className="object-cover" />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-medium">{item.name}</TableCell>
+                                        <TableCell className="text-primary font-bold">PKR {item.price.toLocaleString()} / {item.unit}</TableCell>
+                                        <TableCell className="text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => openEditFixingDialog(item)}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-red-600" onClick={() => { setFixingToDelete(item); setIsDeleteFixingDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        ) : isLoading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                    <Card key={i} className="overflow-hidden">
+                                        <Skeleton className="aspect-[4/3] w-full rounded-none" />
+                                        <div className="p-3.5 space-y-2">
+                                            <Skeleton className="h-4 w-3/4" />
+                                            <Skeleton className="h-3 w-1/2" />
+                                            <Skeleton className="h-8 w-full mt-2" />
                                         </div>
-                                    </TableCell>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
-                                    <TableCell className="text-primary font-bold">PKR {item.price.toLocaleString()} / {item.unit}</TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => {
-                                                    setFixingToEdit(item);
-                                                    setEditFixingName(item.name);
-                                                    setEditFixingPrice(String(item.price));
-                                                    setEditFixingUnit(item.unit);
-                                                    setEditFixingCategory(item.category);
-                                                    setEditFixingDescription(item.description || '');
-                                                    setEditFixingIsFeatured(item.isFeatured || false);
-                                                    setEditFixingOnSale(item.onSale || false);
-                                                    setEditFixingDiscount(typeof item.discount === 'number' ? item.discount : 0);
-                                                    setEditFixingDiscountType(item.discountType || 'percentage');
-                                                    setEditFixingSaleBadgeText(item.saleBadgeText || '');
-                                                    setEditFixingHeroHighlightOnSale(item.heroHighlightOnSale !== false);
-                                                    setIsEditFixingDialogOpen(true);
-                                                }}><Edit className="mr-2 h-4 w-4"/>Edit</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-red-600" onClick={() => { setFixingToDelete(item); setIsDeleteFixingDialogOpen(true); }}><Trash2 className="mr-2 h-4 w-4"/>Delete</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
+                                    </Card>
                                 ))}
-                            </TableBody>
-                        </Table>
+                            </div>
+                        ) : filteredFixingMaterials.length === 0 ? (
+                            <div className="rounded-xl border border-dashed py-12 text-center text-sm text-muted-foreground">
+                                No tools or chemicals match the current filter or search.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                                {filteredFixingMaterials.map((item) => {
+                                    const imgSrc = item.imageUrl || 'https://placehold.co/600x450?text=No+Image';
+                                    const isUploadingThis = uploadingImageId === item.id;
+
+                                    return (
+                                        <Card
+                                            key={item.id}
+                                            className={cn(
+                                                'group overflow-hidden border-border/80 flex flex-col transition-all duration-200 hover:border-primary/50 hover:shadow-md',
+                                                item.isHidden && 'opacity-75'
+                                            )}
+                                        >
+                                            <div
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => openImage(imgSrc, item.name)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' || e.key === ' ') {
+                                                        e.preventDefault();
+                                                        openImage(imgSrc, item.name);
+                                                    }
+                                                }}
+                                                title={`Click to inspect ${item.name} photo`}
+                                                className="relative aspect-[4/3] w-full overflow-hidden bg-muted cursor-pointer select-none"
+                                            >
+                                                <Image
+                                                    alt={item.name}
+                                                    src={imgSrc}
+                                                    fill
+                                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                                                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    referrerPolicy="no-referrer"
+                                                    unoptimized={imgSrc.startsWith('data:')}
+                                                />
+                                                <div className="absolute inset-x-2 top-2 flex items-start justify-between gap-1 z-10 pointer-events-none">
+                                                    <Badge className="bg-black/70 text-white border-white/15 backdrop-blur-xs text-[10px] font-bold">
+                                                        {item.category}
+                                                    </Badge>
+                                                    <div className="flex items-center gap-1">
+                                                        {item.isFeatured && (
+                                                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-400 text-slate-950 shadow">
+                                                                <Star className="h-3 w-3 fill-current" />
+                                                            </span>
+                                                        )}
+                                                        {item.onSale && (
+                                                            <Badge className="bg-red-600 text-white text-[10px] font-extrabold gap-0.5 px-1.5">
+                                                                <Flame className="h-2.5 w-2.5 fill-amber-300" />
+                                                                Sale
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent px-2.5 py-2 flex items-center justify-end text-white">
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 px-2 py-0.5 rounded-md">
+                                                        <Maximize2 className="h-3 w-3" />
+                                                        Inspect
+                                                    </span>
+                                                </div>
+
+                                                {isUploadingThis && (
+                                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 text-white z-20">
+                                                        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+                                                        <span className="text-xs font-semibold">Updating Photo...</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <CardContent className="p-3.5 flex-1 flex flex-col gap-1.5">
+                                                <h3 className="font-semibold text-sm text-foreground leading-snug line-clamp-1" title={item.name}>
+                                                    {item.name}
+                                                </h3>
+                                                <p className="text-sm font-extrabold text-primary">
+                                                    PKR {item.price.toLocaleString()}
+                                                    <span className="text-[11px] font-medium text-muted-foreground"> / {item.unit}</span>
+                                                </p>
+                                                {item.description && (
+                                                    <p className="text-[11px] text-muted-foreground line-clamp-2 pt-0.5">
+                                                        {item.description}
+                                                    </p>
+                                                )}
+                                            </CardContent>
+
+                                            <CardFooter className="p-2.5 pt-2 border-t border-border/60 bg-muted/20 flex items-center gap-1.5">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    disabled={isUploadingThis}
+                                                    onClick={() => {
+                                                        setQuickUploadFixingItem(item);
+                                                        quickFixingImageInputRef.current?.click();
+                                                    }}
+                                                    className="flex-1 h-8 text-xs gap-1 px-2 cursor-pointer"
+                                                    title="Replace supply photo immediately"
+                                                >
+                                                    <Camera className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">Photo</span>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    onClick={() => openEditFixingDialog(item)}
+                                                    className="flex-1 h-8 text-xs gap-1 px-2 cursor-pointer"
+                                                    title="Edit supply details & image"
+                                                >
+                                                    <Edit className="h-3.5 w-3.5 shrink-0" />
+                                                    <span className="truncate">Edit</span>
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => { setFixingToDelete(item); setIsDeleteFixingDialogOpen(true); }}
+                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                                    title={`Delete ${item.name}`}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </CardFooter>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </CardContent>
                     <CardFooter>
                         <Button variant="outline" onClick={() => setIsAddFixingDialogOpen(true)}>Add New Supply</Button>

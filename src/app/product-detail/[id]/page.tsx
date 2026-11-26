@@ -2,11 +2,18 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/header';
 import { useLanguage } from '@/context/language-context';
-import { getMarbles, getFixingMaterials } from '@/lib/admin-actions';
+import {
+  getMarbles,
+  getFixingMaterials,
+} from '@/lib/admin-actions';
+import {
+  getClientInstantMarbles,
+  getClientInstantFixingMaterials,
+} from '@/lib/instant-catalog';
 import type { Marble, MarbleVariant, FixingMaterial } from '@/lib/types';
 import { ProductCalculatorStudio } from '@/components/product-calculator-studio';
 import { Button } from '@/components/ui/button';
@@ -31,6 +38,7 @@ import {
 } from 'lucide-react';
 import { formatSaleBadgeText } from '@/lib/utils';
 import { useFullscreenImage, buildProductGallery } from '@/context/fullscreen-image-context';
+import { getSeoImageUrl, getSeoImageAlt, SITE_URL } from '@/lib/seo';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProductDetailPage() {
@@ -41,6 +49,8 @@ export default function ProductDetailPage() {
   const id = params?.id as string;
 
   const [requestedCalc, setRequestedCalc] = useState<string>('simple');
+  const [requestedLightbox, setRequestedLightbox] = useState<boolean>(false);
+  const lightboxTriggeredRef = useRef<boolean>(false);
   const [item, setItem] = useState<Marble | FixingMaterial | null>(null);
   const [itemType, setItemType] = useState<'stone' | 'fixing' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,45 +59,101 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const calcParam = new URLSearchParams(window.location.search).get('calc');
+      const sp = new URLSearchParams(window.location.search);
+      const calcParam = sp.get('calc');
       if (calcParam) setRequestedCalc(calcParam);
+      if (sp.get('lightbox') === '1') {
+        setRequestedLightbox(true);
+      }
     }
   }, []);
 
   useEffect(() => {
+    let active = true;
+    lightboxTriggeredRef.current = false;
+
+    const applyFound = (marbles: Marble[], fixingMaterials: FixingMaterial[]) => {
+      if (!active) return false;
+      const foundMarble = marbles.find(m => m.id === id);
+      if (foundMarble) {
+        setItem(foundMarble);
+        setItemType('stone');
+        setActiveImage(prev => prev || foundMarble.imageUrl);
+        if (foundMarble.variants && foundMarble.variants.length > 0) {
+          setSelectedVariant(prev => prev || foundMarble.variants[0]);
+        }
+        setIsLoading(false);
+        return true;
+      }
+      const foundFixing = fixingMaterials.find(f => f.id === id);
+      if (foundFixing) {
+        setItem(foundFixing);
+        setItemType('fixing');
+        setActiveImage(prev => prev || foundFixing.imageUrl);
+        setIsLoading(false);
+        return true;
+      }
+      return false;
+    };
+
     async function loadProduct() {
       if (!id) return;
-      setIsLoading(true);
+
+      // Instant render from local/memory snapshot (0ms skeleton delay)
+      const instantMatched = applyFound(
+        getClientInstantMarbles(),
+        getClientInstantFixingMaterials()
+      );
+      if (!instantMatched) {
+        setIsLoading(true);
+      }
+
       try {
         const [marbles, fixingMaterials] = await Promise.all([
           getMarbles(),
           getFixingMaterials()
         ]);
-
-        const foundMarble = marbles.find(m => m.id === id);
-        if (foundMarble) {
-          setItem(foundMarble);
-          setItemType('stone');
-          setActiveImage(foundMarble.imageUrl);
-          if (foundMarble.variants && foundMarble.variants.length > 0) {
-            setSelectedVariant(foundMarble.variants[0]);
-          }
-        } else {
-          const foundFixing = fixingMaterials.find(f => f.id === id);
-          if (foundFixing) {
-            setItem(foundFixing);
-            setItemType('fixing');
-            setActiveImage(foundFixing.imageUrl);
-          }
-        }
+        applyFound(marbles, fixingMaterials);
       } catch (error) {
         console.error("Failed to load product details:", error);
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     }
     loadProduct();
+    return () => {
+      active = false;
+    };
   }, [id]);
+
+  // Auto-open fullscreen lightbox when requested via Live Voice (?lightbox=1)
+  useEffect(() => {
+    if (!requestedLightbox || !item || lightboxTriggeredRef.current) return;
+    lightboxTriggeredRef.current = true;
+    const isStoneItem = itemType === 'stone';
+    const stone = item as Marble;
+    const fallbackImage = `https://placehold.co/800x600?text=${encodeURIComponent(`Stone Expert - ${item.name}`)}`;
+    const rawGallery = buildProductGallery(
+      item.imageUrl || fallbackImage,
+      item.name,
+      isStoneItem ? stone.gallery : undefined
+    );
+    const seoGallery = rawGallery.map((g, idx) => ({
+      ...g,
+      url: getSeoImageUrl(g.url, item.name, { productId: item.id, galleryIndex: idx }),
+      alt: getSeoImageAlt(idx > 0 ? `${item.name} Photo ${idx + 1}` : item.name),
+    }));
+    if (seoGallery.length > 0) {
+      openGallery(seoGallery, 0);
+    }
+  }, [requestedLightbox, item, itemType, openGallery]);
+
+  // Update browser tab title dynamically for strong product-level SEO
+  useEffect(() => {
+    if (item?.name && typeof document !== 'undefined') {
+      document.title = `Stone Expert - ${item.name} | Marble Price in Islamabad, Rawalpindi & Pakistan`;
+    }
+  }, [item?.name]);
 
   // Localized dictionaries
   const labels = useMemo(() => {
@@ -183,8 +249,48 @@ export default function ProductDetailPage() {
   const fixingItem = item as FixingMaterial;
   const isPerPiece = isStone && ['Vanity', 'Inlay', 'Antique'].includes(stoneItem.materialType);
 
+  const productMinPrice = isStone
+    ? Math.min(
+        ...(stoneItem.variants
+          ?.map(v => v.price)
+          .filter((p): p is number => typeof p === 'number' && p > 0) || [0])
+      )
+    : fixingItem.price || 0;
+
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: `Stone Expert - ${item.name}`,
+    description:
+      item.description ||
+      `${item.name} available at factory rates from Stone Expert — Best Marble Factory, Supplier, Fixer & Granite Polisher in Islamabad, Rawalpindi and Pakistan.`,
+    brand: {
+      '@type': 'Brand',
+      name: 'Stone Expert',
+    },
+    image: getSeoImageUrl(item.imageUrl, item.name, { productId: item.id, absolute: true }),
+    url: `${SITE_URL}/product-detail/${encodeURIComponent(item.id)}`,
+    offers:
+      productMinPrice > 0
+        ? {
+            '@type': 'Offer',
+            priceCurrency: 'PKR',
+            price: productMinPrice,
+            availability: 'https://schema.org/InStock',
+            seller: {
+              '@type': 'Organization',
+              name: 'Stone Expert Islamabad',
+            },
+          }
+        : undefined,
+  };
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       <Header />
       <main className="flex-grow mt-20 md:mt-28">
         <div className="container max-w-6xl mx-auto px-4 py-6">
@@ -205,15 +311,31 @@ export default function ProductDetailPage() {
             
             {/* Left Column: Full-size Image Showcase */}
             {(() => {
-              const fallbackImage = `https://placehold.co/800x600?text=${encodeURIComponent(item.name)}`;
-              const galleryItems = buildProductGallery(
+              const fallbackImage = `https://placehold.co/800x600?text=${encodeURIComponent(`Stone Expert - ${item.name}`)}`;
+              const rawGalleryItems = buildProductGallery(
                 item.imageUrl || fallbackImage,
                 item.name,
                 isStone ? stoneItem.gallery : undefined
               );
+              const galleryItems = rawGalleryItems.map((g, idx) => ({
+                ...g,
+                url: getSeoImageUrl(g.url, item.name, {
+                  productId: item.id,
+                  galleryIndex: idx,
+                }),
+                alt: getSeoImageAlt(
+                  idx > 0 ? `${item.name} Photo ${idx + 1}` : item.name,
+                  isStone ? stoneItem.materialType : fixingItem.category
+                ),
+              }));
+              const activeSeoImage = activeImage
+                ? getSeoImageUrl(activeImage, item.name, { productId: item.id })
+                : galleryItems[0]?.url || fallbackImage;
               const activeIndex = Math.max(
                 0,
-                galleryItems.findIndex((g) => g.url === activeImage)
+                galleryItems.findIndex(
+                  (g, idx) => g.url === activeSeoImage || rawGalleryItems[idx]?.url === activeImage
+                )
               );
 
               return (
@@ -224,13 +346,16 @@ export default function ProductDetailPage() {
                     title="Click to view full screen"
                   >
                     <Image
-                      src={activeImage || fallbackImage}
-                      alt={item.name}
+                      src={galleryItems[activeIndex]?.url || activeSeoImage}
+                      alt={getSeoImageAlt(item.name, isStone ? stoneItem.materialType : fixingItem.category)}
                       fill
                       priority
                       className="object-cover transition-transform duration-500 group-hover/showcase:scale-103"
                       referrerPolicy="no-referrer"
-                      unoptimized={(activeImage || '').startsWith('data:')}
+                      unoptimized={
+                        (galleryItems[activeIndex]?.url || activeSeoImage).startsWith('data:') ||
+                        (galleryItems[activeIndex]?.url || activeSeoImage).startsWith('/api/stone-image/')
+                      }
                     />
                     <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 opacity-90 group-hover/showcase:opacity-100 group-hover/showcase:bg-black/85 transition-all shadow-md">
                       <Maximize2 className="h-3.5 w-3.5" />
@@ -258,23 +383,25 @@ export default function ProductDetailPage() {
                             key={`${img.url}-${idx}`}
                             type="button"
                             onClick={() => {
-                              setActiveImage(img.url);
+                              setActiveImage(rawGalleryItems[idx]?.url || img.url);
                               openGallery(galleryItems, idx);
                             }}
-                            title={img.caption || `View ${item.name} photo ${idx + 1}`}
+                            title={img.caption || `Stone Expert - ${item.name} photo ${idx + 1}`}
                             className={`relative h-16 w-24 rounded-lg overflow-hidden border-2 transition-all shrink-0 group/thumb cursor-pointer ${
-                              activeImage === img.url
+                              activeIndex === idx
                                 ? 'border-primary scale-105 shadow-md'
                                 : 'border-transparent opacity-80 hover:opacity-100 hover:border-primary/50'
                             }`}
                           >
                             <Image
                               src={img.url}
-                              alt={img.alt || item.name}
+                              alt={img.alt || getSeoImageAlt(item.name)}
                               fill
                               className="object-cover transition-transform duration-300 group-hover/thumb:scale-105"
                               referrerPolicy="no-referrer"
-                              unoptimized={img.url.startsWith('data:')}
+                              unoptimized={
+                                img.url.startsWith('data:') || img.url.startsWith('/api/stone-image/')
+                              }
                             />
                             <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
                               <Maximize2 className="h-4 w-4 text-white drop-shadow" />

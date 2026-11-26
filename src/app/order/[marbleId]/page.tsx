@@ -473,7 +473,7 @@ export default function OrderPage() {
     if (calcType && selectedMarble && selectedMarble.id !== 'general-supplies-order' && currentVariant) {
       const autoKey = `${selectedMarble.id}:${calcType}`;
       if (autoOpenedCalcKeyRef.current === autoKey) return;
-      const validTypes: RequirementType[] = ['simple', 'floor', 'stairs', 'window-sill', 'kitchen', 'vanity'];
+      const validTypes: RequirementType[] = ['simple', 'floor', 'stairs', 'window-sill', 'kitchen', 'vanity', 'labor_quote'];
       if (validTypes.includes(calcType as RequirementType)) {
         autoOpenedCalcKeyRef.current = autoKey;
         const timer = setTimeout(() => {
@@ -1660,7 +1660,7 @@ export default function OrderPage() {
                           <p className="font-bold text-slate-900">Contact / رابطہ:</p>
                           <p>Phone: {config.businessPhoneNumber || "+92 339 9991052"}</p>
                           <p>WhatsApp: +{config.businessWhatsAppNumber || "923399991052"}</p>
-                          <p>Email: info@stoneexpert.com</p>
+                          <p>Email: info@stoneexpert.net</p>
                         </div>
                       </div>
                   ) : null}

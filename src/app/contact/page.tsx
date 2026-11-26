@@ -90,7 +90,7 @@ export default function ContactPage() {
                     <Mail className="mt-1 h-6 w-6 text-primary" />
                     <div>
                       <h3 className="font-semibold">Email</h3>
-                      <a href="mailto:info@stoneexpert.com" className="text-muted-foreground hover:text-primary">info@stoneexpert.com</a>
+                      <a href="mailto:info@stoneexpert.net" className="text-muted-foreground hover:text-primary">info@stoneexpert.net</a>
                     </div>
                   </div>
                 </div>
