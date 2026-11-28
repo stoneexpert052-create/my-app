@@ -11,6 +11,8 @@ import {
   getFixingMaterials,
 } from '@/lib/admin-actions';
 import {
+  getBundledMarbles,
+  getBundledFixingMaterials,
   getClientInstantMarbles,
   getClientInstantFixingMaterials,
 } from '@/lib/instant-catalog';
@@ -48,14 +50,27 @@ export default function ProductDetailPage() {
   const { openGallery } = useFullscreenImage();
   const id = params?.id as string;
 
+  const initialMatch = useMemo(() => {
+    if (!id) return null;
+    const stone = getBundledMarbles().find(m => m.id === id);
+    if (stone) return { item: stone as Marble | FixingMaterial, type: 'stone' as const };
+    const fixing = getBundledFixingMaterials().find(f => f.id === id);
+    if (fixing) return { item: fixing as Marble | FixingMaterial, type: 'fixing' as const };
+    return null;
+  }, [id]);
+
   const [requestedCalc, setRequestedCalc] = useState<string>('simple');
   const [requestedLightbox, setRequestedLightbox] = useState<boolean>(false);
   const lightboxTriggeredRef = useRef<boolean>(false);
-  const [item, setItem] = useState<Marble | FixingMaterial | null>(null);
-  const [itemType, setItemType] = useState<'stone' | 'fixing' | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeImage, setActiveImage] = useState<string>('');
-  const [selectedVariant, setSelectedVariant] = useState<MarbleVariant | null>(null);
+  const [item, setItem] = useState<Marble | FixingMaterial | null>(() => initialMatch?.item || null);
+  const [itemType, setItemType] = useState<'stone' | 'fixing' | null>(() => initialMatch?.type || null);
+  const [isLoading, setIsLoading] = useState(() => !initialMatch);
+  const [activeImage, setActiveImage] = useState<string>(() => initialMatch?.item?.imageUrl || '');
+  const [selectedVariant, setSelectedVariant] = useState<MarbleVariant | null>(() =>
+    initialMatch?.type === 'stone' && (initialMatch.item as Marble).variants?.length
+      ? (initialMatch.item as Marble).variants[0]
+      : null
+  );
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

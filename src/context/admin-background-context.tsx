@@ -76,8 +76,23 @@ export function AdminBackgroundProvider({ children }: { children: React.ReactNod
         if (isMounted) setIsLoading(false);
       }
     }
-    loadRemote();
-    return () => { isMounted = false; };
+
+    const isDashboard =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard');
+    let deferTimer: ReturnType<typeof setTimeout> | null = null;
+    if (isDashboard) {
+      loadRemote();
+    } else {
+      if (isMounted) setIsLoading(false);
+      deferTimer = setTimeout(() => {
+        if (isMounted) void loadRemote();
+      }, 1500);
+    }
+
+    return () => {
+      isMounted = false;
+      if (deferTimer) clearTimeout(deferTimer);
+    };
   }, []);
 
   // Update live state and localStorage (for instant slider feedback)

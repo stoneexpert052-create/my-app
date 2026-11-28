@@ -72,6 +72,7 @@ import {
   subscribeToAppUpdates,
   deduplicateCategories
 } from '@/lib/admin-actions';
+import { getClientInstantMarbles, getClientInstantFixingMaterials } from '@/lib/instant-catalog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -159,6 +160,15 @@ export default function ManageProductsPage() {
   }, [categoryOrder]);
 
   useEffect(() => {
+    const cachedMarbles = getClientInstantMarbles();
+    const cachedFixing = getClientInstantFixingMaterials();
+    const hasInstant = cachedMarbles.length > 0 || cachedFixing.length > 0;
+    if (hasInstant) {
+      setMarbles(cachedMarbles);
+      setFixingMaterials(cachedFixing);
+      setIsLoading(false);
+    }
+
     async function loadData(showSpinner = true) {
       if (showSpinner) {
         setIsLoading(true);
@@ -184,7 +194,7 @@ export default function ManageProductsPage() {
         }
       }
     }
-    loadData(true);
+    loadData(!hasInstant);
 
     const unsubscribe = subscribeToAppUpdates((event) => {
       if (event.type === 'category_order_updated') {

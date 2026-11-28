@@ -49,6 +49,7 @@ import type { Order, CalculationDetails, MarbleVariant, Requirement } from '@/li
 import config from '@/lib/config.json';
 import costs from '@/lib/costs.json';
 import { getOrders, deleteOrder, updateOrderStatus, getHomepageConfig } from '@/lib/admin-actions';
+import { getClientInstantOrders } from '@/lib/instant-catalog';
 import { useToast } from '@/hooks/use-toast';
 import { MoreHorizontal, Share2, CheckCircle2, QrCode } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -77,18 +78,27 @@ export default function OrdersPage() {
   };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      setIsLoading(true);
-      const [fetchedOrders, homepageConfig] = await Promise.all([
-        getOrders(),
-        getHomepageConfig()
-      ]);
-      setOrders(fetchedOrders as Order[]);
+    const cachedOrders = getClientInstantOrders();
+    if (cachedOrders.length > 0) {
+      setOrders(cachedOrders);
       setIsLoading(false);
-      if (homepageConfig && homepageConfig.letterheadUrl) {
-        setLetterheadUrl(homepageConfig.letterheadUrl);
-      } else {
-        setLetterheadUrl(config.letterheadUrl);
+    }
+
+    const fetchOrders = async () => {
+      if (cachedOrders.length === 0) setIsLoading(true);
+      try {
+        const [fetchedOrders, homepageConfig] = await Promise.all([
+          getOrders(),
+          getHomepageConfig()
+        ]);
+        setOrders(fetchedOrders as Order[]);
+        if (homepageConfig && homepageConfig.letterheadUrl) {
+          setLetterheadUrl(homepageConfig.letterheadUrl);
+        } else {
+          setLetterheadUrl(config.letterheadUrl);
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchOrders();

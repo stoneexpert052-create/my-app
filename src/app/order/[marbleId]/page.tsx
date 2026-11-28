@@ -47,6 +47,7 @@ import { useCalculation } from '@/context/calculation-context';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { saveOrder, getOrdersByIds, getHomepageConfig, getMarbles, getFixingMaterials, broadcastAppUpdate, subscribeToAppUpdates } from '@/lib/admin-actions';
+import { getClientInstantMarbles, getClientInstantFixingMaterials } from '@/lib/instant-catalog';
 import { FixingMaterialsCatalog } from '@/components/fixing-materials-catalog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -317,6 +318,11 @@ export default function OrderPage() {
   const [fixingMaterialsList, setFixingMaterialsList] = useState<FixingMaterial[]>(initialFixingMaterials as FixingMaterial[]);
 
   useEffect(() => {
+    const cachedMarbles = getClientInstantMarbles();
+    if (cachedMarbles.length > 0) setMarblesList(cachedMarbles);
+    const cachedFixings = getClientInstantFixingMaterials();
+    if (cachedFixings.length > 0) setFixingMaterialsList(cachedFixings);
+
     async function fetchMarbles() {
       try {
         const dbMarbles = await getMarbles();

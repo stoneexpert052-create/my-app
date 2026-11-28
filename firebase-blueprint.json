@@ -295,12 +295,44 @@
         "siteMeasurements": { "type": "array", "items": { "type": "object" } },
         "grandTotalSqFt": { "type": "number" },
         "grandTotalPKR": { "type": "number" },
+        "photoCount": { "type": "number", "description": "Count of uploaded on-site camera verification photos." },
         "linkedOrderId": { "type": "string" },
         "createdBy": { "type": "string", "enum": ["admin", "representative", "customer"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "representativeId", "customerName", "customerPhone", "status", "createdAt", "updatedAt"]
+    },
+    "SiteVisitPhoto": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SiteVisitPhoto",
+      "type": "object",
+      "description": "Compressed on-site verification photo captured via representative device camera or uploaded for billing verification.",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string", "description": "Reference to SiteVisitJob ID." },
+        "representativeId": { "type": "string", "description": "Owning representative ID for strict per-rep scoping." },
+        "representativeName": { "type": "string" },
+        "category": {
+          "type": "string",
+          "enum": [
+            "site-overview",
+            "stairs",
+            "window-sill",
+            "floor",
+            "feature-wall",
+            "kitchen",
+            "vanity",
+            "material-sample",
+            "measurement-proof"
+          ]
+        },
+        "caption": { "type": "string", "maxLength": 240 },
+        "imageUrl": { "type": "string", "description": "Compressed JPEG data URL or photo URI." },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "uploadedBy": { "type": "string", "enum": ["representative", "admin"] }
+      },
+      "required": ["id", "jobId", "representativeId", "category", "imageUrl", "capturedAt", "uploadedBy"]
     },
     "PriceHistoryEntry": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -467,6 +499,22 @@
             {
               "name": "jobId",
               "description": "The unique identifier for the representative site visit job."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/site_visit_photos/{photoId}",
+        "definition": {
+          "entityName": "SiteVisitPhoto",
+          "schema": {
+            "$ref": "#/backend/entities/SiteVisitPhoto"
+          },
+          "description": "Multi-photo site verification captures uploaded directly from the representative device camera, stored one photo per document to respect Firestore's 1MB limit.",
+          "params": [
+            {
+              "name": "photoId",
+              "description": "The unique identifier for the site visit verification photo."
             }
           ]
         }

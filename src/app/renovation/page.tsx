@@ -15,6 +15,7 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   getRenovationRatesConfig, 
+  getInstantRenovationRatesConfig,
   defaultRenovationRatesConfig,
   subscribeToAppUpdates,
   type RenovationRatesConfig,
@@ -70,7 +71,7 @@ export default function RenovationPage() {
 
   // Config State (from Firestore or default)
   const [ratesConfig, setRatesConfig] = useState<RenovationRatesConfig>(defaultRenovationRatesConfig);
-  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [loadingConfig, setLoadingConfig] = useState(false);
 
   // Active View Tab
   const [mainTab, setMainTab] = useState<'spaces' | 'trades' | 'estimator' | 'inquiry'>('spaces');
@@ -102,9 +103,12 @@ export default function RenovationPage() {
   // Contact Phone Number
   const whatsappNumber = '923005550212';
 
-  // Fetch live rates from Firestore
+  // Fetch live rates from Firestore (hydrated immediately from cache)
   useEffect(() => {
-    async function loadRates(showSpinner = true) {
+    const instant = getInstantRenovationRatesConfig();
+    if (instant) setRatesConfig(instant);
+
+    async function loadRates(showSpinner = false) {
       if (showSpinner) setLoadingConfig(true);
       try {
         const config = await getRenovationRatesConfig();
@@ -117,7 +121,7 @@ export default function RenovationPage() {
         if (showSpinner) setLoadingConfig(false);
       }
     }
-    loadRates(true);
+    loadRates(false);
 
     const unsubscribe = subscribeToAppUpdates((event) => {
       if (event.type === 'costs_updated' || event.type === 'app_data_sync') {

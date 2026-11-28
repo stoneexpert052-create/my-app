@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from '@/hooks/use-toast';
 import { 
   getRenovationRatesConfig, 
+  getInstantRenovationRatesConfig,
   updateRenovationRates, 
   defaultRenovationRatesConfig, 
   getRenovationInquiries,
@@ -51,7 +52,7 @@ import {
 
 export default function AdminRenovationRatesPage() {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [ratesConfig, setRatesConfig] = useState<RenovationRatesConfig>(defaultRenovationRatesConfig);
   const [inquiries, setInquiries] = useState<any[]>([]);
@@ -77,20 +78,28 @@ export default function AdminRenovationRatesPage() {
   const [newTradeDescUr, setNewTradeDescUr] = useState('');
 
   useEffect(() => {
+    let active = true;
+    const instant = getInstantRenovationRatesConfig();
+    if (instant) {
+      setRatesConfig(instant);
+    }
+
     async function loadData() {
-      setLoading(true);
       try {
         const config = await getRenovationRatesConfig();
-        if (config) {
+        if (active && config) {
           setRatesConfig(config);
         }
-      } catch (e) {
-        console.error("Error loading renovation rates config:", e);
+      } catch {
+        // Already hydrated from instant cache
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     loadData();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const fetchInquiries = async () => {

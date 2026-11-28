@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from '@/hooks/use-toast';
 import { 
   getBuildYourHomeRatesConfig, 
+  getInstantBuildYourHomeRatesConfig,
   updateBuildYourHomeRates, 
   defaultBuildYourHomeRates, 
   type BuildYourHomeRates,
@@ -42,17 +43,19 @@ import {
 
 export default function AdminBuildYourHomeRatesPage() {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [rates, setRates] = useState<BuildYourHomeRates>(defaultBuildYourHomeRates);
   const [samplePlotSize, setSamplePlotSize] = useState<'marla5' | 'marla10' | 'kanal1' | 'kanal2' | 'custom'>('marla10');
   const [customPlotArea, setCustomPlotArea] = useState<number>(2200);
 
-  const baseCost = rates.newProjects.baseCostPerSqFt ?? rates.newProjects.gradeRates.budget ?? 120;
+  const newProjects = rates?.newProjects ?? defaultBuildYourHomeRates.newProjects;
+  const safeGradeRates = newProjects?.gradeRates ?? defaultBuildYourHomeRates.newProjects.gradeRates;
+  const baseCost = newProjects?.baseCostPerSqFt ?? safeGradeRates?.budget ?? 120;
   const gradeMultipliers = {
-    standard: rates.newProjects.gradeMultipliers?.standard ?? 1.0,
-    premium: rates.newProjects.gradeMultipliers?.premium ?? 1.83,
-    luxury: rates.newProjects.gradeMultipliers?.luxury ?? 3.75,
+    standard: newProjects?.gradeMultipliers?.standard ?? 1.0,
+    premium: newProjects?.gradeMultipliers?.premium ?? 1.83,
+    luxury: newProjects?.gradeMultipliers?.luxury ?? 3.75,
   };
 
   const handleMultiplierChange = (grade: 'standard' | 'premium' | 'luxury', val: number) => {
@@ -140,18 +143,18 @@ export default function AdminBuildYourHomeRatesPage() {
   };
 
   const sampleAreas: Record<string, { label: string; sqft: number }> = {
-    marla5: { label: '5 Marla', sqft: rates.newProjects.baseAreaSqFt?.marla5 || 1100 },
-    marla10: { label: '10 Marla', sqft: rates.newProjects.baseAreaSqFt?.marla10 || 2200 },
-    kanal1: { label: '1 Kanal', sqft: rates.newProjects.baseAreaSqFt?.kanal1 || 4500 },
-    kanal2: { label: '2 Kanal', sqft: rates.newProjects.baseAreaSqFt?.kanal2 || 9000 },
+    marla5: { label: '5 Marla', sqft: newProjects?.baseAreaSqFt?.marla5 || 1100 },
+    marla10: { label: '10 Marla', sqft: newProjects?.baseAreaSqFt?.marla10 || 2200 },
+    kanal1: { label: '1 Kanal', sqft: newProjects?.baseAreaSqFt?.kanal1 || 4500 },
+    kanal2: { label: '2 Kanal', sqft: newProjects?.baseAreaSqFt?.kanal2 || 9000 },
     custom: { label: 'Custom', sqft: customPlotArea },
   };
 
   const activeSimulatorArea = samplePlotSize === 'custom' ? customPlotArea : sampleAreas[samplePlotSize].sqft;
 
-  const stdRate = rates.newProjects.gradeRates.budget || Math.round(baseCost * gradeMultipliers.standard);
-  const premRate = rates.newProjects.gradeRates.premium || Math.round(baseCost * gradeMultipliers.premium);
-  const luxRate = rates.newProjects.gradeRates.luxury || Math.round(baseCost * gradeMultipliers.luxury);
+  const stdRate = safeGradeRates?.budget || Math.round(baseCost * gradeMultipliers.standard);
+  const premRate = safeGradeRates?.premium || Math.round(baseCost * gradeMultipliers.premium);
+  const luxRate = safeGradeRates?.luxury || Math.round(baseCost * gradeMultipliers.luxury);
 
   const stdTotal = activeSimulatorArea * stdRate;
   const premTotal = activeSimulatorArea * premRate;
@@ -182,20 +185,28 @@ export default function AdminBuildYourHomeRatesPage() {
   const [newItemDescEn, setNewItemDescEn] = useState('');
 
   useEffect(() => {
+    let active = true;
+    const instant = getInstantBuildYourHomeRatesConfig();
+    if (instant) {
+      setRates(instant);
+    }
+
     async function loadConfig() {
-      setLoading(true);
       try {
         const config = await getBuildYourHomeRatesConfig();
-        if (config) {
+        if (active && config) {
           setRates(config);
         }
       } catch (e) {
-        console.error("Error loading rates config:", e);
+        // Fallback already hydrated from instant cache
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
     loadConfig();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleSaveRates = async () => {

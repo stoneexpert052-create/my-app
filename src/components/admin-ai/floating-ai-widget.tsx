@@ -1,14 +1,41 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Sparkles, X, Mic, FileSpreadsheet, BellRing } from 'lucide-react';
-import { AdminAiChatInterface } from './chat-interface';
-import { AdminLiveSupervisor } from './admin-live-supervisor';
+import { Sparkles, X, Mic, FileSpreadsheet, BellRing, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { cn } from '@/lib/utils';
+import { AdminAiErrorBoundary } from './error-boundary';
+
+const AdminAiChatInterface = dynamic(
+  () => import('./chat-interface').then((m) => m.AdminAiChatInterface),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[420px] bg-background text-muted-foreground gap-2 text-xs">
+        <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+        <span>AI اسسٹنٹ لوڈ ہو رہا ہے...</span>
+      </div>
+    ),
+  }
+);
+
+const AdminLiveSupervisor = dynamic(
+  () => import('./admin-live-supervisor').then((m) => m.AdminLiveSupervisor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-[420px] bg-slate-950 text-slate-300 gap-2 text-xs">
+        <Loader2 className="h-4 w-4 animate-spin text-amber-400" />
+        <span>لائیو سپروائزر لوڈ ہو رہا ہے...</span>
+      </div>
+    ),
+  }
+);
 
 interface FloatingAdminAiWidgetProps {
   hideFloatingButton?: boolean;
@@ -19,6 +46,8 @@ export function FloatingAdminAiWidget({
   hideFloatingButton = false,
   defaultFocusTarget = null,
 }: FloatingAdminAiWidgetProps) {
+  const pathname = usePathname() || '';
+  const isDedicatedAiPage = pathname.startsWith('/dashboard/ai-assistant');
   const isStorefrontBannerCustomizer = defaultFocusTarget === 'sale-ribbon';
   const [isOpen, setIsOpen] = useState(false);
   const [focusTarget, setFocusTarget] = useState<'sale-ribbon' | null>(defaultFocusTarget);
@@ -33,7 +62,7 @@ export function FloatingAdminAiWidget({
 
   // Track incoming customer orders even while floating drawer is minimized inside Admin Panel
   useEffect(() => {
-    if (isStorefrontBannerCustomizer || isOpen) return;
+    if (isStorefrontBannerCustomizer || isOpen || isDedicatedAiPage) return;
 
     let unsub: (() => void) | null = null;
     if (firestore) {
@@ -68,7 +97,7 @@ export function FloatingAdminAiWidget({
       unsub?.();
       window.removeEventListener('orders_updated', onLocalOrder);
     };
-  }, [firestore, isOpen, isStorefrontBannerCustomizer]);
+  }, [firestore, isOpen, isStorefrontBannerCustomizer, isDedicatedAiPage]);
 
   useEffect(() => {
     const handleOpenScanner = () => {
@@ -96,6 +125,10 @@ export function FloatingAdminAiWidget({
       window.removeEventListener('open-admin-live-supervisor', handleOpenLiveSupervisor);
     };
   }, []);
+
+  if (isDedicatedAiPage && !isStorefrontBannerCustomizer) {
+    return null;
+  }
 
   return (
     <>
@@ -189,20 +222,22 @@ export function FloatingAdminAiWidget({
               </div>
             )}
 
-            {activeTab === 'live' && !isStorefrontBannerCustomizer ? (
-              <AdminLiveSupervisor
-                compact={true}
-                onNewOrderAlertCountChange={(cnt) => {
-                  if (!isOpen) setNewOrderBadge(cnt);
-                }}
-              />
-            ) : (
-              <AdminAiChatInterface
-                key={focusTarget || 'default'}
-                compact={true}
-                focusTarget={focusTarget}
-              />
-            )}
+            <AdminAiErrorBoundary fallbackTitle="ایڈمن AI پینل لوڈ کرنے میں مسئلہ آیا">
+              {activeTab === 'live' && !isStorefrontBannerCustomizer ? (
+                <AdminLiveSupervisor
+                  compact={true}
+                  onNewOrderAlertCountChange={(cnt) => {
+                    if (!isOpen) setNewOrderBadge(cnt);
+                  }}
+                />
+              ) : (
+                <AdminAiChatInterface
+                  key={focusTarget || 'default'}
+                  compact={true}
+                  focusTarget={focusTarget}
+                />
+              )}
+            </AdminAiErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>

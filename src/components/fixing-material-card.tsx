@@ -41,6 +41,7 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
       {/* Material Image - aspect-square for a significantly larger, clearer, and premium display */}
       <Link 
         href={`/product-detail/${material.id}`}
+        prefetch={false}
         className="aspect-square overflow-hidden block relative w-full"
       >
         <Image
@@ -48,14 +49,17 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
           alt={seoImageAlt}
           width={600}
           height={600}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
           unoptimized={seoImageUrl.startsWith('data:') || seoImageUrl.startsWith('/api/stone-image/')}
-          className="h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 group-hover:brightness-105 saturate-102"
+          className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
         />
         
         {/* Top-Left Category Overlay Badge */}
         <div className="absolute top-3 left-3 z-10 pointer-events-none">
-          <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/65 backdrop-blur-xs text-white border border-white/10 rounded-full shadow-md">
+          <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/75 text-white border border-white/10 rounded-full shadow-md">
             <Tag className="h-3 w-3 text-primary" />
             <span>{material.category}</span>
           </Badge>
@@ -63,7 +67,7 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
 
         {/* Top-Right Origin Overlay Badge */}
         <div className="absolute top-3 right-3 z-10 pointer-events-none">
-          <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/65 backdrop-blur-xs text-white border border-white/10 rounded-full shadow-md">
+          <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/75 text-white border border-white/10 rounded-full shadow-md">
             <Globe className="h-3 w-3 text-primary" />
             <span>{(material as any).origin || 'Local'}</span>
           </Badge>
@@ -106,7 +110,7 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
           }}
           title={`View ${material.name} full size`}
           aria-label={`View ${material.name} full size`}
-          className="absolute bottom-3.5 right-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/65 text-white border border-white/15 backdrop-blur-xs shadow-md transition-all hover:bg-primary hover:text-primary-foreground hover:scale-105 cursor-pointer"
+          className="absolute bottom-3.5 right-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/75 text-white border border-white/15 shadow-md transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer"
         >
           <Maximize2 className="h-3.5 w-3.5" />
         </button>
@@ -151,7 +155,7 @@ export const FixingMaterialCard = React.memo(function FixingMaterialCard({ mater
 
       <CardFooter className="p-4 pt-0">
         <Button asChild className="w-full font-bold text-sm h-11 group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-xl">
-          <Link href="/order/general-supplies-order" className="flex items-center justify-center">
+          <Link href="/order/general-supplies-order" prefetch={false} className="flex items-center justify-center">
             <Calculator className="mr-2 h-4 w-4" />
             Create Quotation
           </Link>

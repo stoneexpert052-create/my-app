@@ -4,6 +4,14 @@ import { Header } from '@/components/header';
 import { useLanguage } from '@/context/language-context';
 import React, { useState, useEffect, useMemo } from 'react';
 import { getMarbles, getFixingMaterials, getServiceProviders, subscribeToAppUpdates } from '@/lib/admin-actions';
+import {
+  getBundledMarbles,
+  getBundledFixingMaterials,
+  getBundledServiceProviders,
+  getClientInstantMarbles,
+  getClientInstantFixingMaterials,
+  getClientInstantServiceProviders,
+} from '@/lib/instant-catalog';
 import type { Marble, FixingMaterial, ServiceProvider } from '@/lib/types';
 import { MarbleCard } from '@/components/marble-card';
 import { FixingMaterialCard } from '@/components/fixing-material-card';
@@ -62,11 +70,13 @@ function ProductsContent() {
   const { openImage, openGallery } = useFullscreenImage();
   const searchParams = useSearchParams();
   
-  // Data States
-  const [marbles, setMarbles] = useState<Marble[]>([]);
-  const [fixingMaterials, setFixingMaterials] = useState<FixingMaterial[]>([]);
-  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Data States (hydrated synchronously from bundled catalog for zero-spinner navigation)
+  const [marbles, setMarbles] = useState<Marble[]>(() => getBundledMarbles());
+  const [fixingMaterials, setFixingMaterials] = useState<FixingMaterial[]>(() => getBundledFixingMaterials());
+  const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>(() =>
+    getBundledServiceProviders().filter(p => p.status === 'active')
+  );
+  const [isLoading, setIsLoading] = useState(() => getBundledMarbles().length === 0);
 
   // Filter & Search States
   const initialTabParam = searchParams.get('tab');
@@ -95,9 +105,21 @@ function ProductsContent() {
   const [selectedProvider, setSelectedProvider] = useState<ServiceProvider | null>(null);
   const [isProviderDialogOpen, setIsProviderDialogOpen] = useState(false);
 
-  // Load Data
+  // Load Data (instant local cache sync + silent Firestore refresh)
   useEffect(() => {
-    async function loadAllData(showLoading = true) {
+    const instantMarbles = getClientInstantMarbles();
+    const instantFixing = getClientInstantFixingMaterials();
+    const instantProviders = getClientInstantServiceProviders();
+    if (instantMarbles.length > 0) setMarbles(instantMarbles);
+    if (instantFixing.length > 0) setFixingMaterials(instantFixing);
+    if (instantProviders.length > 0) {
+      setServiceProviders(instantProviders.filter(p => p.status === 'active'));
+    }
+    if (instantMarbles.length > 0 || instantFixing.length > 0) {
+      setIsLoading(false);
+    }
+
+    async function loadAllData(showLoading = false) {
       if (showLoading) setIsLoading(true);
       try {
         const [marblesData, fixingData, providersData] = await Promise.all([
@@ -105,17 +127,18 @@ function ProductsContent() {
           getFixingMaterials(),
           getServiceProviders()
         ]);
-        setMarbles(marblesData || []);
-        setFixingMaterials(fixingData || []);
-        // Only active service providers
-        setServiceProviders((providersData || []).filter(p => p.status === 'active'));
+        if (marblesData?.length) setMarbles(marblesData);
+        if (fixingData?.length) setFixingMaterials(fixingData);
+        if (providersData?.length) {
+          setServiceProviders(providersData.filter(p => p.status === 'active'));
+        }
       } catch (e) {
         console.error("Failed to load catalog data", e);
       } finally {
-        if (showLoading) setIsLoading(false);
+        setIsLoading(false);
       }
     }
-    loadAllData(true);
+    loadAllData(false);
 
     const unsubscribe = subscribeToAppUpdates((event) => {
       if (event.type === 'products_updated' || event.type === 'category_order_updated') {

@@ -96,6 +96,19 @@ export function getClientInstantFixingMaterials(): FixingMaterial[] {
 }
 
 export function getClientInstantServiceProviders(): ServiceProvider[] {
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_service_providers_data');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed as ServiceProvider[];
+        }
+      }
+    } catch {
+      // Ignore invalid localStorage payload
+    }
+  }
   return BUNDLED_SERVICE_PROVIDERS;
 }
 

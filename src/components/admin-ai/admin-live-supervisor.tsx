@@ -130,6 +130,19 @@ function base64ToPcm24kFloat32(base64: string): Float32Array {
   return float32;
 }
 
+function toMillis(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : 0;
+  if (typeof val === 'object' && typeof val.toDate === 'function') {
+    return val.toDate().getTime() || 0;
+  }
+  if (typeof val === 'object' && typeof val.seconds === 'number') {
+    return val.seconds * 1000;
+  }
+  const ms = new Date(val).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 function playOrderChime() {
   if (typeof window === 'undefined') return;
   try {
@@ -208,6 +221,14 @@ export function AdminLiveSupervisor({
   const knownOrderIdsRef = useRef<Set<string>>(new Set());
   const ordersInitializedRef = useRef<boolean>(false);
   const latestAdminStateRef = useRef<Record<string, any>>({});
+  const isMountedRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     pathnameRef.current = pathname;
@@ -265,7 +286,7 @@ export function AdminLiveSupervisor({
   const handleIncomingOrdersList = useCallback(
     (incomingOrders: AdminOrderItem[]) => {
       const sorted = [...incomingOrders].sort(
-        (a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+        (a, b) => toMillis(b.date) - toMillis(a.date)
       );
 
       if (!ordersInitializedRef.current) {
@@ -349,6 +370,7 @@ export function AdminLiveSupervisor({
         currentAdminPath: pathnameRef.current,
       };
 
+      if (!isMountedRef.current) return;
       latestAdminStateRef.current = nextState;
       handleIncomingOrdersList(mergedOrders);
       recomputeStatsFromState(nextState);
@@ -362,7 +384,9 @@ export function AdminLiveSupervisor({
         );
       }
     } finally {
-      setIsRefreshingState(false);
+      if (isMountedRef.current) {
+        setIsRefreshingState(false);
+      }
     }
   }, [handleIncomingOrdersList, recomputeStatsFromState]);
 
@@ -507,38 +531,42 @@ export function AdminLiveSupervisor({
   }, []);
 
   const playPcm24kChunk = useCallback((base64Audio: string) => {
-    const outCtx = outputAudioCtxRef.current;
-    if (!outCtx) return;
+    try {
+      const outCtx = outputAudioCtxRef.current;
+      if (!outCtx || outCtx.state === 'closed') return;
 
-    if (outCtx.state === 'suspended') {
-      outCtx.resume().catch(() => {});
-    }
-
-    const float32 = base64ToPcm24kFloat32(base64Audio);
-    if (float32.length === 0) return;
-
-    const audioBuffer = outCtx.createBuffer(1, float32.length, 24000);
-    audioBuffer.getChannelData(0).set(float32);
-
-    const source = outCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(outCtx.destination);
-
-    const now = outCtx.currentTime;
-    const startAt = Math.max(now + 0.01, nextStartTimeRef.current);
-    nextStartTimeRef.current = startAt + audioBuffer.duration;
-
-    activeSourcesRef.current.add(source);
-    setIsModelSpeaking(true);
-
-    source.onended = () => {
-      activeSourcesRef.current.delete(source);
-      if (activeSourcesRef.current.size === 0) {
-        setIsModelSpeaking(false);
+      if (outCtx.state === 'suspended') {
+        outCtx.resume().catch(() => {});
       }
-    };
 
-    source.start(startAt);
+      const float32 = base64ToPcm24kFloat32(base64Audio);
+      if (float32.length === 0) return;
+
+      const audioBuffer = outCtx.createBuffer(1, float32.length, 24000);
+      audioBuffer.getChannelData(0).set(float32);
+
+      const source = outCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(outCtx.destination);
+
+      const now = outCtx.currentTime;
+      const startAt = Math.max(now + 0.01, nextStartTimeRef.current);
+      nextStartTimeRef.current = startAt + audioBuffer.duration;
+
+      activeSourcesRef.current.add(source);
+      setIsModelSpeaking(true);
+
+      source.onended = () => {
+        activeSourcesRef.current.delete(source);
+        if (activeSourcesRef.current.size === 0 && isMountedRef.current) {
+          setIsModelSpeaking(false);
+        }
+      };
+
+      source.start(startAt);
+    } catch {
+      // Ignore audio decoding/playback frame errors cleanly
+    }
   }, []);
 
   const startLiveSession = useCallback(
@@ -559,7 +587,15 @@ export function AdminLiveSupervisor({
         const OutputAudioCtx =
           window.AudioContext ||
           (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const outCtx = new OutputAudioCtx({ sampleRate: 24000 });
+        if (!OutputAudioCtx) {
+          throw new Error('Audio playback is not supported in this browser.');
+        }
+        let outCtx: AudioContext;
+        try {
+          outCtx = new OutputAudioCtx({ sampleRate: 24000 });
+        } catch {
+          outCtx = new OutputAudioCtx();
+        }
         if (outCtx.state === 'suspended') {
           await outCtx.resume().catch(() => {});
         }
@@ -607,28 +643,37 @@ export function AdminLiveSupervisor({
               syncFullAdminContext();
 
               if (micStream) {
-                const InputAudioCtx =
-                  window.AudioContext ||
-                  (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-                const inCtx = new InputAudioCtx({ sampleRate: 16000 });
-                inputAudioCtxRef.current = inCtx;
+                try {
+                  const InputAudioCtx =
+                    window.AudioContext ||
+                    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                  let inCtx: AudioContext;
+                  try {
+                    inCtx = new InputAudioCtx({ sampleRate: 16000 });
+                  } catch {
+                    inCtx = new InputAudioCtx();
+                  }
+                  inputAudioCtxRef.current = inCtx;
 
-                const source = inCtx.createMediaStreamSource(micStream);
-                const processor = inCtx.createScriptProcessor(4096, 1, 1);
-                processorRef.current = processor;
+                  const source = inCtx.createMediaStreamSource(micStream);
+                  const processor = inCtx.createScriptProcessor(4096, 1, 1);
+                  processorRef.current = processor;
 
-                source.connect(processor);
-                processor.connect(inCtx.destination);
+                  source.connect(processor);
+                  processor.connect(inCtx.destination);
 
-                processor.onaudioprocess = (e) => {
-                  if (!isConnectedRef.current || isMutedRef.current) return;
-                  if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+                  processor.onaudioprocess = (e) => {
+                    if (!isConnectedRef.current || isMutedRef.current) return;
+                    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-                  const rawChannel = e.inputBuffer.getChannelData(0);
-                  const downsampled = downsampleFloat32To16k(rawChannel, inCtx.sampleRate);
-                  const base64 = float32ToPcm16Base64(downsampled);
-                  wsRef.current.send(JSON.stringify({ type: 'audio', audio: base64 }));
-                };
+                    const rawChannel = e.inputBuffer.getChannelData(0);
+                    const downsampled = downsampleFloat32To16k(rawChannel, inCtx.sampleRate);
+                    const base64 = float32ToPcm16Base64(downsampled);
+                    wsRef.current.send(JSON.stringify({ type: 'audio', audio: base64 }));
+                  };
+                } catch {
+                  setMicAvailable(false);
+                }
               }
             } else if (msg.type === 'audio' && msg.audio) {
               playPcm24kChunk(msg.audio);

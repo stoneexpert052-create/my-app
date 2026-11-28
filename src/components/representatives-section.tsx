@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage } from '@/context/language-context';
-import { getRepresentatives, type Representative } from '@/lib/admin-actions';
+import { getRepresentatives, getInstantRepresentatives, type Representative } from '@/lib/admin-actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,13 +30,21 @@ interface RepresentativesSectionProps {
 
 export function RepresentativesSection({ initialRegion, showTitle = true }: RepresentativesSectionProps) {
   const { language } = useLanguage();
-  const [representatives, setRepresentatives] = useState<Representative[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [representatives, setRepresentatives] = useState<Representative[]>(() =>
+    getInstantRepresentatives().filter(r => r.isActive)
+  );
+  const [loading, setLoading] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string>(initialRegion || 'All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     let isMounted = true;
+    const instant = getInstantRepresentatives().filter(r => r.isActive);
+    if (instant.length > 0) {
+      setRepresentatives(instant);
+      setLoading(false);
+    }
+
     async function load() {
       try {
         const data = await getRepresentatives();

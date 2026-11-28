@@ -55,10 +55,17 @@ export function AdminAiChatInterface({
         content: isSaleRibbonFocus
           ? `**السلام علیکم!** AI Operations Manager اب **مین ہیڈر سیل ربن (\`#main-header-sale-ribbon\`)** پر فوکسڈ ہے۔\n\nآپ نیچے کسی بھی فوری کمانڈ پر کلک کریں یا اپنی پسند کا **کلر گریڈینٹ، شیڈو / گلو، یا اینٹرنس اینیمیشن** لکھ کر بتائیں — میں لائیو پری ویو دکھا کر آپ کی تائید کے بعد فوراً لاگو کر دوں گا!`
           : `**السلام علیکم!** میں **Stone Expert AI Operations Manager** ہوں۔\n\nآپ مجھے اپنی زبان (اردو یا انگریزی) میں کسی بھی کام کا حکم دے سکتے ہیں:\n* 🎨 **مین ہیڈر سیل بینر** کے رنگ (Gradients)، شیڈو (Shadows) یا اینٹرنس اینیمیشن تبدیل کرنا\n* 📸 **سپلائر کی ریٹ لسٹ کی تصویر (Rate Sheet Photo)** اپلوڈ کر کے ریٹس اپ ڈیٹ کرنا\n* کسی ماربل یا کیمیکل کا **ریٹ تبدیل کرنا** یا **بلک ڈسکاؤنٹ** لگانا\n\n⚠️ **حفاظتی طریقہ کار (Safety Gate):** کوئی بھی تبدیلی لاگو کرنے سے پہلے میں آپ سے **اوکے / تائید (Confirm)** طلب کروں گا۔`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: ''
       }
     ];
   });
+
+  useEffect(() => {
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev =>
+      prev.map(m => (m.id === 'msg-welcome' && !m.timestamp ? { ...m, timestamp: nowTime } : m))
+    );
+  }, []);
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -448,7 +455,7 @@ export function AdminAiChatInterface({
                     </div>
                   )}
                   <div className="markdown-body space-y-1.5">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <ReactMarkdown>{typeof msg.content === 'string' ? msg.content : String(msg.content || '')}</ReactMarkdown>
                   </div>
                 </div>
 

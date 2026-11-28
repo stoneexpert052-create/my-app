@@ -225,6 +225,29 @@ export type SiteVisitJobStatus =
   | 'approved'
   | 'completed';
 
+export type SiteVisitPhotoCategory =
+  | 'site-overview'
+  | 'stairs'
+  | 'window-sill'
+  | 'floor'
+  | 'feature-wall'
+  | 'kitchen'
+  | 'vanity'
+  | 'material-sample'
+  | 'measurement-proof';
+
+export interface SiteVisitPhoto {
+  id: string;
+  jobId: string;
+  representativeId: string;
+  representativeName?: string;
+  category: SiteVisitPhotoCategory;
+  caption?: string;
+  imageUrl: string;
+  capturedAt: string;
+  uploadedBy: 'representative' | 'admin';
+}
+
 export interface SiteVisitJob {
   id: string;
   representativeId: string;
@@ -240,6 +263,7 @@ export interface SiteVisitJob {
   siteMeasurements: SiteMeasurementSection[];
   grandTotalSqFt: number;
   grandTotalPKR: number;
+  photoCount?: number;
   linkedOrderId?: string;
   createdBy: 'admin' | 'representative' | 'customer';
   createdAt: string;

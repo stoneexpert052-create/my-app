@@ -10,6 +10,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Icons } from '@/components/icons';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ const navItems = [
 
 export function DashboardSidebarNav() {
   const pathname = usePathname();
+  const { setOpenMobile } = useSidebar();
 
   // A simple mapping to handle nested routes for active state
   const getActiveState = (itemHref: string) => {
@@ -50,7 +52,7 @@ export function DashboardSidebarNav() {
     <>
       <SidebarHeader>
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" onClick={() => setOpenMobile(false)} className="flex items-center gap-2">
             <span className="font-headline text-lg font-bold">
               Stone Expert
             </span>
@@ -85,7 +87,7 @@ export function DashboardSidebarNav() {
                       : undefined
                   }
                 >
-                  <Link href={item.href} className="flex items-center w-full justify-between">
+                  <Link href={item.href} onClick={() => setOpenMobile(false)} className="flex items-center w-full justify-between">
                     <div className="flex items-center gap-2">
                       <item.icon className={isAi ? "text-amber-500 animate-pulse font-black" : isOptimizer ? "text-emerald-600 dark:text-emerald-400 font-bold" : isStudio || isBrochure ? "text-amber-600 dark:text-amber-400 font-bold" : undefined} />
                       <span>{item.label}</span>
@@ -118,7 +120,7 @@ export function DashboardSidebarNav() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Company Brochure & PDF" className="bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 font-semibold border border-amber-500/25">
-              <Link href="/dashboard/brochure">
+              <Link href="/dashboard/brochure" onClick={() => setOpenMobile(false)}>
                 <FileText className="text-amber-600 dark:text-amber-400" />
                 <span>Brochure & Price List (بروشر و ریٹ لسٹ)</span>
               </Link>
@@ -129,7 +131,7 @@ export function DashboardSidebarNav() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Back to Store">
-              <Link href="/">
+              <Link href="/" onClick={() => setOpenMobile(false)}>
                 <Home />
                 <span>Back to Store</span>
               </Link>

@@ -18,7 +18,7 @@ import {
   arrayRemove,
   limit
 } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebase, handleFirestoreError, OperationType } from '@/firebase';
 import type {
   Order,
   Marble,
@@ -32,6 +32,8 @@ import type {
   SiteMeasurementRow,
   SiteMeasurementCategory,
   SiteVisitJobStatus,
+  SiteVisitPhoto,
+  SiteVisitPhotoCategory,
   PriceHistoryEntry
 } from './types';
 export type {
@@ -42,6 +44,8 @@ export type {
   SiteMeasurementRow,
   SiteMeasurementCategory,
   SiteVisitJobStatus,
+  SiteVisitPhoto,
+  SiteVisitPhotoCategory,
   PriceHistoryEntry
 };
 import initialMarbles from '@/lib/marbles-data.json';
@@ -116,6 +120,8 @@ const inMemoryCache: {
   homepageContent: { data: any; timestamp: number } | null;
   dailyRates: { data: any; timestamp: number } | null;
   representatives: { data: Representative[]; timestamp: number } | null;
+  buildYourHomeRates: { data: any; timestamp: number } | null;
+  renovationRates: { data: any; timestamp: number } | null;
 } = {
   marbles: null,
   fixingMaterials: null,
@@ -127,9 +133,11 @@ const inMemoryCache: {
   homepageContent: null,
   dailyRates: null,
   representatives: null,
+  buildYourHomeRates: null,
+  renovationRates: null,
 };
 
-const CACHE_TTL_MS = 120_000;
+const CACHE_TTL_MS = 300_000;
 const inFlightRequests: Partial<Record<keyof typeof inMemoryCache, Promise<any>>> = {};
 
 function cleanMarbleImage(url?: string): string {
@@ -184,6 +192,18 @@ export function getInstantServiceProviders(): ServiceProvider[] {
   if (inMemoryCache.serviceProviders?.data?.length) {
     return inMemoryCache.serviceProviders.data;
   }
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_service_providers_data');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          inMemoryCache.serviceProviders = { data: parsed, timestamp: 0 };
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
   return initialServiceProviders as ServiceProvider[];
 }
 
@@ -206,6 +226,12 @@ export function clearDataCaches(specific?: keyof typeof inMemoryCache) {
       if (!specific || specific === 'serviceProviders') {
         localStorage.removeItem('cached_service_providers_data');
       }
+      if (!specific || specific === 'buildYourHomeRates') {
+        localStorage.removeItem('cached_build_your_home_rates');
+      }
+      if (!specific || specific === 'renovationRates') {
+        localStorage.removeItem('cached_renovation_rates');
+      }
     } catch (e) {}
   }
 }
@@ -217,6 +243,7 @@ export type AppSyncEventType =
   | 'costs_updated' 
   | 'suppliers_updated'
   | 'representatives_updated'
+  | 'rep_jobs_updated'
   | 'partner_companies_updated';
 
 /**
@@ -235,6 +262,8 @@ export function broadcastAppUpdate(type: AppSyncEventType, detail?: any) {
   } else if (type === 'costs_updated') {
     clearDataCaches('costsConfig');
     clearDataCaches('dailyRates');
+    clearDataCaches('buildYourHomeRates');
+    clearDataCaches('renovationRates');
   } else {
     clearDataCaches();
   }
@@ -282,7 +311,9 @@ export function subscribeToAppUpdates(
     'products_updated',
     'homepage_updated',
     'costs_updated',
-    'suppliers_updated'
+    'suppliers_updated',
+    'representatives_updated',
+    'rep_jobs_updated'
   ];
 
   types.forEach(t => window.addEventListener(t, handleCustomEvent));
@@ -612,7 +643,10 @@ export async function getMarbles(): Promise<Marble[]> {
   const promise = (async () => {
     try {
       const colRef = collection(db, 'marbles');
-      const snapshot = await getDocs(colRef);
+      const [snapshot, delSnap] = await Promise.all([
+        withFastTimeout(getDocs(colRef), 2500),
+        withFastTimeout(getDoc(doc(db, 'config', 'deleted_items')), 1500).catch(() => null),
+      ]);
       const dbMarbles = snapshot.docs.map(d => {
         const data = d.data();
         return {
@@ -623,17 +657,14 @@ export async function getMarbles(): Promise<Marble[]> {
       });
 
       const deletedIds = new Set<string>();
-      try {
-        const delSnap = await getDoc(doc(db, 'config', 'deleted_items'));
-        if (delSnap.exists()) {
-          const delData = delSnap.data();
-          Object.keys(delData).forEach(k => {
-            if (k.startsWith('marble_') && delData[k] === true) {
-              deletedIds.add(k.replace('marble_', ''));
-            }
-          });
-        }
-      } catch (e) {}
+      if (delSnap && delSnap.exists()) {
+        const delData = delSnap.data();
+        Object.keys(delData).forEach(k => {
+          if (k.startsWith('marble_') && delData[k] === true) {
+            deletedIds.add(k.replace('marble_', ''));
+          }
+        });
+      }
 
       const mergedList = getCleanedInitial().filter((m) => !deletedIds.has(m.id));
       const indexById = new Map<string, number>();
@@ -842,21 +873,21 @@ export async function getFixingMaterials(): Promise<FixingMaterial[]> {
 
     const promise = (async () => {
       try {
-          const snapshot = await getDocs(collection(db, 'fixing_materials'));
+          const [snapshot, delSnap] = await Promise.all([
+            withFastTimeout(getDocs(collection(db, 'fixing_materials')), 2500),
+            withFastTimeout(getDoc(doc(db, 'config', 'deleted_items')), 1500).catch(() => null),
+          ]);
           const dbItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as FixingMaterial));
 
           const deletedIds = new Set<string>();
-          try {
-            const delSnap = await getDoc(doc(db, 'config', 'deleted_items'));
-            if (delSnap.exists()) {
-              const delData = delSnap.data();
-              Object.keys(delData).forEach(k => {
-                if (k.startsWith('fixing_') && delData[k] === true) {
-                  deletedIds.add(k.replace('fixing_', ''));
-                }
-              });
-            }
-          } catch (e) {}
+          if (delSnap && delSnap.exists()) {
+            const delData = delSnap.data();
+            Object.keys(delData).forEach(k => {
+              if (k.startsWith('fixing_') && delData[k] === true) {
+                deletedIds.add(k.replace('fixing_', ''));
+              }
+            });
+          }
 
           const merged = (initialFixingMaterials as FixingMaterial[])
             .map(m => ({ ...m }))
@@ -1016,7 +1047,7 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
   const promise = (async () => {
     try {
       const colRef = collection(db, 'service_providers');
-      const snapshot = await getDocs(colRef);
+      const snapshot = await withFastTimeout(getDocs(colRef), 2500);
       const dbProviders = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ServiceProvider));
 
       const mergedList = (initialServiceProviders as ServiceProvider[]).map(p => ({ ...p }));
@@ -1033,6 +1064,11 @@ export async function getServiceProviders(): Promise<ServiceProvider[]> {
         }
       });
       inMemoryCache.serviceProviders = { data: mergedList, timestamp: Date.now() };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('cached_service_providers_data', JSON.stringify(mergedList));
+        } catch (e) {}
+      }
       return mergedList;
     } catch (error) {
       logFetchError("Error fetching service providers", error);
@@ -1272,13 +1308,25 @@ export async function getHomepageContent() {
   if (!db) return { success: true, content: inMemoryCache.homepageContent?.data || null };
   const promise = (async () => {
     try {
-      const snap = await getDoc(doc(db, 'config', 'homepage_content'));
+      const snap = await withFastTimeout(getDoc(doc(db, 'config', 'homepage_content')), 2000);
       const content = snap.exists() ? snap.data() : null;
       inMemoryCache.homepageContent = { data: content, timestamp: Date.now() };
+      if (typeof window !== 'undefined' && content) {
+        try {
+          localStorage.setItem('cached_homepage_content', JSON.stringify(content));
+        } catch (e) {}
+      }
       return { success: true, content };
     } catch (error: any) {
       logFetchError("Error fetching homepage content", error);
-      return { success: true, content: inMemoryCache.homepageContent?.data || null };
+      let fallback = inMemoryCache.homepageContent?.data || null;
+      if (!fallback && typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('cached_homepage_content');
+          if (cached) fallback = JSON.parse(cached);
+        } catch (e) {}
+      }
+      return { success: true, content: fallback };
     } finally {
       delete inFlightRequests.homepageContent;
     }
@@ -1502,23 +1550,23 @@ export async function getSearchLogs(): Promise<Array<{ id: string; term: string;
   if (!db) return [];
   try {
     const q = query(collection(db, 'searches'), orderBy('timestamp', 'desc'), limit(500));
-    const snap = await getDocs(q);
+    const snap = await withFastTimeout(getDocs(q), 4000);
     return snap.docs.map(doc => ({
       id: doc.id,
       ...(doc.data() as { term: string; rawTerm?: string; found?: boolean; source?: string; timestamp: string })
     }));
   } catch (e) {
-    console.error("Error getting search logs:", e);
+    logFetchError("Error getting search logs", e);
     // Fallback if index missing or error
     try {
-      const snap = await getDocs(collection(db, 'searches'));
+      const snap = await withFastTimeout(getDocs(collection(db, 'searches')), 3000);
       const list = snap.docs.map(doc => ({
         id: doc.id,
         ...(doc.data() as { term: string; rawTerm?: string; found?: boolean; source?: string; timestamp: string })
       }));
       return list.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
     } catch (err) {
-      console.error("Fallback error getting search logs:", err);
+      logFetchError("Fallback error getting search logs", err);
       return [];
     }
   }
@@ -1607,7 +1655,7 @@ export async function getHomepageConfig() {
 
   const promise = (async () => {
     try {
-      const snap = await getDoc(doc(db, 'config', 'homepage'));
+      const snap = await withFastTimeout(getDoc(doc(db, 'config', 'homepage')), 2000);
       if (snap.exists()) {
         const data = snap.data();
         if (data && data.categoryOrder && Array.isArray(data.categoryOrder)) {
@@ -1685,9 +1733,14 @@ export async function getCostsConfig() {
   const db = getDb();
   if (!db) return costsConfig;
   try {
-    const snap = await getDoc(doc(db, 'config', 'costs'));
+    const snap = await withFastTimeout(getDoc(doc(db, 'config', 'costs')), 2000);
     const data = snap.exists() ? snap.data() : costsConfig;
     inMemoryCache.costsConfig = { data, timestamp: Date.now() };
+    if (typeof window !== 'undefined' && data) {
+      try {
+        localStorage.setItem('cached_costs_config', JSON.stringify(data));
+      } catch (e) {}
+    }
     return data;
   } catch (e: any) {
     logFetchError("Error fetching costs config", e);
@@ -1724,7 +1777,7 @@ export async function getAdminBackgroundConfig(): Promise<AdminBackgroundConfig>
   const db = getDb();
   if (!db) return defaultAdminBackgroundConfig;
   try {
-    const snap = await getDoc(doc(db, 'config', 'admin_background'));
+    const snap = await withFastTimeout(getDoc(doc(db, 'config', 'admin_background')), 2000);
     if (snap.exists()) {
       const data = { ...defaultAdminBackgroundConfig, ...snap.data() } as AdminBackgroundConfig;
       inMemoryCache.adminBackground = { data, timestamp: Date.now() };
@@ -2072,42 +2125,82 @@ export const defaultBuildYourHomeRates: BuildYourHomeRates = {
   ]
 };
 
-export async function getBuildYourHomeRatesConfig(): Promise<BuildYourHomeRates> {
-  const db = getDb();
-  if (!db) return defaultBuildYourHomeRates;
-  try {
-    const snap = await getDoc(doc(db, 'config', 'build_your_home_rates'));
-    if (snap.exists()) {
-      const data = snap.data();
-      // Deep merge with defaults to ensure missing nested keys don't cause errors
-      return {
-        maintenance: { ...defaultBuildYourHomeRates.maintenance, ...data.maintenance, urgencyMultipliers: { ...defaultBuildYourHomeRates.maintenance.urgencyMultipliers, ...data.maintenance?.urgencyMultipliers } },
-        newProjects: { 
-          ...defaultBuildYourHomeRates.newProjects, 
-          ...data.newProjects, 
-          gradeRates: { ...defaultBuildYourHomeRates.newProjects.gradeRates, ...data.newProjects?.gradeRates }, 
-          scopeMultipliers: { ...defaultBuildYourHomeRates.newProjects.scopeMultipliers, ...data.newProjects?.scopeMultipliers }, 
-          baseAreaSqFt: { ...defaultBuildYourHomeRates.newProjects.baseAreaSqFt, ...data.newProjects?.baseAreaSqFt },
-          floorDefaults: {
-            marla5: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.marla5, ...data.newProjects?.floorDefaults?.marla5 },
-            marla10: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.marla10, ...data.newProjects?.floorDefaults?.marla10 },
-            kanal1: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.kanal1, ...data.newProjects?.floorDefaults?.kanal1 },
-            kanal2: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.kanal2, ...data.newProjects?.floorDefaults?.kanal2 },
-            commercial: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.commercial, ...data.newProjects?.floorDefaults?.commercial },
-          },
-          floorRateMultipliers: { ...defaultBuildYourHomeRates.newProjects.floorRateMultipliers, ...data.newProjects?.floorRateMultipliers },
-          gradeMultipliers: { ...defaultBuildYourHomeRates.newProjects.gradeMultipliers, ...data.newProjects?.gradeMultipliers },
-          baseCostPerSqFt: data.newProjects?.baseCostPerSqFt ?? defaultBuildYourHomeRates.newProjects.baseCostPerSqFt,
-        },
-        interior: { ...defaultBuildYourHomeRates.interior, ...data.interior, techniques: { ...defaultBuildYourHomeRates.interior.techniques, ...data.interior?.techniques }, finishes: { ...defaultBuildYourHomeRates.interior.finishes, ...data.interior?.finishes }, lighting: { ...defaultBuildYourHomeRates.interior.lighting, ...data.interior?.lighting } },
-        customCategories: data.customCategories && Array.isArray(data.customCategories) && data.customCategories.length > 0 ? data.customCategories : defaultBuildYourHomeRates.customCategories
-      };
-    }
-    return defaultBuildYourHomeRates;
-  } catch (e: any) {
-    logFetchError("Error fetching build_your_home_rates config", e);
-    return defaultBuildYourHomeRates;
+export function getInstantBuildYourHomeRatesConfig(): BuildYourHomeRates {
+  if (inMemoryCache.buildYourHomeRates?.data) {
+    return inMemoryCache.buildYourHomeRates.data;
   }
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_build_your_home_rates');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === 'object') {
+          return parsed as BuildYourHomeRates;
+        }
+      }
+    } catch (e) {}
+  }
+  return defaultBuildYourHomeRates;
+}
+
+function mergeBuildYourHomeRates(data: any): BuildYourHomeRates {
+  return {
+    maintenance: { ...defaultBuildYourHomeRates.maintenance, ...data.maintenance, urgencyMultipliers: { ...defaultBuildYourHomeRates.maintenance.urgencyMultipliers, ...data.maintenance?.urgencyMultipliers } },
+    newProjects: { 
+      ...defaultBuildYourHomeRates.newProjects, 
+      ...data.newProjects, 
+      gradeRates: { ...defaultBuildYourHomeRates.newProjects.gradeRates, ...data.newProjects?.gradeRates }, 
+      scopeMultipliers: { ...defaultBuildYourHomeRates.newProjects.scopeMultipliers, ...data.newProjects?.scopeMultipliers }, 
+      baseAreaSqFt: { ...defaultBuildYourHomeRates.newProjects.baseAreaSqFt, ...data.newProjects?.baseAreaSqFt },
+      floorDefaults: {
+        marla5: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.marla5, ...data.newProjects?.floorDefaults?.marla5 },
+        marla10: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.marla10, ...data.newProjects?.floorDefaults?.marla10 },
+        kanal1: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.kanal1, ...data.newProjects?.floorDefaults?.kanal1 },
+        kanal2: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.kanal2, ...data.newProjects?.floorDefaults?.kanal2 },
+        commercial: { ...defaultBuildYourHomeRates.newProjects.floorDefaults?.commercial, ...data.newProjects?.floorDefaults?.commercial },
+      },
+      floorRateMultipliers: { ...defaultBuildYourHomeRates.newProjects.floorRateMultipliers, ...data.newProjects?.floorRateMultipliers },
+      gradeMultipliers: { ...defaultBuildYourHomeRates.newProjects.gradeMultipliers, ...data.newProjects?.gradeMultipliers },
+      baseCostPerSqFt: data.newProjects?.baseCostPerSqFt ?? defaultBuildYourHomeRates.newProjects.baseCostPerSqFt,
+    },
+    interior: { ...defaultBuildYourHomeRates.interior, ...data.interior, techniques: { ...defaultBuildYourHomeRates.interior.techniques, ...data.interior?.techniques }, finishes: { ...defaultBuildYourHomeRates.interior.finishes, ...data.interior?.finishes }, lighting: { ...defaultBuildYourHomeRates.interior.lighting, ...data.interior?.lighting } },
+    customCategories: data.customCategories && Array.isArray(data.customCategories) && data.customCategories.length > 0 ? data.customCategories : defaultBuildYourHomeRates.customCategories
+  };
+}
+
+export async function getBuildYourHomeRatesConfig(): Promise<BuildYourHomeRates> {
+  const now = Date.now();
+  if (inMemoryCache.buildYourHomeRates && inMemoryCache.buildYourHomeRates.timestamp > 0 && (now - inMemoryCache.buildYourHomeRates.timestamp < CACHE_TTL_MS)) {
+    return inMemoryCache.buildYourHomeRates.data;
+  }
+  if (inFlightRequests.buildYourHomeRates) {
+    return inFlightRequests.buildYourHomeRates;
+  }
+
+  const db = getDb();
+  if (!db) return getInstantBuildYourHomeRatesConfig();
+
+  const promise = (async () => {
+    try {
+      const snap = await withFastTimeout(getDoc(doc(db, 'config', 'build_your_home_rates')), 2000);
+      const result = snap.exists() ? mergeBuildYourHomeRates(snap.data()) : defaultBuildYourHomeRates;
+      inMemoryCache.buildYourHomeRates = { data: result, timestamp: Date.now() };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('cached_build_your_home_rates', JSON.stringify(result));
+        } catch (e) {}
+      }
+      return result;
+    } catch (e: any) {
+      logFetchError("Error fetching build_your_home_rates config", e);
+      return getInstantBuildYourHomeRatesConfig();
+    } finally {
+      delete inFlightRequests.buildYourHomeRates;
+    }
+  })();
+
+  inFlightRequests.buildYourHomeRates = promise;
+  return promise;
 }
 
 export async function updateBuildYourHomeRates(rates: BuildYourHomeRates) {
@@ -2115,6 +2208,7 @@ export async function updateBuildYourHomeRates(rates: BuildYourHomeRates) {
   if (!db) return { success: false, error: "Database not connected" };
   try {
     await setDoc(doc(db, 'config', 'build_your_home_rates'), rates, { merge: true });
+    clearDataCaches('buildYourHomeRates');
     broadcastAppUpdate('costs_updated', rates);
     return { success: true };
   } catch (e: any) {
@@ -3154,7 +3248,7 @@ export async function getSupplierById(id: string): Promise<Supplier | null> {
       return allSuppliers[0] || null;
     }
   } catch (error) {
-    console.error("Error finding supplier in collection scan:", error);
+    logFetchError("Error finding supplier in collection scan", error);
   }
 
   return null;
@@ -3422,7 +3516,7 @@ export async function getServiceProviderById(id: string): Promise<ServiceProvide
         return { id: snap.id, ...snap.data() } as ServiceProvider;
       }
     } catch (error) {
-      console.error("Error fetching provider from firestore:", error);
+      logFetchError("Error fetching provider from firestore", error);
     }
   }
 
@@ -3442,7 +3536,7 @@ export async function getServiceProviderById(id: string): Promise<ServiceProvide
         return { id: matched.id, ...matched.data() } as ServiceProvider;
       }
     } catch (err) {
-      console.error("Error searching in service_providers collection:", err);
+      logFetchError("Error searching in service_providers collection", err);
     }
   }
 
@@ -4040,25 +4134,68 @@ export const defaultRenovationRatesConfig: RenovationRatesConfig = {
   customItems: []
 };
 
-export async function getRenovationRatesConfig(): Promise<RenovationRatesConfig> {
-  const db = getDb();
-  if (!db) return defaultRenovationRatesConfig;
-  try {
-    const docRef = doc(db, 'settings', 'renovation_rates');
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data() as Partial<RenovationRatesConfig>;
-      return {
-        gradeMultipliers: { ...defaultRenovationRatesConfig.gradeMultipliers, ...data.gradeMultipliers },
-        spaces: data.spaces && data.spaces.length > 0 ? data.spaces : defaultRenovationRatesConfig.spaces,
-        trades: data.trades && data.trades.length > 0 ? data.trades : defaultRenovationRatesConfig.trades,
-        customItems: data.customItems || [],
-      };
-    }
-  } catch (error) {
-    console.warn("Failed to fetch renovation rates config from Firestore, using default:", error);
+export function getInstantRenovationRatesConfig(): RenovationRatesConfig {
+  if (inMemoryCache.renovationRates?.data) {
+    return inMemoryCache.renovationRates.data;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem('cached_renovation_rates');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === 'object') {
+          return parsed as RenovationRatesConfig;
+        }
+      }
+    } catch (e) {}
   }
   return defaultRenovationRatesConfig;
+}
+
+export async function getRenovationRatesConfig(): Promise<RenovationRatesConfig> {
+  const now = Date.now();
+  if (inMemoryCache.renovationRates && inMemoryCache.renovationRates.timestamp > 0 && (now - inMemoryCache.renovationRates.timestamp < CACHE_TTL_MS)) {
+    return inMemoryCache.renovationRates.data;
+  }
+  if (inFlightRequests.renovationRates) {
+    return inFlightRequests.renovationRates;
+  }
+
+  const db = getDb();
+  if (!db) return getInstantRenovationRatesConfig();
+
+  const promise = (async () => {
+    try {
+      const docRef = doc(db, 'settings', 'renovation_rates');
+      const docSnap = await withFastTimeout(getDoc(docRef), 2000);
+      const result: RenovationRatesConfig = docSnap.exists()
+        ? (() => {
+            const data = docSnap.data() as Partial<RenovationRatesConfig>;
+            return {
+              gradeMultipliers: { ...defaultRenovationRatesConfig.gradeMultipliers, ...data.gradeMultipliers },
+              spaces: data.spaces && data.spaces.length > 0 ? data.spaces : defaultRenovationRatesConfig.spaces,
+              trades: data.trades && data.trades.length > 0 ? data.trades : defaultRenovationRatesConfig.trades,
+              customItems: data.customItems || [],
+            };
+          })()
+        : defaultRenovationRatesConfig;
+      inMemoryCache.renovationRates = { data: result, timestamp: Date.now() };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('cached_renovation_rates', JSON.stringify(result));
+        } catch (e) {}
+      }
+      return result;
+    } catch (error) {
+      logFetchError("Failed to fetch renovation rates config from Firestore, using cached/default:", error);
+      return getInstantRenovationRatesConfig();
+    } finally {
+      delete inFlightRequests.renovationRates;
+    }
+  })();
+
+  inFlightRequests.renovationRates = promise;
+  return promise;
 }
 
 export async function updateRenovationRates(configData: RenovationRatesConfig) {
@@ -4068,6 +4205,7 @@ export async function updateRenovationRates(configData: RenovationRatesConfig) {
     const docRef = doc(db, 'settings', 'renovation_rates');
     await setDoc(docRef, { ...configData, updatedAt: new Date().toISOString() }, { merge: false });
     clearDataCaches('costsConfig');
+    clearDataCaches('renovationRates');
     broadcastAppUpdate('costs_updated', configData);
     return { success: true };
   } catch (error: any) {
@@ -4089,7 +4227,7 @@ export async function getRenovationInquiries(): Promise<any[]> {
       return timeB - timeA;
     });
   } catch (err) {
-    console.error("Error fetching renovation inquiries:", err);
+    logFetchError("Error fetching renovation inquiries", err);
     return [];
   }
 }
@@ -4180,7 +4318,7 @@ export async function getPartnerCompanies(): Promise<PartnerCompany[]> {
   const promise = (async () => {
     try {
       const colRef = collection(db, 'partner_companies');
-      const snapshot = await getDocs(colRef);
+      const snapshot = await withFastTimeout(getDocs(colRef), 2500);
       if (snapshot.empty) {
         inMemoryCache.partnerCompanies = { data: defaultPartnerCompanies, timestamp: Date.now() };
         return defaultPartnerCompanies;
@@ -4188,10 +4326,22 @@ export async function getPartnerCompanies(): Promise<PartnerCompany[]> {
       const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as PartnerCompany));
       const sorted = items.sort((a, b) => (a.order || 99) - (b.order || 99));
       inMemoryCache.partnerCompanies = { data: sorted, timestamp: Date.now() };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('cached_partner_companies', JSON.stringify(sorted));
+        } catch (e) {}
+      }
       return sorted;
     } catch (err) {
       logFetchError('getPartnerCompanies', err);
-      return inMemoryCache.partnerCompanies?.data || defaultPartnerCompanies;
+      if (inMemoryCache.partnerCompanies?.data) return inMemoryCache.partnerCompanies.data;
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('cached_partner_companies');
+          if (cached) return JSON.parse(cached);
+        } catch (e) {}
+      }
+      return defaultPartnerCompanies;
     } finally {
       delete inFlightRequests.partnerCompanies;
     }
@@ -4215,16 +4365,28 @@ export async function getDailyRates(): Promise<DailyRates> {
 
   const promise = (async () => {
     try {
-      const docSnap = await getDoc(doc(db, 'rates', 'daily'));
+      const docSnap = await withFastTimeout(getDoc(doc(db, 'rates', 'daily')), 2000);
       if (docSnap.exists()) {
         const data = docSnap.data() as DailyRates;
         inMemoryCache.dailyRates = { data, timestamp: Date.now() };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('cached_daily_rates', JSON.stringify(data));
+          } catch (e) {}
+        }
         return data;
       }
       return defaultDailyRates;
     } catch (error) {
       logFetchError("Error fetching daily rates", error);
-      return inMemoryCache.dailyRates?.data || defaultDailyRates;
+      if (inMemoryCache.dailyRates?.data) return inMemoryCache.dailyRates.data;
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('cached_daily_rates');
+          if (cached) return JSON.parse(cached);
+        } catch (e) {}
+      }
+      return defaultDailyRates;
     } finally {
       delete inFlightRequests.dailyRates;
     }
@@ -4264,23 +4426,30 @@ export interface ExtractedSupplierRateItem {
 
 export async function getAdminAiContext() {
   const [marbles, fixingMaterials, buildRates, dailyRates, suppliers, orders, serviceProviders, searchLogs] = await Promise.all([
-    getMarbles(),
-    getFixingMaterials(),
-    getBuildYourHomeRatesConfig(),
-    getDailyRates(),
-    getSuppliers(),
-    getOrders(40),
-    getServiceProviders(),
-    getSearchLogs()
+    getMarbles().catch(() => []),
+    getFixingMaterials().catch(() => []),
+    getBuildYourHomeRatesConfig().catch(() => getInstantBuildYourHomeRatesConfig()),
+    getDailyRates().catch(() => defaultDailyRates),
+    getSuppliers().catch(() => []),
+    getOrders(40).catch(() => []),
+    getServiceProviders().catch(() => []),
+    getSearchLogs().catch(() => [])
   ]);
 
+  const safeMarbles = Array.isArray(marbles) ? marbles : [];
+  const safeFixing = Array.isArray(fixingMaterials) ? fixingMaterials : [];
+  const safeSuppliers = Array.isArray(suppliers) ? suppliers : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeProviders = Array.isArray(serviceProviders) ? serviceProviders : [];
+  const safeSearches = Array.isArray(searchLogs) ? searchLogs : [];
+
   return {
-    marbles: marbles.map(m => ({
+    marbles: safeMarbles.map(m => ({
       id: m.id,
       name: m.name,
       category: m.category || m.materialType || 'Marble',
       origin: m.origin,
-      variants: m.variants.map(v => ({
+      variants: (Array.isArray(m.variants) ? m.variants : []).map(v => ({
         id: v.id,
         name: `${v.size || 'Standard'} (${v.thickness || '16mm'})`,
         size: v.size,
@@ -4295,7 +4464,7 @@ export async function getAdminAiContext() {
       saleBadgeText: m.saleBadgeText || '',
       imageUrl: m.imageUrl
     })),
-    fixingMaterials: fixingMaterials.map(f => ({
+    fixingMaterials: safeFixing.map(f => ({
       id: f.id,
       name: f.name,
       category: f.category,
@@ -4309,20 +4478,20 @@ export async function getAdminAiContext() {
       saleBadgeText: f.saleBadgeText || '',
       imageUrl: f.imageUrl
     })),
-    suppliers: suppliers.map(s => ({
+    suppliers: safeSuppliers.map(s => ({
       id: s.id,
       name: s.name,
       phone: s.phone,
       contactPerson: s.contactPerson,
       status: s.status,
-      ratesCount: (s.rates || []).length,
-      rates: (s.rates || []).slice(0, 60).map(r => ({
+      ratesCount: Array.isArray(s.rates) ? s.rates.length : 0,
+      rates: (Array.isArray(s.rates) ? s.rates : []).slice(0, 60).map(r => ({
         materialId: r.materialId,
         materialName: r.materialName,
         rate: r.rate
       }))
     })),
-    orders: (orders || []).slice(0, 40).map(o => ({
+    orders: safeOrders.slice(0, 40).map(o => ({
       id: o.id,
       customerName: o.customerName,
       customerPhone: o.calculationDetails?.customerInfo?.phone || '',
@@ -4332,21 +4501,21 @@ export async function getAdminAiContext() {
       status: o.status,
       date: o.date
     })),
-    serviceProviders: (serviceProviders || []).map(p => ({
+    serviceProviders: safeProviders.map(p => ({
       id: p.id,
       name: p.name,
       service: p.service,
       phone: p.phone,
       status: p.status
     })),
-    missedSearches: (searchLogs || []).filter(s => !s.found).slice(0, 20).map(s => s.term),
+    missedSearches: safeSearches.filter(s => !s?.found).slice(0, 20).map(s => s.term),
     buildRatesSummary: {
-      baseCostPerSqFt: buildRates.newProjects.baseCostPerSqFt,
-      gradeRates: buildRates.newProjects.gradeRates,
-      gradeMultipliers: buildRates.newProjects.gradeMultipliers,
-      floorRateMultipliers: buildRates.newProjects.floorRateMultipliers
+      baseCostPerSqFt: buildRates?.newProjects?.baseCostPerSqFt ?? defaultBuildYourHomeRates.newProjects.baseCostPerSqFt,
+      gradeRates: buildRates?.newProjects?.gradeRates ?? defaultBuildYourHomeRates.newProjects.gradeRates,
+      gradeMultipliers: buildRates?.newProjects?.gradeMultipliers ?? defaultBuildYourHomeRates.newProjects.gradeMultipliers,
+      floorRateMultipliers: buildRates?.newProjects?.floorRateMultipliers ?? defaultBuildYourHomeRates.newProjects.floorRateMultipliers
     },
-    dailyRates
+    dailyRates: dailyRates || defaultDailyRates
   };
 }
 
@@ -4745,8 +4914,11 @@ export function isLegacyFakeRep(r: Partial<Representative>): boolean {
   return false;
 }
 
-export async function getRepresentatives(): Promise<Representative[]> {
-  // Check local storage for quick sync
+export function getInstantRepresentatives(): Representative[] {
+  if (inMemoryCache.representatives?.data?.length) {
+    const list = inMemoryCache.representatives.data.filter(r => r && !isLegacyFakeRep(r));
+    if (list.length > 0) return list;
+  }
   if (typeof window !== 'undefined') {
     try {
       const cached = localStorage.getItem('stone_expert_representatives');
@@ -4754,102 +4926,106 @@ export async function getRepresentatives(): Promise<Representative[]> {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
           const cleanParsed = parsed.filter((r: Representative) => r && r.id && !isLegacyFakeRep(r));
-          if (cleanParsed.length !== parsed.length) {
-            localStorage.setItem('stone_expert_representatives', JSON.stringify(cleanParsed.length > 0 ? cleanParsed : defaultRepresentatives));
-          }
           if (cleanParsed.length > 0) {
-            inMemoryCache.representatives = { data: cleanParsed, timestamp: Date.now() };
-          } else {
-            inMemoryCache.representatives = { data: defaultRepresentatives, timestamp: Date.now() };
+            return cleanParsed;
           }
         }
       }
     } catch (e) {}
   }
+  return defaultRepresentatives;
+}
 
+export async function getRepresentatives(): Promise<Representative[]> {
   const now = Date.now();
-  if (inMemoryCache.representatives && (now - inMemoryCache.representatives.timestamp < 10000)) {
+  if (inMemoryCache.representatives && inMemoryCache.representatives.timestamp > 0 && (now - inMemoryCache.representatives.timestamp < CACHE_TTL_MS)) {
     const list = inMemoryCache.representatives.data.filter(r => r && !isLegacyFakeRep(r));
     return list.length > 0 ? list : defaultRepresentatives;
   }
 
+  if (inFlightRequests.representatives) {
+    return inFlightRequests.representatives;
+  }
+
   const db = getDb();
   if (!db) {
-    const list = (inMemoryCache.representatives?.data || []).filter(r => r && !isLegacyFakeRep(r));
-    const finalList = list.length > 0 ? list : defaultRepresentatives;
+    const finalList = getInstantRepresentatives();
     inMemoryCache.representatives = { data: finalList, timestamp: Date.now() };
     return finalList;
   }
 
-  try {
-    const colRef = collection(db, 'representatives');
-    const snapshot = await getDocs(colRef);
-    if (snapshot.empty) {
-      // Auto-seed Fayyaz Hussain to Firestore
-      const fayyaz = defaultRepresentatives[0];
-      try {
-        await setDoc(doc(db, 'representatives', fayyaz.id), {
-          ...fayyaz,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      } catch (e) {}
-      inMemoryCache.representatives = { data: defaultRepresentatives, timestamp: Date.now() };
+  const promise = (async () => {
+    try {
+      const colRef = collection(db, 'representatives');
+      const snapshot = await withFastTimeout(getDocs(colRef), 2000);
+      if (snapshot.empty) {
+        const fayyaz = defaultRepresentatives[0];
+        try {
+          await setDoc(doc(db, 'representatives', fayyaz.id), {
+            ...fayyaz,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        } catch (e) {}
+        inMemoryCache.representatives = { data: defaultRepresentatives, timestamp: Date.now() };
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('stone_expert_representatives', JSON.stringify(defaultRepresentatives));
+          } catch (e) {}
+        }
+        return defaultRepresentatives;
+      }
+
+      const items: Representative[] = [];
+      const deletePromises: Promise<any>[] = [];
+
+      for (const d of snapshot.docs) {
+        const rep = { id: d.id, ...d.data() } as Representative;
+        if (isLegacyFakeRep(rep)) {
+          deletePromises.push(deleteDoc(doc(db, 'representatives', d.id)).catch(() => {}));
+        } else {
+          items.push(rep);
+        }
+      }
+
+      if (deletePromises.length > 0) {
+        Promise.all(deletePromises).catch(() => {});
+      }
+
+      if (items.length === 0) {
+        const fayyaz = defaultRepresentatives[0];
+        try {
+          await setDoc(doc(db, 'representatives', fayyaz.id), {
+            ...fayyaz,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        } catch (e) {}
+        items.push(fayyaz);
+      }
+
+      const sorted = items
+        .map(ensureRepPortalPin)
+        .sort((a, b) => (a.order || 99) - (b.order || 99));
+
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('stone_expert_representatives', JSON.stringify(defaultRepresentatives));
+          localStorage.setItem('stone_expert_representatives', JSON.stringify(sorted));
         } catch (e) {}
       }
-      return defaultRepresentatives;
+
+      inMemoryCache.representatives = { data: sorted, timestamp: Date.now() };
+      return sorted;
+    } catch (err) {
+      logFetchError('getRepresentatives', err);
+      return getInstantRepresentatives();
+    } finally {
+      delete inFlightRequests.representatives;
     }
+  })();
 
-    const items: Representative[] = [];
-    const deletePromises: Promise<any>[] = [];
-
-    for (const d of snapshot.docs) {
-      const rep = { id: d.id, ...d.data() } as Representative;
-      // Auto-purge any legacy fake representative document from Firestore
-      if (isLegacyFakeRep(rep)) {
-        deletePromises.push(deleteDoc(doc(db, 'representatives', d.id)).catch(() => {}));
-      } else {
-        items.push(rep);
-      }
-    }
-
-    if (deletePromises.length > 0) {
-      Promise.all(deletePromises).catch(() => {});
-    }
-
-    // If all docs were purged because they were dummy, seed Fayyaz Hussain
-    if (items.length === 0) {
-      const fayyaz = defaultRepresentatives[0];
-      try {
-        await setDoc(doc(db, 'representatives', fayyaz.id), {
-          ...fayyaz,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      } catch (e) {}
-      items.push(fayyaz);
-    }
-
-    const sorted = items
-      .map(ensureRepPortalPin)
-      .sort((a, b) => (a.order || 99) - (b.order || 99));
-
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('stone_expert_representatives', JSON.stringify(sorted));
-      } catch (e) {}
-    }
-
-    inMemoryCache.representatives = { data: sorted, timestamp: Date.now() };
-    return sorted;
-  } catch (err) {
-    logFetchError('getRepresentatives', err);
-    const fallback = (inMemoryCache.representatives?.data || []).filter(r => r && !isLegacyFakeRep(r)).map(ensureRepPortalPin);
-    return fallback.length > 0 ? fallback : defaultRepresentatives;
-  }
+  inFlightRequests.representatives = promise;
+  return promise;
 }
 
 export async function clearAllRepresentatives(): Promise<{ success: boolean; error?: string }> {
@@ -5192,6 +5368,7 @@ export async function saveRepresentativeJob(
     siteMeasurements: normalizedSections,
     grandTotalSqFt,
     grandTotalPKR,
+    ...(typeof jobInput.photoCount === 'number' ? { photoCount: jobInput.photoCount } : {}),
     linkedOrderId,
     createdBy: jobInput.createdBy || 'representative',
     createdAt: jobInput.createdAt || now,
@@ -5293,10 +5470,323 @@ export async function deleteRepresentativeJob(
 
   try {
     await deleteDoc(doc(db, 'representative_jobs', jobId));
+    // Also clean up any verification photos associated with this job
+    try {
+      const photosSnap = await getDocs(query(collection(db, 'site_visit_photos'), where('jobId', '==', jobId)));
+      await Promise.all(photosSnap.docs.map(d => deleteDoc(d.ref)));
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(getSiteVisitPhotosCacheKey(jobId));
+      }
+    } catch {}
     return { success: true };
   } catch (err: any) {
     logFetchError('deleteRepresentativeJob', err);
     return { success: true };
+  }
+}
+
+// ============================================================================
+// SITE VISIT MULTI-PHOTO VERIFICATION (stored separately per doc < 1MB)
+// ============================================================================
+
+function getSiteVisitPhotosCacheKey(jobId: string) {
+  return `stone_expert_site_visit_photos_${jobId}`;
+}
+
+export async function compressDataUrl(
+  dataUrl: string,
+  maxWidth = 1024,
+  maxHeight = 1024,
+  quality = 0.6
+): Promise<string> {
+  if (typeof window === 'undefined') return dataUrl;
+  return new Promise((resolve) => {
+    const img = new (window as any).Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else if (height > maxHeight) {
+        width *= maxHeight / height;
+        height = maxHeight;
+      }
+
+      canvas.width = Math.max(1, Math.round(width));
+      canvas.height = Math.max(1, Math.round(height));
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+function updateCachedJobPhotoCount(jobId: string, representativeId: string | undefined, count: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (representativeId) {
+      const repKey = getRepJobsCacheKey(representativeId);
+      const repList: SiteVisitJob[] = JSON.parse(localStorage.getItem(repKey) || '[]');
+      if (Array.isArray(repList) && repList.length > 0) {
+        localStorage.setItem(
+          repKey,
+          JSON.stringify(repList.map(j => (j.id === jobId ? { ...j, photoCount: count } : j)))
+        );
+      }
+    }
+    const adminKey = getRepJobsCacheKey();
+    const adminRaw = localStorage.getItem(adminKey);
+    if (adminRaw) {
+      const adminList: SiteVisitJob[] = JSON.parse(adminRaw);
+      if (Array.isArray(adminList)) {
+        localStorage.setItem(
+          adminKey,
+          JSON.stringify(adminList.map(j => (j.id === jobId ? { ...j, photoCount: count } : j)))
+        );
+      }
+    }
+  } catch {}
+}
+
+export async function getSiteVisitPhotos(
+  jobId: string,
+  representativeId?: string
+): Promise<SiteVisitPhoto[]> {
+  const targetJobId = (jobId || '').trim();
+  if (!targetJobId) return [];
+
+  const cacheKey = getSiteVisitPhotosCacheKey(targetJobId);
+  let localFallback: SiteVisitPhoto[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          localFallback = parsed.filter(
+            (p: SiteVisitPhoto) =>
+              p && p.id && p.jobId === targetJobId && (!representativeId || p.representativeId === representativeId)
+          );
+        }
+      }
+    } catch {}
+  }
+
+  const db = getDb();
+  if (!db) {
+    return localFallback.sort((a, b) => (b.capturedAt || '').localeCompare(a.capturedAt || ''));
+  }
+
+  try {
+    const q = query(collection(db, 'site_visit_photos'), where('jobId', '==', targetJobId));
+    const snap = await getDocs(q);
+    const items: SiteVisitPhoto[] = [];
+    snap.forEach(d => {
+      const data = { id: d.id, ...d.data() } as SiteVisitPhoto;
+      if (representativeId && data.representativeId !== representativeId) return;
+      items.push(data);
+    });
+
+    items.sort((a, b) => (b.capturedAt || '').localeCompare(a.capturedAt || ''));
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(items));
+      } catch {}
+    }
+
+    return items;
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (err?.code === 'permission-denied' || msg.includes('Missing or insufficient permissions')) {
+      handleFirestoreError(err, OperationType.GET, `site_visit_photos (jobId=${targetJobId})`);
+    }
+    logFetchError('getSiteVisitPhotos', err);
+    return localFallback.sort((a, b) => (b.capturedAt || '').localeCompare(a.capturedAt || ''));
+  }
+}
+
+export async function addSiteVisitPhotos(
+  photosInput: Array<{
+    jobId: string;
+    representativeId: string;
+    representativeName?: string;
+    category: SiteVisitPhotoCategory;
+    caption?: string;
+    imageUrl: string;
+    capturedAt?: string;
+    uploadedBy?: 'representative' | 'admin';
+  }>
+): Promise<{ success: boolean; photos?: SiteVisitPhoto[]; totalCount?: number; error?: string }> {
+  if (!Array.isArray(photosInput) || photosInput.length === 0) {
+    return { success: false, error: 'کوئی تصویر منتخب نہیں کی گئی۔' };
+  }
+
+  const targetJobId = (photosInput[0]?.jobId || '').trim();
+  const targetRepId = (photosInput[0]?.representativeId || '').trim();
+  if (!targetJobId || !targetRepId) {
+    return { success: false, error: 'Missing Site Visit Job or Representative ID.' };
+  }
+
+  const now = Date.now();
+  const createdPhotos: SiteVisitPhoto[] = photosInput.map((item, idx) => ({
+    id: `SVP-${now}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+    jobId: item.jobId.trim(),
+    representativeId: item.representativeId.trim(),
+    representativeName: (item.representativeName || '').trim(),
+    category: item.category || 'site-overview',
+    caption: (item.caption || '').trim().slice(0, 240),
+    imageUrl: item.imageUrl,
+    capturedAt: item.capturedAt || new Date(now + idx).toISOString(),
+    uploadedBy: item.uploadedBy || 'representative'
+  }));
+
+  let existingCachedCount = 0;
+  if (typeof window !== 'undefined') {
+    try {
+      const cacheKey = getSiteVisitPhotosCacheKey(targetJobId);
+      const existingRaw = localStorage.getItem(cacheKey);
+      const existing: SiteVisitPhoto[] = existingRaw ? JSON.parse(existingRaw) : [];
+      const merged = [...createdPhotos, ...existing.filter(p => !createdPhotos.some(c => c.id === p.id))];
+      existingCachedCount = merged.length;
+      localStorage.setItem(cacheKey, JSON.stringify(merged));
+    } catch {}
+  }
+
+  const db = getDb();
+  if (!db) {
+    updateCachedJobPhotoCount(targetJobId, targetRepId, existingCachedCount || createdPhotos.length);
+    broadcastAppUpdate('rep_jobs_updated', { jobId: targetJobId, representativeId: targetRepId });
+    return { success: true, photos: createdPhotos, totalCount: existingCachedCount || createdPhotos.length };
+  }
+
+  try {
+    await Promise.all(createdPhotos.map(photo => setDoc(doc(db, 'site_visit_photos', photo.id), photo)));
+
+    // Sync accurate photoCount onto the parent job document for quick billing audit overview
+    let totalCount = existingCachedCount || createdPhotos.length;
+    try {
+      const snap = await getDocs(query(collection(db, 'site_visit_photos'), where('jobId', '==', targetJobId)));
+      totalCount = snap.size;
+      await setDoc(
+        doc(db, 'representative_jobs', targetJobId),
+        { photoCount: totalCount, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    } catch {}
+
+    updateCachedJobPhotoCount(targetJobId, targetRepId, totalCount);
+    broadcastAppUpdate('rep_jobs_updated', { jobId: targetJobId, representativeId: targetRepId });
+    return { success: true, photos: createdPhotos, totalCount };
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (err?.code === 'permission-denied' || msg.includes('Missing or insufficient permissions')) {
+      handleFirestoreError(err, OperationType.WRITE, `site_visit_photos`);
+    }
+    logFetchError('addSiteVisitPhotos', err);
+    return {
+      success: false,
+      error: err?.message || 'تصاویر محفوظ کرنے میں خرابی پیش آئی۔'
+    };
+  }
+}
+
+export async function updateSiteVisitPhotoMeta(
+  photoId: string,
+  jobId: string,
+  patch: { category?: SiteVisitPhotoCategory; caption?: string }
+): Promise<{ success: boolean; error?: string }> {
+  if (!photoId || !jobId) return { success: false, error: 'Missing photo ID' };
+
+  const cleanPatch: Partial<SiteVisitPhoto> = {};
+  if (patch.category) cleanPatch.category = patch.category;
+  if (typeof patch.caption === 'string') cleanPatch.caption = patch.caption.trim().slice(0, 240);
+
+  if (typeof window !== 'undefined') {
+    try {
+      const cacheKey = getSiteVisitPhotosCacheKey(jobId);
+      const list: SiteVisitPhoto[] = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify(list.map(p => (p.id === photoId ? { ...p, ...cleanPatch } : p)))
+      );
+    } catch {}
+  }
+
+  const db = getDb();
+  if (!db) return { success: true };
+
+  try {
+    await updateDoc(doc(db, 'site_visit_photos', photoId), cleanPatch as any);
+    broadcastAppUpdate('rep_jobs_updated', { jobId });
+    return { success: true };
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (err?.code === 'permission-denied' || msg.includes('Missing or insufficient permissions')) {
+      handleFirestoreError(err, OperationType.UPDATE, `site_visit_photos/${photoId}`);
+    }
+    logFetchError('updateSiteVisitPhotoMeta', err);
+    return { success: true };
+  }
+}
+
+export async function deleteSiteVisitPhoto(
+  photoId: string,
+  jobId: string,
+  representativeId?: string
+): Promise<{ success: boolean; totalCount?: number; error?: string }> {
+  if (!photoId || !jobId) return { success: false, error: 'Missing photo ID' };
+
+  let remainingCount = 0;
+  if (typeof window !== 'undefined') {
+    try {
+      const cacheKey = getSiteVisitPhotosCacheKey(jobId);
+      const list: SiteVisitPhoto[] = JSON.parse(localStorage.getItem(cacheKey) || '[]');
+      const next = list.filter(p => p.id !== photoId);
+      remainingCount = next.length;
+      localStorage.setItem(cacheKey, JSON.stringify(next));
+    } catch {}
+  }
+
+  const db = getDb();
+  if (!db) {
+    updateCachedJobPhotoCount(jobId, representativeId, remainingCount);
+    broadcastAppUpdate('rep_jobs_updated', { jobId, representativeId });
+    return { success: true, totalCount: remainingCount };
+  }
+
+  try {
+    await deleteDoc(doc(db, 'site_visit_photos', photoId));
+    try {
+      const snap = await getDocs(query(collection(db, 'site_visit_photos'), where('jobId', '==', jobId)));
+      remainingCount = snap.size;
+      await setDoc(
+        doc(db, 'representative_jobs', jobId),
+        { photoCount: remainingCount, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    } catch {}
+    updateCachedJobPhotoCount(jobId, representativeId, remainingCount);
+    broadcastAppUpdate('rep_jobs_updated', { jobId, representativeId });
+    return { success: true, totalCount: remainingCount };
+  } catch (err: any) {
+    const msg = err?.message || '';
+    if (err?.code === 'permission-denied' || msg.includes('Missing or insufficient permissions')) {
+      handleFirestoreError(err, OperationType.DELETE, `site_visit_photos/${photoId}`);
+    }
+    logFetchError('deleteSiteVisitPhoto', err);
+    return { success: false, error: err?.message || 'Failed to delete photo' };
   }
 }
 
@@ -5335,7 +5825,7 @@ export async function getSupplierRatePhotos(supplierId: string): Promise<Supplie
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     return list;
   } catch (err) {
-    console.error('Error fetching supplier rate photos:', err);
+    logFetchError('Error fetching supplier rate photos', err);
     return [];
   }
 }
@@ -5514,7 +6004,7 @@ export async function getSupplierApplications(): Promise<SupplierApplication[]> 
     list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     return list;
   } catch (err) {
-    console.error('Error loading supplier applications:', err);
+    logFetchError('Error loading supplier applications', err);
     return [];
   }
 }
@@ -5721,9 +6211,38 @@ export async function getProductPriceHistory(
   }
 }
 
+let warmupPromise: Promise<void> | null = null;
 
+/**
+ * Single upfront data warmup triggered right after app load.
+ * Fetches & caches all public catalog, rate, representative, and configuration
+ * datasets once in parallel so every subsequent page & AI lookup renders at 0ms.
+ */
+export async function warmupAllAppData(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  if (warmupPromise) return warmupPromise;
 
+  warmupPromise = Promise.allSettled([
+    getMarbles(),
+    getFixingMaterials(),
+    getServiceProviders(),
+    getHomepageConfig(),
+    getHomepageContent(),
+    getPartnerCompanies(),
+    getDailyRates(),
+    getCostsConfig(),
+    getRepresentatives(),
+    getBuildYourHomeRatesConfig(),
+    getRenovationRatesConfig(),
+  ])
+    .then(() => undefined)
+    .finally(() => {
+      // Allow re-warming if explicitly triggered after 5 minutes
+      setTimeout(() => {
+        warmupPromise = null;
+      }, CACHE_TTL_MS);
+    });
 
-
-
+  return warmupPromise;
+}
 

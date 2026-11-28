@@ -21,14 +21,26 @@ const nextConfig = {
     ],
   },
   onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
+    maxInactiveAge: 15 * 60 * 1000,
+    pagesBufferLength: 24,
   },
   // Set a longer timeout for server actions to accommodate Genkit flow execution
   experimental: {
     cpus: 1,
     workerThreads: false,
-    optimizePackageImports: ['lucide-react', 'framer-motion', 'motion', 'recharts', 'date-fns'],
+    optimizePackageImports: [
+      'lucide-react',
+      'framer-motion',
+      'motion',
+      'recharts',
+      'date-fns',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-select',
+      'embla-carousel-react',
+    ],
     serverActions: {
       bodySizeLimit: '4.5mb',
     },

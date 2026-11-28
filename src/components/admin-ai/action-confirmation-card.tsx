@@ -47,30 +47,37 @@ export function ActionConfirmationCard({
   const [status, setStatus] = useState<'pending' | 'executing' | 'applied' | 'cancelled' | 'error'>('pending');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const safePayload = proposal?.payload && typeof proposal.payload === 'object' ? proposal.payload : {};
+  const actionType = proposal?.actionType;
+
   // Interactive editable state for BULK_SUPPLIER_RATE_UPDATE
-  const isBulkSupplierUpdate = proposal.actionType === 'BULK_SUPPLIER_RATE_UPDATE';
-  const isSaleRibbonStyleUpdate = proposal.actionType === 'UPDATE_SALE_RIBBON_STYLE';
+  const isBulkSupplierUpdate = actionType === 'BULK_SUPPLIER_RATE_UPDATE';
+  const isSaleRibbonStyleUpdate = actionType === 'UPDATE_SALE_RIBBON_STYLE';
   const previewRibbonStyle = isSaleRibbonStyleUpdate
-    ? normalizeSaleRibbonStyle(proposal.payload || {})
+    ? normalizeSaleRibbonStyle(safePayload)
     : null;
   const previewRibbonCss = previewRibbonStyle
     ? resolveSaleRibbonInlineStyle(previewRibbonStyle)
     : null;
   const [supplierName, setSupplierName] = useState<string>(
-    proposal.payload?.supplierName || proposal.targetName || 'Marble Supplier'
+    safePayload?.supplierName || proposal?.targetName || 'Marble Supplier'
   );
   const [syncToApp, setSyncToApp] = useState<boolean>(
-    proposal.payload?.syncToApp !== undefined ? Boolean(proposal.payload.syncToApp) : true
+    safePayload?.syncToApp !== undefined ? Boolean(safePayload.syncToApp) : true
   );
   const [markupPercentage, setMarkupPercentage] = useState<number>(
-    Number(proposal.payload?.markupPercentage) || 0
+    Number(safePayload?.markupPercentage) || 0
   );
   const [editableRates, setEditableRates] = useState<Array<any>>(
-    Array.isArray(proposal.payload?.rates) ? proposal.payload.rates : []
+    Array.isArray(safePayload?.rates) ? safePayload.rates : []
   );
 
+  if (!proposal || !actionType) {
+    return null;
+  }
+
   const getActionIcon = () => {
-    switch (proposal.actionType) {
+    switch (actionType) {
       case 'UPDATE_SALE_RIBBON_STYLE':
         return <Palette className="h-4 w-4 text-amber-500" />;
       case 'BULK_SUPPLIER_RATE_UPDATE':

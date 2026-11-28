@@ -44,6 +44,7 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
         {/* Material Image - aspect-square for a significantly larger, clearer, and premium display */}
         <Link 
           href={`/product-detail/${marble.id}`}
+          prefetch={false}
           className="aspect-square w-full overflow-hidden relative block"
         >
           <Image
@@ -51,15 +52,18 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
             alt={imageAlt}
             width={600}
             height={600}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            loading="lazy"
+            decoding="async"
             data-ai-hint={marble.imageHint}
             referrerPolicy="no-referrer"
-            className="h-full w-full object-cover transition-all duration-500 ease-out group-hover:scale-105 group-hover:brightness-105 saturate-102"
+            className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
             unoptimized={imageUrl.startsWith('data:') || imageUrl.startsWith('/api/stone-image/')}
           />
           
           {/* Top-Left Category Overlay Badge */}
           <div className="absolute top-3 left-3 z-10 pointer-events-none">
-            <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/65 backdrop-blur-xs text-white border border-white/10 rounded-full shadow-md">
+            <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/75 text-white border border-white/10 rounded-full shadow-md">
               <Gem className="h-3 w-3 text-primary" />
               <span>{marble.materialType === '12x24 Tiles' ? 'Marble Tiles' : marble.materialType}</span>
             </Badge>
@@ -67,7 +71,7 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
 
           {/* Top-Right Origin Overlay Badge */}
           <div className="absolute top-3 right-3 z-10 pointer-events-none">
-            <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/65 backdrop-blur-xs text-white border border-white/10 rounded-full shadow-md">
+            <Badge className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide uppercase py-1 px-2.5 bg-black/75 text-white border border-white/10 rounded-full shadow-md">
               <OriginIcon className="h-3 w-3 text-primary" />
               <span>{marble.origin}</span>
             </Badge>
@@ -110,7 +114,7 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
             }}
             title={`View ${marble.name} full-size gallery`}
             aria-label={`View ${marble.name} full-size gallery`}
-            className="absolute bottom-3.5 right-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/65 text-white border border-white/15 backdrop-blur-xs shadow-md transition-all hover:bg-primary hover:text-primary-foreground hover:scale-105 cursor-pointer"
+            className="absolute bottom-3.5 right-3.5 z-20 flex h-8 w-8 items-center justify-center rounded-lg bg-black/75 text-white border border-white/15 shadow-md transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer"
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </button>
@@ -182,7 +186,7 @@ export const MarbleCard = React.memo(function MarbleCard({ marble, onImageClick,
             </Button>
           ) : (
             <Button asChild className="w-full font-bold text-sm h-11 group-hover:bg-primary group-hover:text-primary-foreground transition-all rounded-xl">
-              <Link href={`/product-detail/${marble.id}#product-calculators`} className="flex items-center justify-center">
+              <Link href={`/product-detail/${marble.id}#product-calculators`} prefetch={false} className="flex items-center justify-center">
                 {isPerPiece ? <ShoppingCart className="mr-2 h-4 w-4" /> : <Calculator className="mr-2 h-4 w-4" />}
                 {isPerPiece ? 'Add to Quotation' : 'Details & Calculators'}
               </Link>

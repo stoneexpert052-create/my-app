@@ -31,8 +31,8 @@ export function AppBackground() {
   }
 
   // Lightweight marble processing factory image for fast loading and smooth scrolling
-  const defaultFactoryUrl = 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1280&q=70';
-  const fallbackFactoryUrl = 'https://picsum.photos/seed/marblefactory/1280/720?blur=1';
+  const defaultFactoryUrl = 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1080&q=65';
+  const fallbackFactoryUrl = 'https://picsum.photos/seed/marblefactory/1080/608?blur=1';
 
   // Strictly use defaultFactoryUrl and default filters until hydrated to guarantee identical SSR output
   const activeImageUrl = (isBgHydrated && bgConfig.imageUrl && bgConfig.imageUrl.trim() !== '') 
@@ -41,7 +41,7 @@ export function AppBackground() {
   const isLight = hydrated && theme === 'light';
 
   const highlightVal = isBgHydrated && typeof bgConfig.highlight === 'number' ? bgConfig.highlight : 100;
-  const blurVal = isBgHydrated && typeof bgConfig.blur === 'number' ? bgConfig.blur : 4;
+  const blurVal = isBgHydrated && typeof bgConfig.blur === 'number' ? Math.min(bgConfig.blur, 4) : 3;
   const opacityVal = isBgHydrated && typeof bgConfig.opacity === 'number' ? bgConfig.opacity : 25;
   const contrastVal = isBgHydrated && typeof bgConfig.contrast === 'number' ? bgConfig.contrast : 105;
 
@@ -56,14 +56,14 @@ export function AppBackground() {
         alt="Marble Factory and Stone Processing Plant"
         onError={() => setImgError(true)}
         referrerPolicy="no-referrer"
+        loading="lazy"
         decoding="async"
         fetchPriority="low"
         suppressHydrationWarning
         style={{
           filter: `blur(${blurVal}px) brightness(${highlightVal}%) contrast(${contrastVal}%)`,
           opacity: opacityVal / 100,
-          transform: `translateZ(0) scale(${blurVal > 0 ? 1.05 + (blurVal * 0.003) : 1})`,
-          willChange: 'transform',
+          transform: `scale(${blurVal > 0 ? 1.04 : 1})`,
         }}
         className="w-full h-full object-cover object-center transition-opacity duration-300 ease-out"
       />

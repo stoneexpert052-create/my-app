@@ -50,8 +50,13 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { defaultDailyRates } from '@/lib/data';
 import type { DailyRates } from '@/lib/types';
+import dynamic from 'next/dynamic';
 import { Fuel, Coins } from 'lucide-react';
-import { FloatingAdminAiWidget } from '@/components/admin-ai/floating-ai-widget';
+
+const FloatingAdminAiWidget = dynamic(
+  () => import('@/components/admin-ai/floating-ai-widget').then((m) => m.FloatingAdminAiWidget),
+  { ssr: false }
+);
 import {
   DEFAULT_SALE_RIBBON_STYLE,
   normalizeSaleRibbonStyle,
@@ -217,6 +222,12 @@ export default function Home() {
 
   useEffect(() => {
     let active = true;
+    try {
+      const cachedRates = localStorage.getItem('cached_daily_rates');
+      if (cachedRates) {
+        setDailyRates(JSON.parse(cachedRates));
+      }
+    } catch {}
     const fetchRates = async () => {
       try {
         const rates = await getDailyRates();
@@ -785,12 +796,10 @@ export default function Home() {
   const carouselMarbles = carouselItems;
   
   const handleImageClick = (marble: Marble) => {
-    setIsCalculatorLoading(true);
     router.push(`/product-detail/${marble.id}`);
   };
 
   const handleFixingMaterialClick = (material: FixingMaterial) => {
-    setIsCalculatorLoading(true);
     router.push(`/product-detail/${material.id}`);
   };
   
@@ -1064,19 +1073,11 @@ export default function Home() {
                 }}
                 className="w-full text-white transition-all duration-300 cursor-pointer overflow-hidden group select-none border-y relative z-20"
               >
-                {/* Optional subtle animated light-sweep shimmer overlay */}
+                {/* Optional subtle gradient highlight overlay */}
                 {saleRibbonStyle.shimmerOverlay && (
-                  <motion.div
+                  <div
                     aria-hidden="true"
-                    initial={{ x: '-120%' }}
-                    animate={{ x: '220%' }}
-                    transition={{
-                      repeat: Infinity,
-                      repeatDelay: 4.5,
-                      duration: 1.6,
-                      ease: 'easeInOut'
-                    }}
-                    className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12"
+                    className="pointer-events-none absolute inset-y-0 left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12"
                   />
                 )}
 
@@ -1143,7 +1144,7 @@ export default function Home() {
                      onMouseLeave={autoplayPlugin.current.reset}
                    >
                      <CarouselContent>
-                       {carouselMarbles.map((item) => (
+                       {carouselMarbles.map((item, idx) => (
                          <CarouselItem key={item.id}>
                            <div 
                              onClick={() => {
@@ -1159,14 +1160,17 @@ export default function Home() {
                                src={item.imageUrl || `https://placehold.co/800x450?text=${encodeURIComponent(item.name)}`}
                                alt={item.name}
                                fill
-                               className="object-cover group-hover:scale-105 transition-transform duration-500"
-                               priority
+                               sizes="(max-width: 1024px) 100vw, 50vw"
+                               className="object-cover group-hover:scale-105 transition-transform duration-300"
+                               priority={idx === 0}
+                               loading={idx === 0 ? 'eager' : 'lazy'}
+                               decoding="async"
                              />
 
                              {/* Highlight Sale Ribbon & Badges */}
                              {Boolean((item as any).onSale || ((item as any).discount && (item as any).discount > 0)) && (
                                <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 items-start">
-                                 <Badge className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white border border-white/30 text-xs sm:text-sm font-black px-3 py-1 shadow-xl flex items-center gap-1.5 uppercase tracking-wider animate-pulse">
+                                 <Badge className="bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white border border-white/30 text-xs sm:text-sm font-black px-3 py-1 shadow-xl flex items-center gap-1.5 uppercase tracking-wider">
                                    <Flame className="h-4 w-4 fill-amber-300 text-amber-200" />
                                    <span>
                                      {formatSaleBadgeText({
@@ -1233,7 +1237,7 @@ export default function Home() {
                 <div className="order-1 lg:order-2 flex flex-col items-center lg:items-start text-center lg:text-left space-y-3">
                    {/* Resized, smaller 'Welcome to Stone Expert' text positioned above 'Discover Marble & Construction Solution' heading */}
                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#dfb96c]/15 border border-[#dfb96c]/35 shadow-xs text-xs sm:text-sm font-bold tracking-wide text-[#b59410] dark:text-[#dfb96c]">
-                     <Sparkles className="h-3.5 w-3.5 text-[#dfb96c] animate-pulse" />
+                     <Sparkles className="h-3.5 w-3.5 text-[#dfb96c]" />
                      <span>{language === 'ur' ? 'سٹون ایکسپرٹ میں خوش آمدید' : 'Welcome to Stone Expert'}</span>
                    </div>
 
@@ -1338,7 +1342,7 @@ export default function Home() {
                                 : "bg-card text-foreground border-border/60 hover:border-primary/50 hover:bg-accent/50"
                           )}
                         >
-                          <Icon className={cn("w-3.5 h-3.5", isSaleCategory && "text-amber-500 fill-amber-500 animate-pulse")} />
+                          <Icon className={cn("w-3.5 h-3.5", isSaleCategory && "text-amber-500 fill-amber-500")} />
                           <span>{cat}</span>
                           {count > 0 ? (
                             <span className={cn(
@@ -1444,7 +1448,6 @@ export default function Home() {
                                         marble={marble}
                                         onImageClick={handleImageClick}
                                         onDesignClick={(id) => {
-                                          setIsCalculatorLoading(true);
                                           router.push(`/product-detail/${id}#product-calculators`);
                                         }}
                                         itemNumber={index + 1}
@@ -1465,13 +1468,12 @@ export default function Home() {
                                 {items.length > 0 && (
                                     <Carousel opts={{ align: "start", loop: items.length > 4, watchDrag: true }}>
                                         <CarouselContent className="-ml-4">
-                                            {items.map((marble, index) => (
+                                            {items.slice(0, 8).map((marble, index) => (
                                                 <CarouselItem key={marble.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
                                                     <MarbleCard
                                                         marble={marble}
                                                         onImageClick={handleImageClick}
                                                         onDesignClick={(id) => {
-                                                            setIsCalculatorLoading(true);
                                                             router.push(`/product-detail/${id}#product-calculators`);
                                                         }}
                                                         itemNumber={index + 1}
@@ -1486,7 +1488,7 @@ export default function Home() {
                                 {fixingItems.length > 0 && (
                                     <Carousel opts={{ align: "start", loop: fixingItems.length > 4, watchDrag: true }}>
                                         <CarouselContent className="-ml-4">
-                                            {fixingItems.map((material) => (
+                                            {fixingItems.slice(0, 8).map((material) => (
                                                 <CarouselItem key={material.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
                                                     <FixingMaterialCard material={material} onImageClick={handleFixingMaterialClick} />
                                                 </CarouselItem>
@@ -2390,7 +2392,6 @@ export default function Home() {
                         className="h-11 px-8 font-bold shadow-lg"
                         onClick={() => {
                             setIsImagePopupOpen(false);
-                            setIsCalculatorLoading(true);
                             router.push(`/order/${selectedMarble.id}`);
                         }}
                     >

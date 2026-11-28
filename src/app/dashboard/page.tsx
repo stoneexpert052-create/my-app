@@ -20,28 +20,53 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useState, useEffect } from 'react';
 import type { Order } from '@/lib/types';
-import { getOrders } from '@/lib/admin-actions';
-import {marbles} from '@/lib/data';
+import { getOrders, getMarbles } from '@/lib/admin-actions';
+import { getClientInstantOrders, getClientInstantMarbles } from '@/lib/instant-catalog';
+import { marbles } from '@/lib/data';
 
 function DashboardStats() {
     const [totalRevenue, setTotalRevenue] = useState(0);
     const [totalSales, setTotalSales] = useState(0);
-    const [productCount, setProductCount] = useState(0);
+    const [productCount, setProductCount] = useState(marbles.length);
 
     useEffect(() => {
-        const fetchStats = async () => {
-            const orders: Order[] = await getOrders();
-            
-            const revenue = orders.reduce((acc, order) => acc + order.totalPrice, 0);
-            setTotalRevenue(revenue);
+        let active = true;
 
-            const sales = orders.length;
-            setTotalSales(sales);
-            
-            setProductCount(marbles.length);
+        const instantOrders = getClientInstantOrders();
+        const instantMarbles = getClientInstantMarbles();
+        if (instantOrders.length > 0) {
+            setTotalRevenue(instantOrders.reduce((acc, order) => acc + (Number(order?.totalPrice) || 0), 0));
+            setTotalSales(instantOrders.length);
+        }
+        if (instantMarbles.length > 0) {
+            setProductCount(instantMarbles.length);
+        }
+
+        const fetchStats = async () => {
+            try {
+                const [orders, latestMarbles] = await Promise.all([
+                    getOrders().catch(() => [] as Order[]),
+                    getMarbles().catch(() => instantMarbles)
+                ]);
+                if (!active) return;
+
+                if (Array.isArray(orders) && orders.length > 0) {
+                    const revenue = orders.reduce((acc, order) => acc + (Number(order?.totalPrice) || 0), 0);
+                    setTotalRevenue(revenue);
+                    setTotalSales(orders.length);
+                }
+                if (Array.isArray(latestMarbles) && latestMarbles.length > 0) {
+                    setProductCount(latestMarbles.length);
+                }
+            } catch {
+                // Keep instant cached values on transient network failure
+            }
         };
         fetchStats();
 
+        return () => {
+            active = false;
+        };
     }, []);
 
     return (

@@ -10,11 +10,14 @@ import {
   getRepresentativeJobs,
   saveRepresentativeJob,
   deleteRepresentativeJob,
+  getSiteVisitPhotos,
   type Representative,
   type SiteVisitJob,
   type SiteMeasurementCategory,
-  type SiteVisitJobStatus
+  type SiteVisitJobStatus,
+  type SiteVisitPhoto
 } from '@/lib/admin-actions';
+import { SiteVisitCameraUploader } from '@/components/site-visit-camera-uploader';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -104,6 +107,25 @@ export default function ManageRepresentativesPage() {
   // Jobs filter & expand
   const [filterRepId, setFilterRepId] = useState<string>('all');
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [jobPhotosMap, setJobPhotosMap] = useState<Record<string, SiteVisitPhoto[]>>({});
+  const [loadingJobPhotosId, setLoadingJobPhotosId] = useState<string | null>(null);
+
+  const handleToggleJobDetails = async (job: SiteVisitJob) => {
+    const nextId = expandedJobId === job.id ? null : job.id;
+    setExpandedJobId(nextId);
+    if (nextId) {
+      setLoadingJobPhotosId(job.id);
+      try {
+        const photos = await getSiteVisitPhotos(job.id);
+        setJobPhotosMap(prev => ({ ...prev, [job.id]: photos }));
+        setAllJobs(prev =>
+          prev.map(j => (j.id === job.id ? { ...j, photoCount: photos.length } : j))
+        );
+      } finally {
+        setLoadingJobPhotosId(null);
+      }
+    }
+  };
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -762,8 +784,9 @@ export default function ManageRepresentativesPage() {
                           <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
                             PKR {(job.grandTotalPKR || 0).toLocaleString()}
                           </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {job.grandTotalSqFt || 0} Sq.Ft • {job.siteMeasurements?.length || 0} sections
+                          <p className="text-[10px] text-muted-foreground tabular-nums">
+                            {job.grandTotalSqFt || 0} Sq.Ft · {job.siteMeasurements?.length || 0} sections
+                            {(job.photoCount || 0) > 0 ? ` · ${job.photoCount} Site Photos` : ''}
                           </p>
                         </div>
 
@@ -784,7 +807,7 @@ export default function ManageRepresentativesPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setExpandedJobId(isOpen ? null : job.id)}
+                          onClick={() => handleToggleJobDetails(job)}
                           className="h-8 gap-1 text-xs cursor-pointer"
                         >
                           {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -852,6 +875,23 @@ export default function ManageRepresentativesPage() {
                             نمائندے نے ابھی اس سائٹ کی پیمائشیں درج نہیں کیں۔
                           </p>
                         )}
+
+                        <SiteVisitCameraUploader
+                          jobId={job.id}
+                          representativeId={job.representativeId}
+                          representativeName={job.representativeName}
+                          photos={jobPhotosMap[job.id] || []}
+                          loading={loadingJobPhotosId === job.id}
+                          uploadedBy="admin"
+                          onPhotosChange={nextPhotos => {
+                            setJobPhotosMap(prev => ({ ...prev, [job.id]: nextPhotos }));
+                            setAllJobs(prev =>
+                              prev.map(j =>
+                                j.id === job.id ? { ...j, photoCount: nextPhotos.length } : j
+                              )
+                            );
+                          }}
+                        />
                       </div>
                     )}
                   </Card>

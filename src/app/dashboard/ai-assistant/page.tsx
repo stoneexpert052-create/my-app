@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AdminAiChatInterface } from '@/components/admin-ai/chat-interface';
-import { AdminLiveSupervisor } from '@/components/admin-ai/admin-live-supervisor';
+import dynamic from 'next/dynamic';
+import { AdminAiErrorBoundary } from '@/components/admin-ai/error-boundary';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -15,10 +15,37 @@ import {
   Tag,
   FileSpreadsheet,
   ShoppingCart,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+const AdminLiveSupervisor = dynamic(
+  () => import('@/components/admin-ai/admin-live-supervisor').then((m) => m.AdminLiveSupervisor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center h-[520px] rounded-2xl border border-amber-500/30 bg-slate-950 text-slate-300 gap-2 text-xs">
+        <Loader2 className="h-6 w-6 animate-spin text-amber-400" />
+        <span>لائیو ایڈمن سپروائزر لوڈ ہو رہا ہے...</span>
+      </div>
+    ),
+  }
+);
+
+const AdminAiChatInterface = dynamic(
+  () => import('@/components/admin-ai/chat-interface').then((m) => m.AdminAiChatInterface),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex flex-col items-center justify-center h-[520px] rounded-2xl border bg-background text-muted-foreground gap-2 text-xs">
+        <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
+        <span>AI آپریشنز چیٹ و OCR لوڈ ہو رہا ہے...</span>
+      </div>
+    ),
+  }
+);
 
 export default function AdminAiAssistantPage() {
   const [mode, setMode] = useState<'live' | 'ocr'>('live');
@@ -137,7 +164,9 @@ export default function AdminAiAssistantPage() {
       {/* Main Assistant Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         <div className="lg:col-span-3">
-          {mode === 'live' ? <AdminLiveSupervisor compact={false} /> : <AdminAiChatInterface />}
+          <AdminAiErrorBoundary fallbackTitle="ایڈمن AI اسسٹنٹ لوڈ کرنے میں مسئلہ آیا">
+            {mode === 'live' ? <AdminLiveSupervisor compact={false} /> : <AdminAiChatInterface />}
+          </AdminAiErrorBoundary>
         </div>
 
         {/* Sidebar Help / Instructions */}

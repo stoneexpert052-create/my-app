@@ -71,20 +71,34 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
     detectIOS();
 
-    // Clear service worker caches only during local development so production stays fast
-    if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const registration of registrations) {
-          registration.unregister();
-        }
-      });
-      if ('caches' in window) {
-        caches.keys().then((names) => {
-          for (const name of names) {
-            caches.delete(name);
-          }
-        });
+    // Clear any stale script/page caches on dev preview hosts and keep SW synced
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      const host = (window.location.hostname || '').toLowerCase();
+      if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('ais-dev-')) {
+        caches
+          .keys()
+          .then((keys) =>
+            Promise.all(
+              keys
+                .filter((k) => !k.endsWith('-v4'))
+                .map((k) => caches.delete(k))
+            )
+          )
+          .catch(() => {});
       }
+    }
+
+    // Register Service Worker so app assets, images, and pages save locally on mobile
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js?v=4', { scope: '/' })
+        .then((registration) => {
+          // Check for silent updates in background
+          registration.update().catch(() => {});
+        })
+        .catch((err) => {
+          console.warn('[PWA] Service worker registration skipped:', err?.message || err);
+        });
     }
 
     // Capture browser install trigger

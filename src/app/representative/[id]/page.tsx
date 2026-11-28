@@ -13,12 +13,15 @@ import {
   deleteRepresentativeJob,
   computeSiteMeasurementSection,
   getMarbles,
+  getSiteVisitPhotos,
   type Representative,
   type SiteVisitJob,
   type SiteMeasurementSection,
   type SiteMeasurementCategory,
-  type SiteVisitJobStatus
+  type SiteVisitJobStatus,
+  type SiteVisitPhoto
 } from '@/lib/admin-actions';
+import { SiteVisitCameraUploader } from '@/components/site-visit-camera-uploader';
 import type { Marble } from '@/lib/types';
 import {
   UserCheck,
@@ -48,7 +51,8 @@ import {
   EyeOff,
   ArrowLeft,
   Sparkles,
-  MessageCircle
+  MessageCircle,
+  Camera
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -195,8 +199,11 @@ function RepresentativePortalContent() {
 
   // Active job being measured/billed
   const [activeJob, setActiveJob] = useState<SiteVisitJob | null>(null);
+  const [activeJobPhotos, setActiveJobPhotos] = useState<SiteVisitPhoto[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [savingBill, setSavingBill] = useState(false);
   const [syncToMainOrders, setSyncToMainOrders] = useState(true);
+  const photoSectionRef = React.useRef<HTMLDivElement | null>(null);
 
   // Add direct on-site customer dialog
   const [isNewCustomerOpen, setIsNewCustomerOpen] = useState(false);
@@ -293,8 +300,36 @@ function RepresentativePortalContent() {
     setActiveJob(null);
   };
 
-  // Start measuring an assigned/existing customer job
-  const openJobInBuilder = (job: SiteVisitJob) => {
+  // Load verification photos whenever the active job changes
+  const activeJobId = activeJob?.id || '';
+  useEffect(() => {
+    let active = true;
+    async function fetchPhotos() {
+      if (!activeJobId || !rep?.id) {
+        setActiveJobPhotos([]);
+        return;
+      }
+      setLoadingPhotos(true);
+      try {
+        const list = await getSiteVisitPhotos(activeJobId, rep.id);
+        if (active) {
+          setActiveJobPhotos(list);
+          setJobs(prev =>
+            prev.map(j => (j.id === activeJobId ? { ...j, photoCount: list.length } : j))
+          );
+        }
+      } finally {
+        if (active) setLoadingPhotos(false);
+      }
+    }
+    fetchPhotos();
+    return () => {
+      active = false;
+    };
+  }, [activeJobId, rep?.id]);
+
+  // Start measuring / photographing an assigned or existing customer job
+  const openJobInBuilder = (job: SiteVisitJob, options?: { focusPhotos?: boolean }) => {
     // Deep clone so editing doesn't mutate list until saved
     const cloned: SiteVisitJob = JSON.parse(JSON.stringify(job));
     if (!cloned.siteMeasurements || cloned.siteMeasurements.length === 0) {
@@ -306,6 +341,11 @@ function RepresentativePortalContent() {
     }
     setActiveJob(recalculateJob(cloned));
     setActiveTab('builder');
+    if (options?.focusPhotos) {
+      setTimeout(() => {
+        photoSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    }
   };
 
   const createDefaultSection = (cat: SiteMeasurementCategory, index = 0): SiteMeasurementSection => {
@@ -513,6 +553,7 @@ function RepresentativePortalContent() {
           ...activeJob,
           representativeId: rep.id,
           representativeName: rep.nameEn,
+          photoCount: activeJobPhotos.length,
           status: nextStatus
         },
         { syncToOrders: syncToMainOrders }
@@ -562,7 +603,9 @@ function RepresentativePortalContent() {
       )
       .join('\n\n');
 
-    const msg = `*STONE EXPERT — ON-SITE QUOTATION*\nBill Ref: ${job.id}\nRepresentative: ${rep?.nameEn} (${rep?.phone})\n\n*Customer:* ${job.customerName}\n*Site:* ${job.customerAddress || job.customerCity || 'On-Site'}\n\n${sectionLines}\n\n*Total Area:* ${job.grandTotalSqFt} Sq.Ft\n*Grand Total:* PKR ${job.grandTotalPKR.toLocaleString()}\n\nPlot # 375-A, Potohar Road, I-9/3, Islamabad\nhttps://stoneexpert.net`;
+    const photoCount = activeJob?.id === job.id ? activeJobPhotos.length : (job.photoCount || 0);
+    const photoLine = photoCount > 0 ? `\n*Site Verification Photos:* ${photoCount} uploaded` : '';
+    const msg = `*STONE EXPERT — ON-SITE QUOTATION*\nBill Ref: ${job.id}\nRepresentative: ${rep?.nameEn} (${rep?.phone})\n\n*Customer:* ${job.customerName}\n*Site:* ${job.customerAddress || job.customerCity || 'On-Site'}\n\n${sectionLines}\n\n*Total Area:* ${job.grandTotalSqFt} Sq.Ft\n*Grand Total:* PKR ${job.grandTotalPKR.toLocaleString()}${photoLine}\n\nPlot # 375-A, Potohar Road, I-9/3, Islamabad\nhttps://stoneexpert.net`;
 
     return `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
   };
@@ -948,14 +991,34 @@ function RepresentativePortalContent() {
                           </div>
                         )}
 
+                        {(job.photoCount || 0) > 0 && (
+                          <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                            <Camera className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span className="font-semibold tabular-nums">
+                              {job.photoCount} Site Verification Photos
+                            </span>
+                          </div>
+                        )}
+
                         <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
                           <Button
                             size="sm"
                             onClick={() => openJobInBuilder(job)}
-                            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5 cursor-pointer"
+                            className="flex-1 min-h-[40px] bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5 cursor-pointer"
                           >
                             <Ruler className="w-3.5 h-3.5" />
-                            <span>پیمائش و بل کھولیں (Measure & Bill)</span>
+                            <span>پیمائش و بل کھولیں</span>
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openJobInBuilder(job, { focusPhotos: true })}
+                            className="min-h-[40px] px-3 text-xs font-bold gap-1.5 border-amber-500/40 hover:bg-amber-500/10 cursor-pointer"
+                            title="Upload site camera photos for billing verification"
+                          >
+                            <Camera className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Photos{(job.photoCount || 0) > 0 ? ` (${job.photoCount})` : ''}</span>
                           </Button>
 
                           <a
@@ -1094,6 +1157,29 @@ function RepresentativePortalContent() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Site Verification Camera & Multi-Photo Upload Section */}
+                <div ref={photoSectionRef} className="scroll-mt-28">
+                  <SiteVisitCameraUploader
+                    jobId={activeJob.id}
+                    representativeId={rep.id}
+                    representativeName={rep.nameEn}
+                    photos={activeJobPhotos}
+                    loading={loadingPhotos}
+                    onPhotosChange={nextPhotos => {
+                      setActiveJobPhotos(nextPhotos);
+                      setActiveJob(prev =>
+                        prev ? { ...prev, photoCount: nextPhotos.length } : prev
+                      );
+                      setJobs(prev =>
+                        prev.map(j =>
+                          j.id === activeJob.id ? { ...j, photoCount: nextPhotos.length } : j
+                        )
+                      );
+                    }}
+                    uploadedBy="representative"
+                  />
+                </div>
 
                 {/* Measurement Sections List */}
                 <div className="space-y-4">
@@ -1441,9 +1527,10 @@ function RepresentativePortalContent() {
                       )}
                     </div>
                     <h4 className="font-extrabold text-base">{bill.customerName}</h4>
-                    <p className="text-xs text-slate-500">
-                      {bill.customerPhone} • {bill.customerAddress || bill.customerCity || 'On-Site'} •{' '}
+                    <p className="text-xs text-slate-500 tabular-nums">
+                      {bill.customerPhone} · {bill.customerAddress || bill.customerCity || 'On-Site'} ·{' '}
                       {bill.siteMeasurements.length} sections ({bill.grandTotalSqFt} Sq.Ft)
+                      {(bill.photoCount || 0) > 0 ? ` · ${bill.photoCount} Site Photos` : ''}
                     </p>
                   </div>
 

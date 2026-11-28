@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { getBuildYourHomeRatesConfig, defaultBuildYourHomeRates, subscribeToAppUpdates, type BuildYourHomeRates } from '@/lib/admin-actions';
+import { getBuildYourHomeRatesConfig, getInstantBuildYourHomeRatesConfig, defaultBuildYourHomeRates, subscribeToAppUpdates, type BuildYourHomeRates } from '@/lib/admin-actions';
 import { 
   Home, 
   Wrench, 
@@ -65,6 +65,9 @@ export default function BuildYourHomePage() {
   const [rates, setRates] = useState<BuildYourHomeRates>(defaultBuildYourHomeRates);
 
   useEffect(() => {
+    const instant = getInstantBuildYourHomeRatesConfig();
+    if (instant) setRates(instant);
+
     async function loadRates() {
       const config = await getBuildYourHomeRatesConfig();
       if (config) {

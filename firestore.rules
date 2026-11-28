@@ -42,6 +42,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /site_visit_photos/{id} {
+      allow read, write: if true;
+    }
+
+    match /supplier_rate_photos/{id} {
+      allow read, write: if true;
+    }
+
     match /price_history/{id} {
       allow read, write: if true;
     }

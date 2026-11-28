@@ -12,6 +12,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Search, FileSearch, BellRing, MessageSquare, LogIn, LayoutGrid, User } from 'lucide-react';
 import { getOrdersByIds, getOrdersByUser } from '@/lib/admin-actions';
+import { getClientInstantOrders } from '@/lib/instant-catalog';
 import type { Order } from '@/lib/types';
 import { Header } from '@/components/header';
 import Link from 'next/link';
@@ -33,7 +34,24 @@ export default function TrackOrderPage() {
   const { t, language } = useLanguage();
 
   const fetchOrders = async () => {
-    setIsLoading(true);
+    let hadInstantOrders = false;
+    if (typeof window !== 'undefined') {
+      try {
+        const storedIds: string[] = JSON.parse(localStorage.getItem('myOrderIds') || '[]');
+        const instantOrders = getClientInstantOrders();
+        const matchingInstant = instantOrders.filter(o =>
+          storedIds.includes(o.id) || (user && o.userId === user.uid)
+        );
+        if (matchingInstant.length > 0) {
+          hadInstantOrders = true;
+          setFoundOrders(matchingInstant.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          setIsLoading(false);
+        }
+      } catch (e) {}
+    }
+    if (!hadInstantOrders) {
+      setIsLoading(true);
+    }
     try {
       let orders: Order[] = [];
       

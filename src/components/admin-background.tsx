@@ -9,9 +9,9 @@ export function AdminBackground() {
   const { config, hydrated: bgHydrated } = useAdminBackground();
   const [imgError, setImgError] = useState(false);
 
-  // Default authentic high-resolution marble factory image
-  const defaultFactoryUrl = 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=2560&q=85';
-  const fallbackUrl = 'https://picsum.photos/seed/marblefactory/1920/1080?blur=1';
+  // Default lightweight marble factory image
+  const defaultFactoryUrl = 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1080&q=65';
+  const fallbackUrl = 'https://picsum.photos/seed/marblefactory/1080/608?blur=1';
 
   // Strictly use defaultFactoryUrl and default filters until hydrated to guarantee identical SSR output
   const activeImageUrl = (bgHydrated && config.imageUrl && config.imageUrl.trim() !== '') 
@@ -21,7 +21,7 @@ export function AdminBackground() {
 
   // Extract calibrated properties
   const highlightVal = bgHydrated && typeof config.highlight === 'number' ? config.highlight : 100;
-  const blurVal = bgHydrated && typeof config.blur === 'number' ? config.blur : 4;
+  const blurVal = bgHydrated && typeof config.blur === 'number' ? Math.min(config.blur, 6) : 3;
   const opacityVal = bgHydrated && typeof config.opacity === 'number' ? config.opacity : 25;
   const contrastVal = bgHydrated && typeof config.contrast === 'number' ? config.contrast : 105;
 
@@ -36,13 +36,16 @@ export function AdminBackground() {
         alt="Marble Factory Admin Background"
         onError={() => setImgError(true)}
         referrerPolicy="no-referrer"
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
         suppressHydrationWarning
         style={{
           filter: `blur(${blurVal}px) brightness(${highlightVal}%) contrast(${contrastVal}%)`,
           opacity: opacityVal / 100,
-          transform: `scale(${blurVal > 0 ? 1.05 + (blurVal * 0.003) : 1})`,
+          transform: `scale(${blurVal > 0 ? 1.04 : 1})`,
         }}
-        className="w-full h-full object-cover object-center transition-all duration-300 ease-out"
+        className="w-full h-full object-cover object-center transition-opacity duration-300 ease-out"
       />
 
       {/* Theme-Adaptive Ambient Overlay Gradients */}
